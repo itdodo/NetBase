@@ -1,0 +1,22 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+artifacts/
+
+## 日志
+Logs/
+*.log
+
+## IDE
+.idea/
+*.swp
+.vscode/*
+!.vscode/extensions.json
+.zcode/
+
+## OS
+.DS_Store
+Thumbs.db

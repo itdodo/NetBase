@@ -1,0 +1,73 @@
+using Microsoft.AspNetCore.Mvc;
+using NetBase.Common.Results;
+using NetBase.Model.Dtos;
+using NetBase.Service.Sys;
+
+namespace NetBase.Api.Controllers.System;
+
+/// <summary>系统用户管理</summary>
+[Route("api/sys/user")]
+public class SysUserController(ISysUserService userService) : BaseController
+{
+    /// <summary>分页查询用户</summary>
+    [HttpGet("page")]
+    public async Task<ApiResult<PageResult<UserDto>>> GetPageList([FromQuery] UserQueryDto query)
+    {
+        var result = await userService.GetPageListAsync(query);
+        return Success(result);
+    }
+
+    /// <summary>查询全部启用用户（下拉框用）</summary>
+    [HttpGet("list")]
+    public async Task<ApiResult<List<UserDto>>> GetAllEnabled()
+    {
+        return Success(await userService.GetAllEnabledAsync());
+    }
+
+    /// <summary>查询用户详情（含角色）</summary>
+    [HttpGet("{id:long}")]
+    public async Task<ApiResult<UserDto?>> GetDetail(long id)
+    {
+        return Success(await userService.GetDetailAsync(id));
+    }
+
+    /// <summary>创建用户</summary>
+    [HttpPost]
+    public async Task<ApiResult<long>> Create([FromBody] UserCreateDto dto)
+    {
+        var id = await userService.CreateAsync(dto);
+        return Success(id, "创建成功");
+    }
+
+    /// <summary>更新用户（RoleIds 传入则全量重设角色）</summary>
+    [HttpPut("{id:long}")]
+    public async Task<ApiResult> Update(long id, [FromBody] UserUpdateDto dto)
+    {
+        await userService.UpdateAsync(id, dto);
+        return Success();
+    }
+
+    /// <summary>删除用户（不允许删除内置 admin）</summary>
+    [HttpDelete("{id:long}")]
+    public async Task<ApiResult> Delete(long id)
+    {
+        await userService.DeleteAsync(id);
+        return Success();
+    }
+
+    /// <summary>重置密码（newPassword 为空则重置为默认密码 123456）</summary>
+    [HttpPut("{id:long}/password/reset")]
+    public async Task<ApiResult> ResetPassword(long id, [FromBody] ResetPasswordDto? dto)
+    {
+        await userService.ResetPasswordAsync(id, dto?.NewPassword);
+        return ApiResult.Ok("密码已重置");
+    }
+
+    /// <summary>为用户分配角色（全量重设）</summary>
+    [HttpPut("{id:long}/roles")]
+    public async Task<ApiResult> AssignRoles(long id, [FromBody] AssignRolesDto dto)
+    {
+        await userService.AssignRolesAsync(id, dto.RoleIds);
+        return ApiResult.Ok("角色分配成功");
+    }
+}

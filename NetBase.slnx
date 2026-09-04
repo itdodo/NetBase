@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NetBase.Api/NetBase.Api.csproj" />
+    <Project Path="src/NetBase.Common/NetBase.Common.csproj" />
+    <Project Path="src/NetBase.Middleware/NetBase.Middleware.csproj" />
+    <Project Path="src/NetBase.Model/NetBase.Model.csproj" />
+    <Project Path="src/NetBase.Repository/NetBase.Repository.csproj" />
+    <Project Path="src/NetBase.Service/NetBase.Service.csproj" />
+  </Folder>
+</Solution>

@@ -1,6 +1,6 @@
 # NetBase 通用基础框架
 
-基于 **.NET 10 (C#)** 的企业级 Web 开发基础框架，采用传统三层架构（Service + Repository）并引入泛型化设计，内置 RBAC 权限数据模型，ORM 使用 SqlSugarCore（最新稳定版），数据库为 SqlServer。满足中小型企业 Web 开发需求；UI 层待定，当前提供标准 REST API 作为后续 UI 的对接基础。
+基于 **.NET 10 (C#)** 的企业级 Web 开发基础框架，采用传统三层架构（Service + Repository）并引入泛型化设计，内置 RBAC 权限数据模型，ORM 使用 SqlSugarCore（最新稳定版），数据库为 SqlServer。满足中小型企业 Web 开发需求；前端采用 Vue 3 + Element Plus（`web/` 目录），开箱即得完整的管理系统骨架。
 
 ## 技术栈
 
@@ -18,6 +18,7 @@
 
 ```
 NetBase.slnx
+├── web/                      前端工程（Vue 3 + TypeScript + Vite + Element Plus）
 └── src/
     ├── NetBase.Api/          API 宿主层：Controllers、全局过滤器、Program.cs
     ├── NetBase.Service/      业务逻辑层：BaseService<T> 泛型服务 + 用户/角色/菜单服务
@@ -31,7 +32,9 @@ NetBase.slnx
 
 ## 快速开始
 
-1. 修改 `src/NetBase.Api/appsettings.json` 中的数据库连接串：
+### 1. 启动后端
+
+修改 `src/NetBase.Api/appsettings.json` 中的数据库连接串：
 
 ```json
 "Db": {
@@ -40,14 +43,10 @@ NetBase.slnx
 }
 ```
 
-2. 运行：
-
 ```bash
 cd src/NetBase.Api
-dotnet run
+dotnet run          # 默认 http://localhost:5026；Swagger 见 /swagger
 ```
-
-3. 打开 Swagger 调试：`https://localhost:7090/swagger`（或启动日志中显示的地址）。
 
 首次启动会自动 **CodeFirst 建表并写入种子数据**（`Db:InitEnabled=false` 可关闭）：
 
@@ -56,6 +55,19 @@ dotnet run
 - 菜单：系统管理（用户/角色/菜单 + 增删改按钮权限）、系统监控
 
 > 注意：本机无 SqlServer 时应用仍可启动（初始化失败仅记录错误日志），但数据库接口不可用。
+
+### 2. 启动前端
+
+需要 Node.js 20.19+：
+
+```bash
+cd web
+npm install
+npm run dev         # http://localhost:5173，已配置 /api 代理到后端 5026
+```
+
+登录页当前为**本地模拟登录**（任意账号密码可进入，JWT 待接入），登录后自动拉取
+`/api/sys/menu/tree` 生成侧边栏与动态路由，用户/角色/菜单三个管理页直接联调真实接口。
 
 ## RBAC 数据模型
 
@@ -106,9 +118,33 @@ SysUser ──< SysUserRole >── SysRole ──< SysRoleMenu >── SysMenu(
 | `Cache:RedisConnectionString` | Redis 连接串（Provider=Redis 时启用） | localhost:6379 |
 | `RabbitMQ:Enabled` | 启用 MQ 发布器注册 | `false` |
 
+## 前端架构（web/）
+
+自建轻量版管理系统骨架，无模板冗余：
+
+```
+web/src/
+├── api/            request.ts（axios 统一封装）+ user/role/menu 模块
+├── stores/         user（登录态）、permission（菜单树/权限码/动态路由）
+├── router/         静态路由 + 登录守卫（拉菜单 → addRoute 动态注册）
+├── layout/         主布局（侧边栏递归菜单、顶栏、面包屑）
+├── directives/     v-permission 按钮级权限指令
+├── views/          login、dashboard、system/{user,role,menu}、error/404
+└── types/          与后端 DTO 对齐的 TS 类型
+```
+
+关键机制：
+
+- **动态菜单路由**：登录后拉取菜单树，`component` 字段（如 `system/user/index`）通过
+  `import.meta.glob` 映射到 `views/` 下同名页面组件，新页面只需按约定建目录 + 在菜单管理里配菜单
+- **权限码**：菜单树中所有 `permission` 收集为集合，`v-permission="'sys:user:add'"` 控制按钮显隐
+- **认证预留**：token 由 request.ts 统一注入 `Authorization: Bearer`，401 自动跳登录；
+  接入 JWT 时仅需替换 `stores/user.ts` 中 login 的 mock 实现
+- **降级策略**：菜单接口不可用时提示并以基础模式进入（仅首页），不白屏
+
 ## 后续扩展点（按需求演进）
 
-1. **认证授权**：接入 JWT Bearer + 权限过滤器（读取 `SysMenu.Permission` 权限码校验接口权限）；`PasswordHelper` 建议升级为 BCrypt/PBKDF2
-2. **UI 层**：Vue/React 前端对接 `/api/sys` 接口与菜单树接口
-3. **Redis/RabbitMQ**：已封装（`ICacheService`、`IRabbitMqPublisher`），配置开关即用
+1. **认证授权**：后端接入 JWT Bearer + 权限过滤器（读取 `SysMenu.Permission` 校验接口权限），前端替换 `stores/user.ts` 的 mock 登录；`PasswordHelper` 建议升级为 BCrypt/PBKDF2
+2. **部署**：前端 `npm run build` 后可将 `web/dist` 由 API 托管（`UseStaticFiles` + Fallback 单进程部署），或 Nginx 独立部署
+3. **Redis/RabbitMQ**：后端已封装（`ICacheService`、`IRabbitMqPublisher`），配置开关即用
 4. **多租户/审计日志/操作日志**：可在 `BaseEntity` 与 AOP 上扩展

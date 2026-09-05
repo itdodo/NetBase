@@ -24,11 +24,18 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
     public SysUserService(
         IRepository<SysUser> repository,
         IRepository<SysRole> roleRepository,
-        IRepository<SysUserRole> userRoleRepository) : base(repository)
+        IRepository<SysUserRole> userRoleRepository,
+        IRepository<SysUserSession> userSessionRepository,
+        IPermissionService permissionService) : base(repository)
     {
         _roleRepository = roleRepository;
         _userRoleRepository = userRoleRepository;
+        _userSessionRepository = userSessionRepository;
+        _permissionService = permissionService;
     }
+
+    private readonly IRepository<SysUserSession> _userSessionRepository;
+    private readonly IPermissionService _permissionService;
 
     public async Task<PageResult<UserDto>> GetPageListAsync(UserQueryDto query)
     {
@@ -103,6 +110,11 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         user.Status = dto.Status;
         user.UpdateTime = DateTime.Now;
         user.UpdateBy = operatorName;
+        // 停用用户立即踢下线
+        if (dto.Status != (int)StatusEnum.Enabled)
+        {
+            await _userSessionRepository.DeleteWhereAsync(x => x.UserId == id);
+        }
         await Repository.TransactionAsync(async () =>
         {
             await Repository.UpdateAsync(user);
@@ -112,6 +124,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             }
             return true;
         });
+        _permissionService.InvalidateAll();
     }
 
     public async new Task DeleteAsync(long id, string? operatorName = null)
@@ -124,12 +137,15 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
 
         user.UpdateBy = operatorName;
         user.UpdateTime = DateTime.Now;
+        // 停用/删除用户立即踢下线：清除其全部会话
+        await _userSessionRepository.DeleteWhereAsync(x => x.UserId == id);
         await Repository.TransactionAsync(async () =>
         {
             await Repository.DeleteAsync(user);
             await _userRoleRepository.DeleteWhereAsync(x => x.UserId == id);
             return true;
         });
+        _permissionService.InvalidateAll();
     }
 
     public async Task ResetPasswordAsync(long id, string? newPassword, string? operatorName = null)
@@ -155,6 +171,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             await SaveUserRolesAsync(userId, roleIds);
             return true;
         });
+        _permissionService.InvalidateAll();
     }
 
     public Task<SysUser?> GetByUserNameAsync(string userName) =>

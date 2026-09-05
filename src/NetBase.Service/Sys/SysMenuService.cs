@@ -13,14 +13,17 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
 {
     private readonly IRepository<SysRoleMenu> _roleMenuRepository;
     private readonly IRepository<SysRole> _roleRepository;
+    private readonly IPermissionService _permissionService;
 
     public SysMenuService(
         IRepository<SysMenu> repository,
         IRepository<SysRoleMenu> roleMenuRepository,
-        IRepository<SysRole> roleRepository) : base(repository)
+        IRepository<SysRole> roleRepository,
+        IPermissionService permissionService) : base(repository)
     {
         _roleMenuRepository = roleMenuRepository;
         _roleRepository = roleRepository;
+        _permissionService = permissionService;
     }
 
     public async Task<List<MenuTreeDto>> GetTreeAsync(long? roleId = null)
@@ -115,6 +118,7 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
         menu.UpdateTime = DateTime.Now;
         menu.UpdateBy = operatorName;
         await Repository.UpdateAsync(menu);
+        _permissionService.InvalidateAll();
     }
 
     public async new Task DeleteAsync(long id, string? operatorName = null)
@@ -132,6 +136,7 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
         menu.UpdateBy = operatorName;
         menu.UpdateTime = DateTime.Now;
         await Repository.DeleteAsync(menu);
+        _permissionService.InvalidateAll();
     }
 
     private async Task<SysMenu> GetRequiredAsync(long id) =>

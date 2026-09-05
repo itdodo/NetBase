@@ -1,5 +1,6 @@
 using NetBase.Common.Users;
 using Microsoft.AspNetCore.Mvc;
+using NetBase.Api.Auth;
 using NetBase.Common.Results;
 using NetBase.Model.Dtos;
 using NetBase.Service.Sys;
@@ -13,7 +14,8 @@ public class SysUserController(
     ICurrentUserService currentUserService) : BaseController(currentUserService)
 {
     /// <summary>分页查询用户</summary>
-    [HttpGet("page")]
+    [HasPermission("sys:user:list")]
+        [HttpGet("page")]
     public async Task<ApiResult<PageResult<UserDto>>> GetPageList([FromQuery] UserQueryDto query)
     {
         var result = await userService.GetPageListAsync(query);
@@ -21,21 +23,24 @@ public class SysUserController(
     }
 
     /// <summary>查询全部启用用户（下拉框用）</summary>
-    [HttpGet("list")]
+    [HasPermission("sys:user:list")]
+        [HttpGet("list")]
     public async Task<ApiResult<List<UserDto>>> GetAllEnabled()
     {
         return Success(await userService.GetAllEnabledAsync());
     }
 
     /// <summary>查询用户详情（含角色）</summary>
-    [HttpGet("{id:long}")]
+    [HasPermission("sys:user:list")]
+        [HttpGet("{id:long}")]
     public async Task<ApiResult<UserDto?>> GetDetail(long id)
     {
         return Success(await userService.GetDetailAsync(id));
     }
 
     /// <summary>创建用户</summary>
-    [HttpPost]
+    [HasPermission("sys:user:add")]
+        [HttpPost]
     public async Task<ApiResult<long>> Create([FromBody] UserCreateDto dto)
     {
         var id = await userService.CreateAsync(dto, OperatorName);
@@ -43,7 +48,8 @@ public class SysUserController(
     }
 
     /// <summary>更新用户（RoleIds 传入则全量重设角色）</summary>
-    [HttpPut("{id:long}")]
+    [HasPermission("sys:user:edit")]
+        [HttpPut("{id:long}")]
     public async Task<ApiResult> Update(long id, [FromBody] UserUpdateDto dto)
     {
         await userService.UpdateAsync(id, dto, OperatorName);
@@ -51,7 +57,8 @@ public class SysUserController(
     }
 
     /// <summary>删除用户（不允许删除内置 admin）</summary>
-    [HttpDelete("{id:long}")]
+    [HasPermission("sys:user:delete")]
+        [HttpDelete("{id:long}")]
     public async Task<ApiResult> Delete(long id)
     {
         await userService.DeleteAsync(id, OperatorName);
@@ -59,7 +66,8 @@ public class SysUserController(
     }
 
     /// <summary>重置密码（newPassword 为空则重置为默认密码 123456）</summary>
-    [HttpPut("{id:long}/password/reset")]
+    [HasPermission("sys:user:edit")]
+        [HttpPut("{id:long}/password/reset")]
     public async Task<ApiResult> ResetPassword(long id, [FromBody] ResetPasswordDto? dto)
     {
         await userService.ResetPasswordAsync(id, dto?.NewPassword, OperatorName);
@@ -67,7 +75,8 @@ public class SysUserController(
     }
 
     /// <summary>为用户分配角色（全量重设）</summary>
-    [HttpPut("{id:long}/roles")]
+    [HasPermission("sys:user:edit")]
+        [HttpPut("{id:long}/roles")]
     public async Task<ApiResult> AssignRoles(long id, [FromBody] AssignRolesDto dto)
     {
         await userService.AssignRolesAsync(id, dto.RoleIds);

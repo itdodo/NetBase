@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NetBase.Service.Base;
@@ -8,7 +9,7 @@ namespace NetBase.Service;
 /// <summary>业务逻辑层服务注册</summary>
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddNetBaseService(this IServiceCollection services)
+    public static IServiceCollection AddNetBaseService(this IServiceCollection services, IConfiguration? configuration = null)
     {
         // 泛型服务开放注册
         services.TryAddScoped(typeof(IBaseService<>), typeof(BaseService<>));
@@ -17,6 +18,14 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<ISysUserService, SysUserService>();
         services.TryAddScoped<ISysRoleService, SysRoleService>();
         services.TryAddScoped<ISysMenuService, SysMenuService>();
+
+        // 认证授权
+        if (configuration != null)
+        {
+            services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+        }
+        services.TryAddScoped<IPermissionService, PermissionService>();
+        services.TryAddScoped<ISysAuthService, SysAuthService>();
 
         return services;
     }

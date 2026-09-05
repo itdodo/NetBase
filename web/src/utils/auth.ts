@@ -1,4 +1,5 @@
 const TOKEN_KEY = 'netbase:token'
+const REFRESH_TOKEN_KEY = 'netbase:refresh-token'
 const USER_KEY = 'netbase:user'
 
 export function getToken(): string | null {
@@ -9,8 +10,17 @@ export function setToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token)
 }
 
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY)
+}
+
+export function setRefreshToken(token: string): void {
+  localStorage.setItem(REFRESH_TOKEN_KEY, token)
+}
+
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(REFRESH_TOKEN_KEY)
   localStorage.removeItem(USER_KEY)
 }
 

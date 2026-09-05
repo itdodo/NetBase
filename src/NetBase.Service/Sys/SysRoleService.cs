@@ -20,16 +20,19 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
     private readonly IRepository<SysUserRole> _userRoleRepository;
     private readonly IRepository<SysRoleMenu> _roleMenuRepository;
     private readonly IRepository<SysMenu> _menuRepository;
+    private readonly IPermissionService _permissionService;
 
     public SysRoleService(
         IRepository<SysRole> repository,
         IRepository<SysUserRole> userRoleRepository,
         IRepository<SysRoleMenu> roleMenuRepository,
-        IRepository<SysMenu> menuRepository) : base(repository)
+        IRepository<SysMenu> menuRepository,
+        IPermissionService permissionService) : base(repository)
     {
         _userRoleRepository = userRoleRepository;
         _roleMenuRepository = roleMenuRepository;
         _menuRepository = menuRepository;
+        _permissionService = permissionService;
     }
 
     public async Task<PageResult<RoleDto>> GetPageListAsync(RoleQueryDto query)
@@ -115,6 +118,7 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
             await _roleMenuRepository.DeleteWhereAsync(x => x.RoleId == id);
             return true;
         });
+        _permissionService.InvalidateAll();
     }
 
     public async Task AssignMenusAsync(long roleId, List<long> menuIds)
@@ -144,6 +148,7 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
             }
             return true;
         });
+        _permissionService.InvalidateAll();
     }
 
     public async Task<List<long>> GetMenuIdsAsync(long roleId)

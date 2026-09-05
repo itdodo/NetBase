@@ -1,5 +1,6 @@
 using NetBase.Common.Users;
 using Microsoft.AspNetCore.Mvc;
+using NetBase.Api.Auth;
 using NetBase.Common.Results;
 using NetBase.Model.Dtos;
 using NetBase.Service.Sys;
@@ -13,7 +14,8 @@ public class SysRoleController(
     ICurrentUserService currentUserService) : BaseController(currentUserService)
 {
     /// <summary>分页查询角色</summary>
-    [HttpGet("page")]
+    [HasPermission("sys:role:list")]
+        [HttpGet("page")]
     public async Task<ApiResult<PageResult<RoleDto>>> GetPageList([FromQuery] RoleQueryDto query)
     {
         var result = await roleService.GetPageListAsync(query);
@@ -21,21 +23,24 @@ public class SysRoleController(
     }
 
     /// <summary>查询全部启用角色（下拉框用）</summary>
-    [HttpGet("list")]
+    [HasPermission("sys:role:list")]
+        [HttpGet("list")]
     public async Task<ApiResult<List<RoleSimpleDto>>> GetAllEnabled()
     {
         return Success(await roleService.GetAllEnabledAsync());
     }
 
     /// <summary>查询角色详情</summary>
-    [HttpGet("{id:long}")]
+    [HasPermission("sys:role:list")]
+        [HttpGet("{id:long}")]
     public async Task<ApiResult<RoleDto?>> GetDetail(long id)
     {
         return Success(await roleService.GetDetailAsync(id));
     }
 
     /// <summary>创建角色</summary>
-    [HttpPost]
+    [HasPermission("sys:role:add")]
+        [HttpPost]
     public async Task<ApiResult<long>> Create([FromBody] RoleSaveDto dto)
     {
         var id = await roleService.CreateAsync(dto, OperatorName);
@@ -43,7 +48,8 @@ public class SysRoleController(
     }
 
     /// <summary>更新角色</summary>
-    [HttpPut("{id:long}")]
+    [HasPermission("sys:role:edit")]
+        [HttpPut("{id:long}")]
     public async Task<ApiResult> Update(long id, [FromBody] RoleSaveDto dto)
     {
         await roleService.UpdateAsync(id, dto, OperatorName);
@@ -51,7 +57,8 @@ public class SysRoleController(
     }
 
     /// <summary>删除角色（不允许删除内置 admin 角色）</summary>
-    [HttpDelete("{id:long}")]
+    [HasPermission("sys:role:delete")]
+        [HttpDelete("{id:long}")]
     public async Task<ApiResult> Delete(long id)
     {
         await roleService.DeleteAsync(id, OperatorName);
@@ -59,14 +66,16 @@ public class SysRoleController(
     }
 
     /// <summary>查询角色已分配的菜单ID</summary>
-    [HttpGet("{id:long}/menu-ids")]
+    [HasPermission("sys:role:list")]
+        [HttpGet("{id:long}/menu-ids")]
     public async Task<ApiResult<List<long>>> GetMenuIds(long id)
     {
         return Success(await roleService.GetMenuIdsAsync(id));
     }
 
     /// <summary>为角色分配菜单（全量重设）</summary>
-    [HttpPut("{id:long}/menus")]
+    [HasPermission("sys:role:edit")]
+        [HttpPut("{id:long}/menus")]
     public async Task<ApiResult> AssignMenus(long id, [FromBody] AssignMenusDto dto)
     {
         await roleService.AssignMenusAsync(id, dto.MenuIds);

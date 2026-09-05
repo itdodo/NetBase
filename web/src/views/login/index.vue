@@ -15,7 +15,10 @@ const form = reactive({ userName: 'admin', password: '123456' })
 
 const rules: FormRules = {
   userName: [{ required: true, message: '请输入账号', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码至少 6 位', trigger: 'blur' }
+  ]
 }
 
 async function handleLogin() {
@@ -27,8 +30,8 @@ async function handleLogin() {
     await userStore.login(form)
     ElMessage.success('登录成功')
     await router.push((route.query.redirect as string) || '/')
-  } catch (error) {
-    ElMessage.error((error as Error).message || '登录失败')
+  } catch {
+    // 错误提示由 request 拦截器统一处理
   } finally {
     loading.value = false
   }
@@ -39,13 +42,6 @@ async function handleLogin() {
   <div class="login-page">
     <el-card class="login-card">
       <h2 class="title">NetBase 管理系统</h2>
-      <el-alert
-        type="info"
-        :closable="false"
-        show-icon
-        title="认证尚未接入：当前任意账号密码可进入（已预留 JWT 对接点）"
-        class="notice"
-      />
       <el-form ref="formRef" :model="form" :rules="rules" size="large" @keyup.enter="handleLogin">
         <el-form-item prop="userName">
           <el-input v-model="form.userName" placeholder="账号" :prefix-icon="User" />

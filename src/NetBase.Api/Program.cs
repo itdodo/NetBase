@@ -1,6 +1,13 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using NetBase.Api.Auth;
 using NetBase.Api.Filters;
 using NetBase.Api.Services;
 using NetBase.Common.Users;
@@ -8,6 +15,7 @@ using NetBase.Middleware;
 using NetBase.Repository;
 using NetBase.Repository.DbContexts;
 using NetBase.Service;
+using NetBase.Service.Sys;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,7 +25,7 @@ builder.Host.UseSerilog((context, configuration) => configuration.ReadFrom.Confi
 
 // 分层服务注册
 builder.Services.AddNetBaseRepository(builder.Configuration);
-builder.Services.AddNetBaseService();
+builder.Services.AddNetBaseService(builder.Configuration);
 builder.Services.AddNetBaseMiddleware(builder.Configuration);
 
 // 当前用户（认证接入后自动从 Claims 解析，业务代码已按此取审计操作人）
@@ -42,11 +50,59 @@ builder.Services
         options.SuppressModelStateInvalidFilter = true;
     });
 
+// 认证授权：JWT Bearer + 动态权限码策略
+var jwtSection = builder.Configuration.GetSection(JwtOptions.SectionName);
+builder.Services.Configure<JwtOptions>(jwtSection);
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        var jwt = jwtSection.Get<JwtOptions>() ?? new JwtOptions();
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwt.Issuer,
+            ValidateAudience = true,
+            ValidAudience = jwt.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SecretKey)),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30)
+        };
+
+        // 会话校验：签名/有效期之外，验证会话表存在性（登出/强制下线/停用立即生效）
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var tokenId = context.Principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+                if (string.IsNullOrEmpty(tokenId))
+                {
+                    context.Fail("无效令牌");
+                    return;
+                }
+                var sessionRepository = context.HttpContext.RequestServices
+                    .GetRequiredService<NetBase.Repository.Repositories.IRepository<NetBase.Model.Entities.SysUserSession>>();
+                var session = await sessionRepository.GetFirstAsync(x => x.TokenId == tokenId);
+                if (session == null || session.ExpireTime <= DateTime.Now)
+                {
+                    context.Fail("会话已失效");
+                }
+            }
+        };
+    });
+
+builder.Services.AddAuthorization();
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+
 // OpenAPI：.NET 10 内置文档 + Swagger UI 可视化
 builder.Services.AddOpenApi(options =>
 {
     // Swagger UI 对 OpenAPI 3.1 渲染兼容性一般，显式输出 3.0
     options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_0;
+    // Bearer 认证：Swagger UI 出现 Authorize 按钮
+    options.AddDocumentTransformer<BearerSecurityDocumentTransformer>();
 });
 
 // CORS：跨域部署前端时在 appsettings.json 的 Cors:AllowedOrigins 配置来源白名单；
@@ -96,6 +152,8 @@ if (app.Environment.IsDevelopment())
 app.UseSerilogRequestLogging();
 app.UseCors();
 app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 
 // 健康检查端点

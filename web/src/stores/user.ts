@@ -1,31 +1,35 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { clearToken, getToken, getUserName, setToken, setUserName } from '@/utils/auth'
+import { login as apiLogin, logoutApi } from '@/api/auth'
+import { clearToken, getToken, getUserName, setRefreshToken, setToken, setUserName } from '@/utils/auth'
 
 /**
- * 用户状态：当前认证未接入（后端 JWT 待定），login 为本地模拟，
- * 接入后仅需把 login 内部替换为 POST /api/auth/login 调用即可，页面无需改动。
+ * 用户状态：JWT 登录（accessToken + refreshToken）。
+ * 权限码与菜单由 permission store 从菜单树获取（按钮即菜单，口径一致）。
  */
 export const useUserStore = defineStore('user', () => {
   const token = ref<string>(getToken() || '')
   const userName = ref<string>(getUserName())
 
   async function login(form: { userName: string; password: string }): Promise<void> {
-    // TODO: 接入认证后替换为真实登录接口，由后端签发 JWT
-    // const res = await request.post<never, { token: string }>('/auth/login', form)
-    if (!form.userName || !form.password) {
-      throw new Error('请输入账号和密码')
-    }
-    token.value = `mock-token-${Date.now()}`
-    userName.value = form.userName
-    setToken(token.value)
-    setUserName(userName.value)
+    const res = await apiLogin(form)
+    token.value = res.accessToken
+    userName.value = res.user.userName
+    setToken(res.accessToken)
+    setRefreshToken(res.refreshToken)
+    setUserName(res.user.userName)
   }
 
-  function logout(): void {
-    token.value = ''
-    userName.value = ''
-    clearToken()
+  async function logout(): Promise<void> {
+    try {
+      await logoutApi()
+    } catch {
+      // 服务端会话清理失败不阻断本地登出
+    } finally {
+      token.value = ''
+      userName.value = ''
+      clearToken()
+    }
   }
 
   return { token, userName, login, logout }

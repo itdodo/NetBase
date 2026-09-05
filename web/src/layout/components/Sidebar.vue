@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { ElMenu } from 'element-plus'
 import MenuTreeItem from './MenuTreeItem.vue'
 import { usePermissionStore } from '@/stores/permission'
+
+// 注意：el-menu/el-sub-menu/el-menu-item 由 unplugin-vue-components 按需导入（含样式），
+// 此处不可显式 import 组件，否则绕过 resolver 导致样式缺失（菜单布局错乱的根因）。
 
 defineProps<{ collapse: boolean }>()
 

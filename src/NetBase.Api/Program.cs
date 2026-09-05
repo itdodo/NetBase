@@ -37,7 +37,27 @@ builder.Services
     });
 
 // OpenAPI：.NET 10 内置文档 + Swagger UI 可视化
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options =>
+{
+    // Swagger UI 对 OpenAPI 3.1 渲染兼容性一般，显式输出 3.0
+    options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_0;
+});
+
+// CORS：跨域部署前端时在 appsettings.json 的 Cors:AllowedOrigins 配置来源白名单；
+// 未配置时仅开发环境放开，生产默认同源（前端由 API 托管或 Nginx 反代）
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
+{
+    if (corsOrigins.Length > 0)
+    {
+        policy.WithOrigins(corsOrigins);
+    }
+    else if (builder.Environment.IsDevelopment())
+    {
+        policy.SetIsOriginAllowed(_ => true);
+    }
+    policy.AllowAnyHeader().AllowAnyMethod();
+}));
 
 var app = builder.Build();
 
@@ -68,6 +88,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseSerilogRequestLogging();
+app.UseCors();
 app.UseHttpsRedirection();
 app.MapControllers();
 

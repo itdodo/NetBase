@@ -122,9 +122,11 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
     {
         _ = await GetRequiredAsync(id);
         var password = newPassword.IsNullOrEmpty() ? PasswordHelper.DefaultPassword : newPassword;
+        // 哈希在表达式外计算，闭包变量会被 SqlSugar 参数化；静态方法调用放入表达式树无法翻译
+        var hashed = PasswordHelper.Encrypt(password);
         await Repository.UpdateWhereAsync(
             x => x.Id == id,
-            x => new SysUser { Password = PasswordHelper.Encrypt(password), UpdateTime = DateTime.Now });
+            x => new SysUser { Password = hashed, UpdateTime = DateTime.Now });
     }
 
     public async Task AssignRolesAsync(long userId, List<long> roleIds)

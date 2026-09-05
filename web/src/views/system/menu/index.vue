@@ -179,7 +179,7 @@ onMounted(loadData)
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="220" fixed="right">
+      <el-table-column label="操作" width="210">
         <template #default="{ row }">
           <el-button
             v-if="row.menuType !== 3"
@@ -211,6 +211,8 @@ onMounted(loadData)
           <el-tree-select
             v-model="form.parentId"
             :data="parentOptions"
+            :props="{ label: 'menuName', children: 'children', disabled: 'disabled' }"
+            node-key="id"
             check-strictly
             :render-after-expand="false"
             default-expand-all

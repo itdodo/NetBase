@@ -45,7 +45,8 @@ public class DbSeeder
                 CreateTime = now,
                 CreateBy = "system"
             };
-            db.Insertable(role).ExecuteCommand();
+            // ExecuteReturnEntity 回填自增主键；ExecuteCommand 不会回填，后续关联会挂到 Id=0
+            db.Insertable(role).ExecuteReturnEntity();
             adminRoleId = role.Id;
             _logger?.LogInformation("种子数据：默认角色 admin 已写入");
         }
@@ -61,7 +62,7 @@ public class DbSeeder
                 CreateTime = now,
                 CreateBy = "system"
             };
-            db.Insertable(admin).ExecuteCommand();
+            db.Insertable(admin).ExecuteReturnEntity();
             db.Insertable(new SysUserRole { UserId = admin.Id, RoleId = adminRoleId, CreateTime = now }).ExecuteCommand();
             _logger?.LogInformation("种子数据：admin 账号已创建，默认密码 {Password}", PasswordHelper.DefaultPassword);
         }
@@ -126,7 +127,7 @@ public class DbSeeder
             CreateBy = "system"
         }).ExecuteReturnEntity();
 
-        db.Insertable(new SysMenu
+        var menuMenu = db.Insertable(new SysMenu
         {
             ParentId = systemDir.Id,
             MenuName = "菜单管理",
@@ -137,7 +138,7 @@ public class DbSeeder
             Sort = 3,
             CreateTime = now,
             CreateBy = "system"
-        }).ExecuteCommand();
+        }).ExecuteReturnEntity();
 
         db.Insertable(new SysMenu
         {
@@ -155,7 +156,7 @@ public class DbSeeder
         var buttons = new List<SysMenu>();
         buttons.AddRange(BuildCrudButtons(userMenu.Id, "sys:user", now));
         buttons.AddRange(BuildCrudButtons(roleMenu.Id, "sys:role", now));
-        buttons.AddRange(BuildCrudButtons(systemDir.Id, "sys:menu", now));
+        buttons.AddRange(BuildCrudButtons(menuMenu.Id, "sys:menu", now));
         db.Insertable(buttons).ExecuteCommand();
 
         // 全部菜单授予 admin 角色
@@ -166,6 +167,21 @@ public class DbSeeder
             MenuId = menuId,
             CreateTime = now
         }).ToList()).ExecuteCommand();
+
+        // 过滤唯一索引：软删除场景下保证用户名/角色编码唯一（已删除记录不占用）
+        EnsureFilteredUniqueIndex(db, "sys_user", "uk_sys_user_username", "UserName");
+        EnsureFilteredUniqueIndex(db, "sys_role", "uk_sys_role_rolecode", "RoleCode");
+    }
+
+    private static void EnsureFilteredUniqueIndex(ISqlSugarClient db, string table, string indexName, string column)
+    {
+        // 表名/列名为代码内常量，无注入风险
+        var exists = db.Ado.SqlQuery<int>(
+            $"SELECT COUNT(1) FROM sys.indexes WHERE name = '{indexName}' AND object_id = OBJECT_ID('{table}')").First();
+        if (exists == 0)
+        {
+            db.Ado.ExecuteCommand($"CREATE UNIQUE INDEX [{indexName}] ON [{table}] ([{column}]) WHERE [IsDeleted] = 0");
+        }
     }
 
     private static List<SysMenu> BuildCrudButtons(long parentId, string permissionPrefix, DateTime now) =>

@@ -13,6 +13,7 @@ import {
   updateRole
 } from '@/api/role'
 import { getMenuTree } from '@/api/menu'
+import { formatDateTime } from '@/utils/format'
 import type { MenuTree, Role } from '@/types/api'
 
 const loading = ref(false)
@@ -179,8 +180,13 @@ onMounted(loadData)
         </template>
       </el-table-column>
       <el-table-column prop="sort" label="排序" width="80" align="center" />
-      <el-table-column prop="createTime" label="创建时间" width="170" />
-      <el-table-column label="操作" width="240" fixed="right">
+      <el-table-column
+        prop="createTime"
+        label="创建时间"
+        width="165"
+        :formatter="formatDateTime"
+      />
+      <el-table-column label="操作" width="185">
         <template #default="{ row }">
           <el-button v-permission="'sys:role:edit'" link type="primary" @click="openEdit(row)">
             编辑

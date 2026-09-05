@@ -123,8 +123,10 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
     {
         if (IsSoftDelete)
         {
+            // 按列名更新指定列，避免泛型 MemberInit 表达式在 SqlSugar 中的翻译不确定性
             return Db.Updateable<T>()
-                .SetColumns((T x) => new T { IsDeleted = true, UpdateTime = DateTime.Now })
+                .SetColumns("IsDeleted", true)
+                .SetColumns("UpdateTime", DateTime.Now)
                 .Where(predicate)
                 .ExecuteCommand();
         }
@@ -137,7 +139,8 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
         if (IsSoftDelete)
         {
             return await Db.Updateable<T>()
-                .SetColumns((T x) => new T { IsDeleted = true, UpdateTime = DateTime.Now })
+                .SetColumns("IsDeleted", true)
+                .SetColumns("UpdateTime", DateTime.Now)
                 .Where(predicate)
                 .ExecuteCommandAsync();
         }

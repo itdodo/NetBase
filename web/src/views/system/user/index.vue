@@ -4,7 +4,6 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { Plus, Refresh, Search } from '@element-plus/icons-vue'
 import {
-  assignUserRoles,
   createUser,
   deleteUser,
   getUserPage,
@@ -12,6 +11,7 @@ import {
   updateUser
 } from '@/api/user'
 import { getRoleList } from '@/api/role'
+import { formatDateTime } from '@/utils/format'
 import type { RoleSimple, User } from '@/types/api'
 
 const loading = ref(false)
@@ -159,11 +159,11 @@ onMounted(() => {
 
     <!-- 数据表格 -->
     <el-table v-loading="loading" :data="list" border stripe>
-      <el-table-column prop="userName" label="用户名" min-width="120" />
-      <el-table-column prop="nickName" label="昵称" min-width="120" />
-      <el-table-column prop="phone" label="手机号" min-width="130" />
-      <el-table-column prop="email" label="邮箱" min-width="170" show-overflow-tooltip />
-      <el-table-column label="角色" min-width="160">
+      <el-table-column prop="userName" label="用户名" min-width="100" />
+      <el-table-column prop="nickName" label="昵称" min-width="100" />
+      <el-table-column prop="phone" label="手机号" min-width="110" />
+      <el-table-column prop="email" label="邮箱" min-width="130" show-overflow-tooltip />
+      <el-table-column label="角色" min-width="130">
         <template #default="{ row }">
           <el-tag v-for="role in row.roles" :key="role.id" size="small" style="margin-right: 4px">
             {{ role.roleName }}
@@ -171,15 +171,20 @@ onMounted(() => {
           <span v-if="row.roles.length === 0">-</span>
         </template>
       </el-table-column>
-      <el-table-column label="状态" width="90" align="center">
+      <el-table-column label="状态" width="75" align="center">
         <template #default="{ row }">
           <el-tag :type="row.status === 1 ? 'success' : 'danger'">
             {{ row.status === 1 ? '启用' : '停用' }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="创建时间" width="170" />
-      <el-table-column label="操作" width="240" fixed="right">
+      <el-table-column
+        prop="createTime"
+        label="创建时间"
+        width="165"
+        :formatter="formatDateTime"
+      />
+      <el-table-column label="操作" width="185">
         <template #default="{ row }">
           <el-button v-permission="'sys:user:edit'" link type="primary" @click="openEdit(row)">
             编辑

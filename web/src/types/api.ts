@@ -10,6 +10,10 @@ export interface ApiResult<T = unknown> {
 export interface PageQuery {
   pageIndex: number
   pageSize: number
+  /** 排序列（实体属性名，无效值后端回退主键） */
+  sortField?: string
+  /** 是否降序，默认 true */
+  sortDesc?: boolean
   [key: string]: unknown
 }
 

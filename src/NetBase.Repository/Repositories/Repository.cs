@@ -174,6 +174,12 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
         return await Db.Deleteable<T>().Where(predicate).ExecuteCommandAsync();
     }
 
+    public int DeletePhysicalWhere(Expression<Func<T, bool>> predicate) =>
+        Db.Deleteable<T>().Where(predicate).ExecuteCommand();
+
+    public Task<int> DeletePhysicalWhereAsync(Expression<Func<T, bool>> predicate) =>
+        Db.Deleteable<T>().Where(predicate).ExecuteCommandAsync();
+
     private bool DeleteEntity(T entity)
     {
         if (entity is ISoftDelete)

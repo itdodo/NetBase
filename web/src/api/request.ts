@@ -81,6 +81,12 @@ request.interceptors.response.use(
       return Promise.reject(error)
     }
 
+    // 403：授权失败时响应体为空，给出友好提示
+    if (status === 403) {
+      ElMessage.error('没有操作权限，请联系管理员')
+      return Promise.reject(error)
+    }
+
     ElMessage.error(message || error.message || '网络异常，请稍后重试')
     return Promise.reject(error)
   }

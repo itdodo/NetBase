@@ -17,7 +17,6 @@ namespace NetBase.Service.Sys;
 /// <summary>认证服务实现：JWT 签发、会话管理、刷新轮换</summary>
 public class SysAuthService(
     IRepository<SysUser> userRepository,
-    IRepository<SysUserRole> userRoleRepository,
     IRepository<SysUserSession> sessionRepository,
     ISysUserService userService,
     IPermissionService permissionService,
@@ -67,15 +66,16 @@ public class SysAuthService(
         }
 
         // 轮换：删除旧会话，签发全新 token 对
-        await sessionRepository.DeleteAsync(session);
+        await sessionRepository.DeletePhysicalWhereAsync(x => x.Id == session.Id);
         return await CreateSessionAsync(user, loginIp, userAgent);
     }
 
+    // 会话记录无审计价值，登出/踢人/过期清理一律物理删除，防止软删记录无限膨胀
     public async Task LogoutAsync(string tokenId) =>
-        await sessionRepository.DeleteWhereAsync(x => x.TokenId == tokenId);
+        await sessionRepository.DeletePhysicalWhereAsync(x => x.TokenId == tokenId);
 
     public async Task RemoveUserSessionsAsync(long userId) =>
-        await sessionRepository.DeleteWhereAsync(x => x.UserId == userId);
+        await sessionRepository.DeletePhysicalWhereAsync(x => x.UserId == userId);
 
     public async Task<PageResult<SessionDto>> GetSessionPageAsync(PageQuery query)
     {
@@ -101,7 +101,8 @@ public class SysAuthService(
         return PageResult<SessionDto>.Of(items, page.Total, page.PageIndex, page.PageSize);
     }
 
-    public async Task KickSessionAsync(long sessionId) => await sessionRepository.DeleteAsync(sessionId);
+    public async Task KickSessionAsync(long sessionId) =>
+        await sessionRepository.DeletePhysicalWhereAsync(x => x.Id == sessionId);
 
     public async Task<UserDto?> GetUserProfileAsync(long userId) => await userService.GetDetailAsync(userId);
 
@@ -111,9 +112,6 @@ public class SysAuthService(
     private async Task<LoginResult> CreateSessionAsync(SysUser user, string? loginIp, string? userAgent)
     {
         var now = DateTime.Now;
-
-        var userRoles = await userRoleRepository.GetListAsync(x => x.UserId == user.Id);
-        var roleIds = userRoles.Select(x => x.RoleId).ToList();
         var permissions = await permissionService.GetUserPermissionsAsync(user.Id);
 
         var tokenId = Guid.NewGuid().ToString("N");
@@ -131,8 +129,8 @@ public class SysAuthService(
         };
         await sessionRepository.InsertAsync(session);
 
-        // 顺手清理该用户已过期会话，防表膨胀
-        await sessionRepository.DeleteWhereAsync(x => x.UserId == user.Id && x.ExpireTime <= now);
+        // 顺手物理清理该用户已过期会话，防表膨胀
+        await sessionRepository.DeletePhysicalWhereAsync(x => x.UserId == user.Id && x.ExpireTime <= now);
 
         var accessToken = GenerateAccessToken(user, tokenId);
         var userDto = await userService.GetDetailAsync(user.Id) ?? new UserDto { Id = user.Id, UserName = user.UserName };

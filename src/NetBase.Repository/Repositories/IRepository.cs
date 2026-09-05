@@ -93,6 +93,11 @@ public interface IRepository<T> where T : BaseEntity, new()
 
     Task<int> DeleteWhereAsync(Expression<Func<T, bool>> predicate);
 
+    /// <summary>按条件物理删除（忽略软删除策略，用于日志/会话等无审计价值的表）</summary>
+    int DeletePhysicalWhere(Expression<Func<T, bool>> predicate);
+
+    Task<int> DeletePhysicalWhereAsync(Expression<Func<T, bool>> predicate);
+
     #endregion
 
     /// <summary>开启事务执行（同连接内多个操作原子提交，异常时回滚并原样抛出）</summary>

@@ -3,10 +3,12 @@ import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { Fold, Expand, ArrowDown } from '@element-plus/icons-vue'
+import { Fold, Expand, ArrowDown, Bell, Moon, Sunny } from '@element-plus/icons-vue'
 import Sidebar from './components/Sidebar.vue'
 import TagsView from './components/TagsView.vue'
 import { changePassword } from '@/api/log'
+import { getLatestNotices } from '@/api/notice'
+import type { NoticeInfo } from '@/api/notice'
 import { useUserStore } from '@/stores/user'
 import { usePermissionStore } from '@/stores/permission'
 import { useTabsStore } from '@/stores/tabs'
@@ -20,6 +22,43 @@ const tabsStore = useTabsStore()
 const isCollapse = ref(false)
 const userName = computed(() => userStore.userName)
 
+// ---------- 暗黑模式（持久化，默认跟随系统偏好之外手动切换） ----------
+const THEME_KEY = 'netbase:theme'
+const isDark = ref(localStorage.getItem(THEME_KEY) === 'dark')
+
+function applyTheme(): void {
+  document.documentElement.classList.toggle('dark', isDark.value)
+  localStorage.setItem(THEME_KEY, isDark.value ? 'dark' : 'light')
+}
+
+function toggleTheme(): void {
+  isDark.value = !isDark.value
+  applyTheme()
+}
+
+applyTheme()
+
+// ---------- 通知铃铛（登录后拉取最新公告） ----------
+const notices = ref<NoticeInfo[]>([])
+const noticeVisible = ref(false)
+const viewingNotice = ref<NoticeInfo | null>(null)
+const noticeDetailVisible = ref(false)
+
+async function loadNotices(): Promise<void> {
+  try {
+    notices.value = await getLatestNotices()
+  } catch {
+    // 通知拉取失败不打断使用
+  }
+}
+
+function openNotice(item: NoticeInfo): void {
+  viewingNotice.value = item
+  noticeDetailVisible.value = true
+}
+
+loadNotices()
+
 /** keep-alive 缓存名单：当前打开页签对应的组件名，关闭页签即释放缓存 */
 const cachedNames = computed(() =>
   tabsStore.visitedViews.map((v) => v.cachedName).filter((n): n is string => !!n),
@@ -30,6 +69,10 @@ const breadcrumbs = computed(() =>
     .filter((r) => r.meta?.title)
     .map((r) => ({ title: String(r.meta.title), path: r.path }))
 )
+
+function goProfile(): void {
+  void router.push('/profile')
+}
 
 async function handleLogout() {
   userStore.logout()
@@ -112,6 +155,17 @@ async function handleChangePassword(): Promise<void> {
         </el-breadcrumb>
 
         <div class="header-right">
+          <el-icon class="header-action" :title="isDark ? '切换亮色' : '切换暗黑'" @click="toggleTheme">
+            <Sunny v-if="isDark" />
+            <Moon v-else />
+          </el-icon>
+
+          <el-badge :value="notices.length" :hidden="notices.length === 0" :max="9">
+            <el-icon class="header-action" title="通知公告" @click="noticeVisible = true">
+              <Bell />
+            </el-icon>
+          </el-badge>
+
           <el-dropdown>
             <span class="user-info">
               {{ userName }}
@@ -119,6 +173,7 @@ async function handleChangePassword(): Promise<void> {
             </span>
             <template #dropdown>
               <el-dropdown-menu>
+                <el-dropdown-item @click="goProfile">个人中心</el-dropdown-item>
                 <el-dropdown-item @click="openChangePassword">修改密码</el-dropdown-item>
                 <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
               </el-dropdown-menu>
@@ -137,6 +192,25 @@ async function handleChangePassword(): Promise<void> {
         </router-view>
       </el-main>
     </el-container>
+
+    <!-- 通知公告列表 -->
+    <el-drawer v-model="noticeVisible" title="通知公告" size="420px">
+      <el-empty v-if="notices.length === 0" description="暂无公告" />
+      <div v-for="item in notices" :key="item.id" class="notice-item" @click="openNotice(item)">
+        <div class="notice-title">
+          <el-tag :type="item.noticeType === 1 ? 'primary' : 'warning'" size="small">
+            {{ item.noticeType === 1 ? '通知' : '公告' }}
+          </el-tag>
+          {{ item.title }}
+        </div>
+        <div class="notice-time">{{ item.createTime }}</div>
+      </div>
+    </el-drawer>
+
+    <el-dialog v-model="noticeDetailVisible" :title="viewingNotice?.title" width="560px" @closed="viewingNotice = null">
+      <div class="notice-time">{{ viewingNotice?.createTime }}</div>
+      <div class="view-content">{{ viewingNotice?.content }}</div>
+    </el-dialog>
 
     <!-- 修改自己密码 -->
     <el-dialog v-model="pwdDialogVisible" title="修改密码" width="440px">
@@ -213,6 +287,45 @@ async function handleChangePassword(): Promise<void> {
   gap: 4px;
   cursor: pointer;
   color: #303133;
+}
+
+.header-action {
+  font-size: 18px;
+  cursor: pointer;
+  color: #606266;
+  margin-right: 14px;
+}
+
+.header-action:hover {
+  color: #409eff;
+}
+
+.notice-item {
+  padding: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.notice-item:hover {
+  background: #f5f7fa;
+}
+
+.notice-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.notice-time {
+  color: #909399;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.view-content {
+  white-space: pre-wrap;
+  line-height: 1.7;
 }
 
 .main {

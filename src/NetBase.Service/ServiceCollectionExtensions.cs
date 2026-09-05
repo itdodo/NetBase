@@ -21,6 +21,9 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<ISysLogService, SysLogService>();
         services.TryAddScoped<ISysDictService, SysDictService>();
         services.TryAddScoped<ISysConfigService, SysConfigService>();
+        services.TryAddScoped<ISysNoticeService, SysNoticeService>();
+        services.TryAddScoped<ISysFileService, SysFileService>();
+        services.TryAddScoped<ICaptchaService, CaptchaService>();
 
         // 认证授权
         if (configuration != null)

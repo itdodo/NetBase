@@ -1,16 +1,11 @@
 import request from './request'
-import type { PageQuery, PageResult, RoleSimple } from '@/types/api'
+import type { PageQuery, PageResult, User } from '@/types/api'
 
 export interface LoginResponse {
   accessToken: string
   refreshToken: string
   expiresIn: number
-  user: {
-    id: number
-    userName: string
-    nickName?: string
-    roles: RoleSimple[]
-  }
+  user: User
   permissions: string[]
 }
 
@@ -25,9 +20,32 @@ export interface SessionInfo {
   expireTime: string
 }
 
+export interface LoginPayload {
+  userName: string
+  password: string
+  captchaId?: string
+  captchaCode?: string
+}
+
+/** 获取图形验证码（返回 SVG 字符串） */
+export const getCaptcha = () =>
+  request.get<never, { captchaId: string; svg: string }>('/auth/captcha')
+
 /** 登录 */
-export const login = (data: { userName: string; password: string }) =>
+export const login = (data: LoginPayload) =>
   request.post<never, LoginResponse>('/auth/login', data)
+
+/** 修改自己资料 */
+export const updateProfile = (data: { nickName?: string; phone?: string; email?: string }) =>
+  request.put<never, void>('/auth/profile', data)
+
+/** 上传头像（multipart），返回访问地址 */
+export const uploadAvatar = (file: File) => {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('bizType', 'avatar')
+  return request.post<never, string>('/auth/avatar', form)
+}
 
 /** 刷新令牌（轮换） */
 export const refreshTokenApi = (refreshToken: string) =>

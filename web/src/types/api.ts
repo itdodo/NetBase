@@ -42,6 +42,7 @@ export interface User {
   id: number
   userName: string
   nickName?: string
+  avatar?: string
   phone?: string
   email?: string
   status: number

@@ -1,3 +1,4 @@
+import { download } from '@/utils/download'
 import request from './request'
 import type { PageResult, User, UserCreate, UserQuery, UserUpdate } from '@/types/api'
 
@@ -28,3 +29,14 @@ export const resetUserPassword = (id: number, newPassword?: string) =>
 /** 为用户分配角色（全量重设） */
 export const assignUserRoles = (id: number, roleIds: number[]) =>
   request.put<never, void>(`/sys/user/${id}/roles`, { roleIds })
+
+/** 下载用户导入模板（xlsx） */
+export const downloadImportTemplate = () =>
+  download('/sys/user/import-template', undefined, `用户导入模板.xlsx`)
+
+/** Excel 批量导入用户 */
+export const uploadImportFile = (file: File): Promise<{ successCount: number; errors: string[] }> => {
+  const form = new FormData()
+  form.append('file', file)
+  return request.post<never, { successCount: number; errors: string[] }>('/sys/user/import', form)
+}

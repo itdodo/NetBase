@@ -23,6 +23,7 @@ public class SysAuthService(
     ISysLogService logService,
     ICacheService cacheService,
     ISysConfigService configService,
+    ICaptchaService captchaService,
     IOptions<JwtOptions> jwtOptions) : ISysAuthService
 {
     private readonly JwtOptions _jwt = jwtOptions.Value;
@@ -37,11 +38,11 @@ public class SysAuthService(
 
     private Task<int> GetLockMinutesAsync() => configService.GetIntConfigAsync("sys.login.lockMinutes", LockMinutes);
 
-    public async Task<LoginResult> LoginAsync(string userName, string password, string? loginIp, string? userAgent)
+    public async Task<LoginResult> LoginAsync(string userName, string password, string? loginIp, string? userAgent, string? captchaId = null, string? captchaCode = null)
     {
         try
         {
-            var result = await DoLoginAsync(userName, password, loginIp, userAgent);
+            var result = await DoLoginAsync(userName, password, loginIp, userAgent, captchaId, captchaCode);
             if (result == null)
             {
                 // 密码错误（不泄露账号是否存在）
@@ -64,11 +65,17 @@ public class SysAuthService(
     }
 
     /// <summary>登录主体：锁定校验 → 账号校验 → 密码校验（失败计数）。返回 null 表示密码错误</summary>
-    private async Task<LoginResult?> DoLoginAsync(string userName, string password, string? loginIp, string? userAgent)
+    private async Task<LoginResult?> DoLoginAsync(string userName, string password, string? loginIp, string? userAgent, string? captchaId = null, string? captchaCode = null)
     {
         if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(password))
         {
             throw new BusinessException("用户名和密码不能为空", ApiResultCode.BadRequest);
+        }
+
+        // 图形验证码（系统参数 sys.captcha.enabled 可关闭，内网场景）
+        if (await captchaService.IsEnabledAsync() && !await captchaService.ValidateAsync(captchaId ?? string.Empty, captchaCode ?? string.Empty))
+        {
+            throw new BusinessException("验证码错误或已过期", ApiResultCode.BadRequest);
         }
 
         // 登录失败锁定：连续失败达阈值则锁定一段时间（阈值/时长支持参数配置）

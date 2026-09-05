@@ -34,4 +34,8 @@ public class SysUser : BaseEntity
     /// <summary>最后登录时间</summary>
     [SugarColumn(IsNullable = true, ColumnDescription = "最后登录时间")]
     public DateTime? LastLoginTime { get; set; }
+
+    /// <summary>头像地址（/api/v1/file/{id}）</summary>
+    [SugarColumn(IsNullable = true, Length = 255, ColumnDescription = "头像地址")]
+    public string? Avatar { get; set; }
 }

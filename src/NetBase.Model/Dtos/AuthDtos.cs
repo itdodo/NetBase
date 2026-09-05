@@ -14,6 +14,13 @@ public class LoginRequestDto
     [Required(ErrorMessage = "密码不能为空")]
     [StringLength(64, MinimumLength = 6, ErrorMessage = "密码长度须为 6-64 位")]
     public string Password { get; set; } = string.Empty;
+
+    /// <summary>验证码ID（验证码启用时必填）</summary>
+    public string? CaptchaId { get; set; }
+
+    /// <summary>验证码</summary>
+    [StringLength(10)]
+    public string? CaptchaCode { get; set; }
 }
 
 /// <summary>刷新令牌请求</summary>

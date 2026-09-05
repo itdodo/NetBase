@@ -78,6 +78,8 @@ public class DbSeeder
         EnsureSystemMenus(db, adminRoleId, now);
         SeedConfigs(db, now);
         SeedSampleDicts(db, now);
+        EnsureNoticeMenu(db, adminRoleId, now);
+        SeedSampleNotice(db, now);
 
         // 外键列索引：权限查询/会话校验/菜单树是高频路径，避免全表扫描
         EnsureIndex(db, "sys_user_role", "ix_sys_user_role_userid", "UserId");
@@ -286,7 +288,8 @@ public class DbSeeder
         [
             ("sys.pwd.defaultPassword", "Net123456", "默认初始密码", "新建用户/重置密码使用的默认密码，需满足密码策略"),
             ("sys.login.failThreshold", "5", "登录失败锁定阈值", "连续失败达到该次数后锁定账号"),
-            ("sys.login.lockMinutes", "10", "登录锁定时长(分钟)", "账号锁定持续时间")
+            ("sys.login.lockMinutes", "10", "登录锁定时长(分钟)", "账号锁定持续时间"),
+            ("sys.captcha.enabled", "true", "登录图形验证码开关", "设为 false 关闭验证码（内网场景）")
         ];
 
         foreach (var spec in configs)
@@ -307,6 +310,53 @@ public class DbSeeder
             }).ExecuteCommand();
             _logger?.LogInformation("种子数据：内置参数 {Key} 已写入", spec.Key);
         }
+    }
+
+    /// <summary>增量补充「通知公告」菜单（按权限码幂等）</summary>
+    private void EnsureNoticeMenu(ISqlSugarClient db, long adminRoleId, DateTime now)
+    {
+        var systemDir = db.Queryable<SysMenu>().First(x => x.MenuName == "系统管理" && x.MenuType == (int)MenuTypeEnum.Directory);
+        if (systemDir == null || db.Queryable<SysMenu>().Any(x => x.Permission == "sys:notice:list"))
+        {
+            return;
+        }
+
+        var menu = db.Insertable(new SysMenu
+        {
+            ParentId = systemDir.Id,
+            MenuName = "通知公告",
+            MenuType = (int)MenuTypeEnum.Menu,
+            Path = "/system/notice",
+            Component = "system/notice/index",
+            Permission = "sys:notice:list",
+            Sort = 6,
+            CreateTime = now,
+            CreateBy = "system"
+        }).ExecuteReturnEntity();
+
+        if (!db.Queryable<SysRoleMenu>().Any(x => x.RoleId == adminRoleId && x.MenuId == menu.Id))
+        {
+            db.Insertable(new SysRoleMenu { RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
+        }
+        _logger?.LogInformation("种子数据：增量菜单「通知公告」已写入");
+    }
+
+    /// <summary>示例公告（幂等）</summary>
+    private void SeedSampleNotice(ISqlSugarClient db, DateTime now)
+    {
+        if (db.Queryable<SysNotice>().Any())
+        {
+            return;
+        }
+        db.Insertable(new SysNotice
+        {
+            Title = "欢迎使用 NetBase 管理系统",
+            NoticeType = 1,
+            Content = "框架已内置：用户/角色/菜单/字典/参数/公告管理、操作与登录审计、Excel 导入导出、登录验证码与防重复提交。本条为示例公告，可在通知公告管理中维护。",
+            Status = 1,
+            CreateTime = now,
+            CreateBy = "system"
+        }).ExecuteCommand();
     }
 
     /// <summary>示例字典（幂等：按字典编码判断）</summary>

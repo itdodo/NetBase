@@ -1,3 +1,4 @@
+using MiniExcelLibs;
 using NetBase.Common.Users;
 using Microsoft.AspNetCore.Mvc;
 using NetBase.Api.Auth;
@@ -58,9 +59,51 @@ public class SysUserController(
         return ExcelResult(rows, $"用户列表_{DateTime.Now:yyyyMMddHHmmss}.xlsx");
     }
 
+    /// <summary>下载用户导入模板（xlsx）</summary>
+    [HasPermission("sys:user:add")]
+    [HttpGet("import-template")]
+    public IActionResult ImportTemplate()
+    {
+        var rows = new[]
+        {
+            new { 用户名 = "zhangsan", 昵称 = "张三", 手机号 = "13800000000", 邮箱 = "zhangsan@example.com", 初始密码 = "", 角色编码 = "admin" },
+            new { 用户名 = "lisi", 昵称 = "李四", 手机号 = "13900000000", 邮箱 = "lisi@example.com", 初始密码 = "Abc12345", 角色编码 = "" }
+        };
+        return ExcelResult(rows, "用户导入模板.xlsx");
+    }
+
+    /// <summary>Excel 批量导入用户（返回成功数与逐行失败明细）</summary>
+    [HasPermission("sys:user:add")]
+    [NoRepeatSubmit(5)]
+    [HttpPost("import")]
+    public async Task<ApiResult<UserImportResultDto>> Import(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+        {
+            return ApiResult<UserImportResultDto>.Fail("请选择导入文件", ApiResultCode.BadRequest);
+        }
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ext is not (".xlsx" or ".xls"))
+        {
+            return ApiResult<UserImportResultDto>.Fail("仅支持 xlsx/xls 文件", ApiResultCode.BadRequest);
+        }
+
+        await using var stream = file.OpenReadStream();
+        var rows = stream.Query<UserImportRow>().Where(r => !(r.UserName == null && r.NickName == null)).ToList();
+        if (rows.Count == 0)
+        {
+            return ApiResult<UserImportResultDto>.Fail("导入文件中没有数据行", ApiResultCode.BadRequest);
+        }
+
+        var (successCount, errors) = await userService.ImportAsync(rows, OperatorName);
+        return Success(new UserImportResultDto { SuccessCount = successCount, Errors = errors },
+            $"导入完成：成功 {successCount} 条，失败 {errors.Count} 条");
+    }
+
     /// <summary>创建用户</summary>
     [HasPermission("sys:user:add")]
-        [HttpPost]
+    [NoRepeatSubmit]
+    [HttpPost]
     public async Task<ApiResult<long>> Create([FromBody] UserCreateDto dto)
     {
         var id = await userService.CreateAsync(dto, OperatorName);

@@ -15,6 +15,9 @@ namespace NetBase.Api.Controllers.Auth;
 public class AuthController(
     ISysAuthService authService,
     IPermissionService permissionService,
+    ICaptchaService captchaService,
+    ISysUserService userService,
+    ISysFileService fileService,
     ICurrentUserService currentUserService) : BaseController(currentUserService)
 {
     private const string TokenIdClaim = "jti";
@@ -29,7 +32,9 @@ public class AuthController(
             request.UserName,
             request.Password,
             HttpContext.Connection.RemoteIpAddress?.ToString(),
-            Request.Headers.UserAgent.ToString());
+            Request.Headers.UserAgent.ToString(),
+            request.CaptchaId,
+            request.CaptchaCode);
         return Success(result, "登录成功");
     }
 
@@ -56,6 +61,39 @@ public class AuthController(
             await authService.LogoutAsync(tokenId);
         }
         return Success("已退出登录");
+    }
+
+    /// <summary>获取图形验证码（sys.captcha.enabled=true 时登录必填）</summary>
+    [AllowAnonymous]
+    [HttpGet("captcha")]
+    public async Task<ApiResult<CaptchaResult>> Captcha()
+    {
+        return Success(await captchaService.GenerateAsync());
+    }
+
+    /// <summary>修改自己资料（昵称/手机/邮箱）</summary>
+    [Authorize]
+    [HttpPut("profile")]
+    public async Task<ApiResult> UpdateProfile([FromBody] UpdateProfileDto dto)
+    {
+        await userService.UpdateProfileAsync(currentUserService.UserId ?? 0, dto);
+        return Success("资料已更新");
+    }
+
+    /// <summary>上传头像（返回访问地址）</summary>
+    [Authorize]
+    [HttpPost("avatar")]
+    public async Task<ApiResult<string>> Avatar([FromForm] IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+        {
+            return ApiResult<string>.Fail("请选择头像文件", ApiResultCode.BadRequest);
+        }
+
+        await using var stream = file.OpenReadStream();
+        var upload = await fileService.UploadAsync(stream, file.FileName, file.ContentType, "avatar", currentUserService.UserId ?? 0);
+        await userService.SetAvatarAsync(currentUserService.UserId ?? 0, upload.Url);
+        return Success(upload.Url, "头像已更新");
     }
 
     /// <summary>当前用户信息 + 权限码（前端刷新后恢复用）</summary>

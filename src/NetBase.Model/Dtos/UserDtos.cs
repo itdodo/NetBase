@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using MiniExcelLibs.Attributes;
 using NetBase.Common.Results;
 
 namespace NetBase.Model.Dtos;
@@ -30,6 +31,9 @@ public class UserDto
 
     /// <summary>状态：0-停用 1-启用</summary>
     public int Status { get; set; }
+
+    /// <summary>头像地址</summary>
+    public string? Avatar { get; set; }
 
     public DateTime? LastLoginTime { get; set; }
 
@@ -112,4 +116,41 @@ public class AssignRolesDto
 {
     /// <summary>角色ID列表</summary>
     public List<long> RoleIds { get; set; } = [];
+}
+
+
+/// <summary>用户导入行（与导入模板中文列头对应）</summary>
+public class UserImportRow
+{
+    /// <summary>用户名</summary>
+    [ExcelColumnName("用户名")]
+    public string? UserName { get; set; }
+
+    /// <summary>昵称</summary>
+    [ExcelColumnName("昵称")]
+    public string? NickName { get; set; }
+
+    /// <summary>手机号</summary>
+    [ExcelColumnName("手机号")]
+    public string? Phone { get; set; }
+
+    /// <summary>邮箱</summary>
+    [ExcelColumnName("邮箱")]
+    public string? Email { get; set; }
+
+    /// <summary>初始密码（留空用系统默认）</summary>
+    [ExcelColumnName("初始密码")]
+    public string? Password { get; set; }
+
+    /// <summary>角色编码（多个用逗号分隔，可选）</summary>
+    [ExcelColumnName("角色编码")]
+    public string? RoleCodes { get; set; }
+}
+
+/// <summary>用户导入结果</summary>
+public class UserImportResultDto
+{
+    public int SuccessCount { get; set; }
+
+    public List<string> Errors { get; set; } = [];
 }

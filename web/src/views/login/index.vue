@@ -2,7 +2,8 @@
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, FormInstance, FormRules } from 'element-plus'
-import { Lock, User } from '@element-plus/icons-vue'
+import { Lock, User, Refresh } from '@element-plus/icons-vue'
+import { getCaptcha } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
@@ -11,14 +12,29 @@ const userStore = useUserStore()
 
 const formRef = ref<FormInstance>()
 const loading = ref(false)
-const form = reactive({ userName: 'admin', password: '123456' })
+const form = reactive({ userName: 'admin', password: '123456', captchaId: '', captchaCode: '' })
+const captchaSvg = ref('')
+const defaultCaptchaSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='40'><rect width='120' height='40' fill='#f5f7fa'/></svg>`
+
+async function refreshCaptcha(): Promise<void> {
+  try {
+    const captcha = await getCaptcha()
+    form.captchaId = captcha.captchaId
+    captchaSvg.value = captcha.svg
+  } catch {
+    captchaSvg.value = '' // 验证码获取失败时允许输入用户名密码后由后端提示
+  }
+}
+
+refreshCaptcha()
 
 const rules: FormRules = {
   userName: [{ required: true, message: '请输入账号', trigger: 'blur' }],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, message: '密码至少 6 位', trigger: 'blur' }
-  ]
+  ],
+  captchaCode: [{ required: true, message: '请输入验证码', trigger: 'blur' }]
 }
 
 async function handleLogin() {
@@ -33,6 +49,9 @@ async function handleLogin() {
   } catch {
     // 错误提示由 request 拦截器统一处理
   } finally {
+    // 登录失败（含验证码错误）后刷新验证码
+    form.captchaCode = ''
+    refreshCaptcha()
     loading.value = false
   }
 }
@@ -54,6 +73,17 @@ async function handleLogin() {
             :prefix-icon="Lock"
             show-password
           />
+        </el-form-item>
+        <el-form-item prop="captchaCode">
+          <div class="captcha-row">
+            <el-input v-model="form.captchaCode" placeholder="验证码" :prefix-icon="Refresh" maxlength="4" />
+            <div
+              class="captcha-img"
+              title="点击刷新"
+              @click="refreshCaptcha"
+              v-html="captchaSvg || defaultCaptchaSvg"
+            />
+          </div>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" class="login-btn" :loading="loading" @click="handleLogin">
@@ -91,5 +121,19 @@ async function handleLogin() {
 
 .login-btn {
   width: 100%;
+}
+
+.captcha-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.captcha-img {
+  cursor: pointer;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  line-height: 0;
 }
 </style>

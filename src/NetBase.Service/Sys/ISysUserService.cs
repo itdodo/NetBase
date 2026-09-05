@@ -16,6 +16,9 @@ public interface ISysUserService
     /// <summary>按查询条件取全量用户（导出用，不分页）</summary>
     Task<List<UserDto>> GetExportListAsync(UserQueryDto query);
 
+    /// <summary>Excel 批量导入用户，返回（成功数, 失败明细）</summary>
+    Task<(int SuccessCount, List<string> Errors)> ImportAsync(List<UserImportRow> rows, string? operatorName);
+
     /// <summary>查询用户详情（含角色）</summary>
     Task<UserDto?> GetDetailAsync(long id);
 
@@ -36,4 +39,10 @@ public interface ISysUserService
 
     /// <summary>按用户名查询（登录用，含已停用）</summary>
     Task<SysUser?> GetByUserNameAsync(string userName);
+
+    /// <summary>修改自己资料（昵称/手机/邮箱，不可改用户名与状态）</summary>
+    Task UpdateProfileAsync(long userId, UpdateProfileDto dto);
+
+    /// <summary>设置头像地址</summary>
+    Task SetAvatarAsync(long userId, string avatarUrl);
 }

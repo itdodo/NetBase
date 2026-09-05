@@ -11,6 +11,7 @@ using NetBase.Api.Auth;
 using NetBase.Api.Filters;
 using NetBase.Api.Middlewares;
 using NetBase.Api.Services;
+using NetBase.Service.Sys;
 using NetBase.Common.Users;
 using NetBase.Middleware;
 using NetBase.Repository;
@@ -40,6 +41,7 @@ builder.Services
         options.Filters.Add<ModelValidationFilter>();
         options.Filters.Add<GlobalExceptionFilter>();
         options.Filters.Add<OperationLogFilter>();
+        options.Filters.Add<NoRepeatSubmitFilter>();
     })
     .AddJsonOptions(options =>
     {
@@ -52,8 +54,10 @@ builder.Services
         options.SuppressModelStateInvalidFilter = true;
     });
 
-// 操作日志：自动记录全部写操作（参数脱敏）
+// 操作日志：自动记录全部写操作（参数脱敏）；防重复提交过滤器
 builder.Services.AddScoped<OperationLogFilter>();
+builder.Services.AddScoped<NoRepeatSubmitFilter>();
+builder.Services.Configure<FileStorageOptions>(builder.Configuration.GetSection(FileStorageOptions.SectionName));
 
 // 登录限流：每 IP 每分钟最多 10 次登录尝试（防暴力破解，与失败锁定互为补充）
 builder.Services.AddRateLimiter(options =>

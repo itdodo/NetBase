@@ -69,6 +69,81 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         return await ToDtosAsync(users);
     }
 
+    public async Task<(int SuccessCount, List<string> Errors)> ImportAsync(List<UserImportRow> rows, string? operatorName)
+    {
+        var errors = new List<string>();
+        var successCount = 0;
+        var defaultPassword = await GetDefaultPasswordAsync();
+
+        // 预载角色编码映射（导入行按编码关联角色）
+        var allRoles = await _roleRepository.GetListAsync();
+        var roleMap = allRoles.ToDictionary(x => x.RoleCode, x => x.Id);
+
+        var seenUserNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (row, index) in rows.Select((r, i) => (r, i + 2)))  // Excel 数据从第 2 行起
+        {
+            var userName = row.UserName?.Trim() ?? string.Empty;
+            if (userName.IsNullOrEmpty())
+            {
+                errors.Add($"第 {index} 行：用户名为空，已跳过");
+                continue;
+            }
+            if (!seenUserNames.Add(userName))
+            {
+                errors.Add($"第 {index} 行：用户名 {userName} 在文件内重复，已跳过");
+                continue;
+            }
+            if (await Repository.AnyAsync(x => x.UserName == userName))
+            {
+                errors.Add($"第 {index} 行：用户名 {userName} 已存在，已跳过");
+                continue;
+            }
+
+            var password = row.Password.IsNullOrEmpty() ? defaultPassword : row.Password;
+            var policyError = PasswordPolicy.Validate(password);
+            if (policyError != null)
+            {
+                errors.Add($"第 {index} 行：{userName} 密码不合规（{policyError}），已跳过");
+                continue;
+            }
+
+            var user = new SysUser
+            {
+                UserName = userName,
+                Password = PasswordHelper.Encrypt(password),
+                NickName = row.NickName,
+                Phone = row.Phone,
+                Email = row.Email,
+                Status = (int)StatusEnum.Enabled,
+                CreateBy = operatorName
+            };
+
+            // 角色编码解析（无效编码不阻断导入，仅提示）
+            var roleIds = (row.RoleCodes ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(rc => roleMap.ContainsKey(rc))
+                .Select(rc => roleMap[rc])
+                .ToList();
+
+            await Repository.TransactionAsync(async () =>
+            {
+                await Repository.InsertAsync(user);
+                if (roleIds.Count > 0)
+                {
+                    await SaveUserRolesAsync(user.Id, roleIds);
+                }
+                return true;
+            });
+            successCount++;
+        }
+
+        if (successCount > 0)
+        {
+            _permissionService.InvalidateAll();
+        }
+        return (successCount, errors);
+    }
+
     public async Task<UserDto?> GetDetailAsync(long id)
     {
         var user = await Repository.GetByIdAsync(id);
@@ -210,6 +285,24 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
     public Task<SysUser?> GetByUserNameAsync(string userName) =>
         Repository.GetFirstAsync(x => x.UserName == userName);
 
+    public async Task UpdateProfileAsync(long userId, UpdateProfileDto dto)
+    {
+        var user = await GetRequiredAsync(userId);
+        user.NickName = dto.NickName;
+        user.Phone = dto.Phone;
+        user.Email = dto.Email;
+        user.UpdateTime = DateTime.Now;
+        user.UpdateBy = user.UserName;
+        await Repository.UpdateAsync(user);
+    }
+
+    public async Task SetAvatarAsync(long userId, string avatarUrl)
+    {
+        await Repository.UpdateWhereAsync(
+            x => x.Id == userId,
+            x => new SysUser { Avatar = avatarUrl, UpdateTime = DateTime.Now });
+    }
+
     private async Task<SysUser> GetRequiredAsync(long id) =>
         await Repository.GetByIdAsync(id)
         ?? throw new BusinessException($"用户不存在（Id={id}）", ApiResultCode.NotFound);
@@ -261,6 +354,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             Phone = x.Phone,
             Email = x.Email,
             Status = x.Status,
+            Avatar = x.Avatar,
             LastLoginTime = x.LastLoginTime,
             CreateTime = x.CreateTime,
             Roles = userRoles.Where(ur => ur.UserId == x.Id && roleMap.ContainsKey(ur.RoleId))

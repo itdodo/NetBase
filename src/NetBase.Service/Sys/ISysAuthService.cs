@@ -42,7 +42,7 @@ public class SessionDto
 public interface ISysAuthService
 {
     /// <summary>登录：校验账号与密码，签发 token 对并创建会话</summary>
-    Task<LoginResult> LoginAsync(string userName, string password, string? loginIp, string? userAgent);
+    Task<LoginResult> LoginAsync(string userName, string password, string? loginIp, string? userAgent, string? captchaId = null, string? captchaCode = null);
 
     /// <summary>刷新：校验 RefreshToken 并轮换（旧 token 对全部作废）</summary>
     Task<LoginResult> RefreshAsync(string refreshToken, string? loginIp, string? userAgent);

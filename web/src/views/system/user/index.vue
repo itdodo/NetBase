@@ -3,7 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 defineOptions({ name: 'SystemUserView' })
 
 import { ElMessage, ElMessageBox } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
+import type { FormInstance, FormRules, UploadRequestOptions } from 'element-plus'
 import { Plus, Refresh, Search } from '@element-plus/icons-vue'
 import {
   createUser,
@@ -16,6 +16,7 @@ import { getRoleList } from '@/api/role'
 import { formatDateTime } from '@/utils/format'
 import { download } from '@/utils/download'
 import type { RoleSimple, User } from '@/types/api'
+import { uploadImportFile, downloadImportTemplate } from '@/api/user'
 
 const loading = ref(false)
 const list = ref<User[]>([])
@@ -117,6 +118,33 @@ async function handleSave() {
   loadData()
 }
 
+// ---------- Excel 导入 ----------
+const importDialogVisible = ref(false)
+const importUploading = ref(false)
+const importResult = ref<{ successCount: number; errors: string[] } | null>(null)
+
+async function handleImportUpload(options: UploadRequestOptions): Promise<unknown> {
+  importUploading.value = true
+  try {
+    importResult.value = await uploadImportFile(options.file)
+    if (importResult.value.errors.length === 0) {
+      ElMessage.success(`全部导入成功（${importResult.value.successCount} 条）`)
+    }
+    loadData()
+  } finally {
+    importUploading.value = false
+  }
+  return null
+}
+
+function beforeImportUpload(file: File): boolean {
+  return /\.(xlsx|xls)$/i.test(file.name) || (ElMessage.error('仅支持 xlsx/xls 文件'), false)
+}
+
+function handleDownloadTemplate(): Promise<void> {
+  return downloadImportTemplate()
+}
+
 // ---------- 删除 / 重置密码 ----------
 async function handleDelete(row: User) {
   await ElMessageBox.confirm(`确定删除用户「${row.userName}」吗？`, '提示', { type: 'warning' })
@@ -163,6 +191,7 @@ onMounted(() => {
         新增用户
       </el-button>
       <el-button v-permission="'sys:user:list'" type="warning" @click="handleExport">导出</el-button>
+      <el-button v-permission="'sys:user:add'" type="info" @click="importDialogVisible = true">导入</el-button>
     </div>
 
     <!-- 数据表格 -->
@@ -226,6 +255,36 @@ onMounted(() => {
       @size-change="handleSearch"
     />
 
+    <!-- Excel 导入 -->
+    <el-dialog v-model="importDialogVisible" title="批量导入用户" width="520px" @closed="importResult = null">
+      <el-alert type="info" :closable="false" show-icon class="import-tip">
+        <template #title>
+          先下载模板填写（用户名必填唯一；初始密码留空用系统默认；角色编码多个用逗号分隔）
+        </template>
+      </el-alert>
+      <div class="import-actions">
+        <el-button @click="handleDownloadTemplate">下载模板</el-button>
+        <el-upload
+          :show-file-list="false"
+          accept=".xlsx,.xls"
+          :http-request="handleImportUpload"
+          :before-upload="beforeImportUpload"
+        >
+          <el-button type="primary" :loading="importUploading">选择文件并导入</el-button>
+        </el-upload>
+      </div>
+      <template v-if="importResult">
+        <el-result
+          :icon="importResult.errors.length === 0 ? 'success' : 'warning'"
+          :title="`成功 ${importResult.successCount} 条`"
+          :sub-title="importResult.errors.length === 0 ? '全部导入完成' : `失败 ${importResult.errors.length} 条`"
+        />
+        <div v-if="importResult.errors.length" class="import-errors">
+          <div v-for="(err, idx) in importResult.errors" :key="idx" class="import-error">{{ err }}</div>
+        </div>
+      </template>
+    </el-dialog>
+
     <!-- 新增/编辑弹窗 -->
     <el-dialog
       v-model="dialogVisible"
@@ -281,5 +340,29 @@ onMounted(() => {
 .pagination {
   margin-top: 12px;
   justify-content: flex-end;
+}
+
+.import-tip {
+  margin-bottom: 12px;
+}
+
+.import-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.import-errors {
+  max-height: 180px;
+  overflow: auto;
+  background: #fef0f0;
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.import-error {
+  color: #f56c6c;
+  font-size: 12px;
+  line-height: 1.8;
 }
 </style>

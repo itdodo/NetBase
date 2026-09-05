@@ -4,13 +4,16 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Fold, Expand, ArrowDown } from '@element-plus/icons-vue'
 import Sidebar from './components/Sidebar.vue'
+import TagsView from './components/TagsView.vue'
 import { useUserStore } from '@/stores/user'
 import { usePermissionStore } from '@/stores/permission'
+import { useTabsStore } from '@/stores/tabs'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const permissionStore = usePermissionStore()
+const tabsStore = useTabsStore()
 
 const isCollapse = ref(false)
 const userName = computed(() => userStore.userName)
@@ -24,6 +27,7 @@ const breadcrumbs = computed(() =>
 async function handleLogout() {
   userStore.logout()
   permissionStore.reset()
+  tabsStore.closeAll()
   ElMessage.success('已退出登录')
   await router.push('/login')
 }
@@ -67,6 +71,8 @@ async function handleLogout() {
         </div>
       </el-header>
 
+      <TagsView />
+
       <el-main class="main">
         <router-view />
       </el-main>
@@ -77,12 +83,21 @@ async function handleLogout() {
 <style scoped>
 .layout {
   height: 100vh;
+  /* 高内容页面下防止 flex 子项把布局撑破（body 级滚动、header 错位） */
+  overflow: hidden;
+}
+
+/* 右侧嵌套容器允许收缩，使 el-main 的 overflow:auto 内部滚动生效 */
+.layout > :deep(.el-container) {
+  min-height: 0;
+  overflow: hidden;
 }
 
 .aside {
   background-color: #1d2935;
   transition: width 0.2s;
-  overflow: hidden;
+  /* 菜单过长时侧边栏自身滚动 */
+  overflow-y: auto;
 }
 
 .logo {

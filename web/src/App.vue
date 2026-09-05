@@ -20,5 +20,6 @@ body,
 #app {
   height: 100%;
   font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+  background: var(--el-bg-color-page);
 }
 </style>

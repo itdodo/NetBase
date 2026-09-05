@@ -6,6 +6,7 @@ import { setupRouterGuard } from './router/guard'
 import { setupPermissionDirective } from './directives/permission'
 
 // 函数式组件（显式 import，样式需手动引入）
+import 'element-plus/theme-chalk/dark/css-vars.css'
 import 'element-plus/es/components/message/style/css'
 import 'element-plus/es/components/message-box/style/css'
 import 'element-plus/es/components/notification/style/css'

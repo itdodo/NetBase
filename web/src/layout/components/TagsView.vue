@@ -79,8 +79,8 @@ function handleCommand(command: string): void {
   align-items: center;
   height: 34px;
   padding: 0 8px;
-  background: #fff;
-  border-bottom: 1px solid #e4e7ed;
+  background: var(--el-bg-color);
+  border-bottom: 1px solid var(--el-border-color-light);
 }
 
 .tags-scroll {
@@ -103,9 +103,9 @@ function handleCommand(command: string): void {
   padding: 0 10px;
   height: 24px;
   font-size: 12px;
-  color: #606266;
-  background: #f4f4f5;
-  border: 1px solid #e4e7ed;
+  color: var(--el-text-color-regular);
+  background: var(--el-fill-color);
+  border: 1px solid var(--el-border-color);
   border-radius: 3px;
   cursor: pointer;
   white-space: nowrap;

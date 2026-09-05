@@ -268,8 +268,8 @@ async function handleChangePassword(): Promise<void> {
   display: flex;
   align-items: center;
   gap: 12px;
-  border-bottom: 1px solid #e4e7ed;
-  background: #fff;
+  border-bottom: 1px solid var(--el-border-color-light);
+  background: var(--el-bg-color);
 }
 
 .collapse-btn {
@@ -286,13 +286,13 @@ async function handleChangePassword(): Promise<void> {
   align-items: center;
   gap: 4px;
   cursor: pointer;
-  color: #303133;
+  color: var(--el-text-color-primary);
 }
 
 .header-action {
   font-size: 18px;
   cursor: pointer;
-  color: #606266;
+  color: var(--el-text-color-regular);
   margin-right: 14px;
 }
 
@@ -307,7 +307,7 @@ async function handleChangePassword(): Promise<void> {
 }
 
 .notice-item:hover {
-  background: #f5f7fa;
+  background: var(--el-fill-color-light);
 }
 
 .notice-title {
@@ -329,7 +329,7 @@ async function handleChangePassword(): Promise<void> {
 }
 
 .main {
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
   overflow: auto;
 }
 </style>

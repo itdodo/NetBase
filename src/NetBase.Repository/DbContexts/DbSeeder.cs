@@ -72,6 +72,79 @@ public class DbSeeder
             SeedMenus(db, adminRoleId, now);
             _logger?.LogInformation("种子数据：初始菜单已写入");
         }
+
+        // 增量种子：为升级库补充新版本菜单（按权限码幂等判断），并授予 admin 角色
+        EnsureLogMenus(db, adminRoleId, now);
+
+        // 外键列索引：权限查询/会话校验/菜单树是高频路径，避免全表扫描
+        EnsureIndex(db, "sys_user_role", "ix_sys_user_role_userid", "UserId");
+        EnsureIndex(db, "sys_user_role", "ix_sys_user_role_roleid", "RoleId");
+        EnsureIndex(db, "sys_role_menu", "ix_sys_role_menu_roleid", "RoleId");
+        EnsureIndex(db, "sys_role_menu", "ix_sys_role_menu_menuid", "MenuId");
+        EnsureIndex(db, "sys_menu", "ix_sys_menu_parentid", "ParentId");
+        EnsureIndex(db, "sys_user_session", "ix_sys_user_session_tokenid", "TokenId");
+        EnsureIndex(db, "sys_user_session", "ix_sys_user_session_userid", "UserId");
+        EnsureIndex(db, "sys_user_session", "ix_sys_user_session_refreshtoken", "RefreshTokenHash");
+        _logger?.LogInformation("种子数据：索引校验完成");
+    }
+
+    /// <summary>
+    /// 增量补充「日志管理」菜单（操作日志/登录日志），按权限码幂等：
+    /// 已存在则跳过，新菜单自动授予 admin 角色。升级现有库时生效。
+    /// </summary>
+    private void EnsureLogMenus(ISqlSugarClient db, long adminRoleId, DateTime now)
+    {
+        var monitorDir = db.Queryable<SysMenu>().First(x => x.MenuName == "系统监控" && x.MenuType == (int)MenuTypeEnum.Directory);
+        if (monitorDir == null)
+        {
+            return; // 全新库走 SeedMenus 完整流程
+        }
+
+        (string Name, string Path, string Component, string Permission, int Sort)[] menus =
+        [
+            ("操作日志", "/monitor/operlog", "monitor/operlog/index", "monitor:operlog:list", 2),
+            ("登录日志", "/monitor/loginlog", "monitor/loginlog/index", "monitor:loginlog:list", 3)
+        ];
+
+        foreach (var spec in menus)
+        {
+            if (db.Queryable<SysMenu>().Any(x => x.Permission == spec.Permission))
+            {
+                continue;
+            }
+
+            var menu = db.Insertable(new SysMenu
+            {
+                ParentId = monitorDir.Id,
+                MenuName = spec.Name,
+                MenuType = (int)MenuTypeEnum.Menu,
+                Path = spec.Path,
+                Component = spec.Component,
+                Permission = spec.Permission,
+                Sort = spec.Sort,
+                CreateTime = now,
+                CreateBy = "system"
+            }).ExecuteReturnEntity();
+
+            // 授予 admin 角色（存在性幂等）
+            if (!db.Queryable<SysRoleMenu>().Any(x => x.RoleId == adminRoleId && x.MenuId == menu.Id))
+            {
+                db.Insertable(new SysRoleMenu { RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
+            }
+            _logger?.LogInformation("种子数据：增量菜单「{Name}」已写入", spec.Name);
+        }
+    }
+
+    /// <summary>确保普通（非唯一）索引存在，幂等</summary>
+    private static void EnsureIndex(ISqlSugarClient db, string table, string indexName, string column)
+    {
+        // 表名/列名为代码内常量，无注入风险
+        var exists = db.Ado.SqlQuery<int>(
+            $"SELECT COUNT(1) FROM sys.indexes WHERE name = '{indexName}' AND object_id = OBJECT_ID('{table}')").First();
+        if (exists == 0)
+        {
+            db.Ado.ExecuteCommand($"CREATE INDEX [{indexName}] ON [{table}] ([{column}])");
+        }
     }
 
     private void SeedMenus(ISqlSugarClient db, long adminRoleId, DateTime now)

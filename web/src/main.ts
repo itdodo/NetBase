@@ -17,4 +17,9 @@ app.use(ElementPlus, { locale: zhCn })
 setupRouterGuard(router)
 setupPermissionDirective(app)
 
+// 全局错误兜底：未捕获异常统一记录（预留上报接口），避免静默丢失
+app.config.errorHandler = (err, _instance, info) => {
+  console.error(`[全局错误] ${info}:`, err)
+}
+
 app.mount('#app')

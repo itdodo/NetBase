@@ -53,6 +53,9 @@ public interface ISysAuthService
     /// <summary>按用户ID清除全部会话（停用/删除用户时调用，立即踢下线）</summary>
     Task RemoveUserSessionsAsync(long userId);
 
+    /// <summary>修改自己密码（验证旧密码），成功后清除该用户全部会话强制重新登录</summary>
+    Task ChangePasswordAsync(long userId, string oldPassword, string newPassword, string? operatorName);
+
     /// <summary>查询用户资料（profile 接口）</summary>
     Task<UserDto?> GetUserProfileAsync(long userId);
 

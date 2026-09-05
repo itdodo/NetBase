@@ -23,6 +23,12 @@ export const constantRoutes: RouteRecordRaw[] = [
     ]
   },
   {
+    path: '/403',
+    name: 'forbidden',
+    component: () => import('@/views/error/403.vue'),
+    meta: { title: '403' }
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: () => import('@/views/error/404.vue'),

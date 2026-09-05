@@ -50,7 +50,7 @@ dotnet run          # 默认 http://localhost:5026；Swagger 见 /swagger
 
 首次启动会自动 **CodeFirst 建表并写入种子数据**（`Db:InitEnabled=false` 可关闭）：
 
-- 账号：`admin` / 密码：`123456`
+- 账号：`admin` / 密码：`123456`（历史库）；新用户默认密码为 `Net123456`（满足密码策略：6 位以上含字母和数字）
 - 角色：`超级管理员（admin）`
 - 菜单：系统管理（用户/角色/菜单 + 增删改按钮权限）、系统监控
 

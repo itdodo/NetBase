@@ -7,4 +7,7 @@
     <Project Path="src/NetBase.Repository/NetBase.Repository.csproj" />
     <Project Path="src/NetBase.Service/NetBase.Service.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NetBase.Tests/NetBase.Tests.csproj" />
+  </Folder>
 </Solution>

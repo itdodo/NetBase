@@ -87,6 +87,12 @@ request.interceptors.response.use(
       return Promise.reject(error)
     }
 
+    // 429：限流（登录尝试过于频繁）
+    if (status === 429) {
+      ElMessage.error('操作过于频繁，请稍后再试')
+      return Promise.reject(error)
+    }
+
     ElMessage.error(message || error.message || '网络异常，请稍后重试')
     return Promise.reject(error)
   }

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using NetBase.Common.Users;
+using NetBase.Model.Dtos;
 using NetBase.Api.Auth;
 using NetBase.Common.Results;
 using NetBase.Service.Sys;
@@ -17,8 +19,9 @@ public class AuthController(
 {
     private const string TokenIdClaim = "jti";
 
-    /// <summary>登录</summary>
+    /// <summary>登录（每 IP 每分钟限流 10 次；连续失败 5 次锁定 10 分钟）</summary>
     [AllowAnonymous]
+    [EnableRateLimiting("login")]
     [HttpPost("login")]
     public async Task<ApiResult<LoginResult>> Login([FromBody] LoginRequestDto request)
     {
@@ -82,21 +85,17 @@ public class AuthController(
         await authService.KickSessionAsync(id);
         return Success("已强制下线");
     }
-}
 
-/// <summary>登录请求</summary>
-public class LoginRequestDto
-{
-    /// <summary>用户名</summary>
-    public string UserName { get; set; } = string.Empty;
-
-    /// <summary>密码</summary>
-    public string Password { get; set; } = string.Empty;
-}
-
-/// <summary>刷新令牌请求</summary>
-public class RefreshRequestDto
-{
-    /// <summary>刷新令牌</summary>
-    public string RefreshToken { get; set; } = string.Empty;
+    /// <summary>修改自己密码（验证旧密码；成功后全部会话失效，需重新登录）</summary>
+    [Authorize]
+    [HttpPost("change-password")]
+    public async Task<ApiResult> ChangePassword([FromBody] ChangePasswordDto dto)
+    {
+        await authService.ChangePasswordAsync(
+            currentUserService.UserId ?? 0,
+            dto.OldPassword,
+            dto.NewPassword,
+            OperatorName);
+        return Success("密码修改成功，请重新登录");
+    }
 }

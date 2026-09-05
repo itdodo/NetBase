@@ -18,6 +18,7 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<ISysUserService, SysUserService>();
         services.TryAddScoped<ISysRoleService, SysRoleService>();
         services.TryAddScoped<ISysMenuService, SysMenuService>();
+        services.TryAddScoped<ISysLogService, SysLogService>();
 
         // 认证授权
         if (configuration != null)

@@ -14,36 +14,99 @@ using NetBase.Repository.Repositories;
 
 namespace NetBase.Service.Sys;
 
-/// <summary>认证服务实现：JWT 签发、会话管理、刷新轮换</summary>
+/// <summary>认证服务实现：JWT 签发、会话管理、刷新轮换、登录安全</summary>
 public class SysAuthService(
     IRepository<SysUser> userRepository,
     IRepository<SysUserSession> sessionRepository,
     ISysUserService userService,
     IPermissionService permissionService,
+    ISysLogService logService,
+    ICacheService cacheService,
     IOptions<JwtOptions> jwtOptions) : ISysAuthService
 {
     private readonly JwtOptions _jwt = jwtOptions.Value;
 
+    /// <summary>失败锁定阈值（次数 / 时间窗，参数化留待系统配置模块）</summary>
+    private const int FailThreshold = 5;
+    private static readonly TimeSpan FailWindow = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan LockDuration = TimeSpan.FromMinutes(10);
+
     public async Task<LoginResult> LoginAsync(string userName, string password, string? loginIp, string? userAgent)
+    {
+        try
+        {
+            var result = await DoLoginAsync(userName, password, loginIp, userAgent);
+            if (result == null)
+            {
+                // 密码错误（不泄露账号是否存在）
+                await WriteLoginLogAsync(userName, 0, false, "用户名或密码错误", loginIp, userAgent);
+                throw new BusinessException("用户名或密码错误", ApiResultCode.BadRequest);
+            }
+
+            await WriteLoginLogAsync(userName, result.User.Id, true, "登录成功", loginIp, userAgent);
+            return result;
+        }
+        catch (BusinessException ex)
+        {
+            // 锁定/停用等业务拒绝也记入登录日志（密码错误已在上分支记录）
+            if (ex.Message != "用户名或密码错误")
+            {
+                await WriteLoginLogAsync(userName, 0, false, ex.Message, loginIp, userAgent);
+            }
+            throw;
+        }
+    }
+
+    /// <summary>登录主体：锁定校验 → 账号校验 → 密码校验（失败计数）。返回 null 表示密码错误</summary>
+    private async Task<LoginResult?> DoLoginAsync(string userName, string password, string? loginIp, string? userAgent)
     {
         if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(password))
         {
             throw new BusinessException("用户名和密码不能为空", ApiResultCode.BadRequest);
         }
 
-        var user = await userRepository.GetFirstAsync(x => x.UserName == userName);
-        // 统一错误提示，不泄露账号是否存在
-        if (user == null || !PasswordHelper.Verify(password, user.Password))
+        // 登录失败锁定：连续失败达阈值则锁定一段时间（暴力破解防护）
+        var key = userName.ToLowerInvariant();
+        var failKey = $"netbase:login:fail:{key}";
+        var lockKey = $"netbase:login:lock:{key}";
+        if (cacheService.Get<bool>(lockKey))
         {
-            throw new BusinessException("用户名或密码错误", ApiResultCode.BadRequest);
+            throw new BusinessException($"密码错误次数过多，账号已锁定，请 {LockDuration.TotalMinutes:F0} 分钟后重试", ApiResultCode.BadRequest);
         }
+
+        var user = await userRepository.GetFirstAsync(x => x.UserName == userName);
+        var passwordOk = user != null && PasswordHelper.Verify(password, user.Password);
+        if (user == null || !passwordOk)
+        {
+            // 统一错误提示，不泄露账号是否存在；失败计数入缓存，达阈值锁定
+            var fails = cacheService.Get<int>(failKey) + 1;
+            cacheService.Set(failKey, fails, FailWindow);
+            if (fails >= FailThreshold)
+            {
+                cacheService.Set(lockKey, true, LockDuration);
+            }
+            return null;
+        }
+
         if (user.Status != (int)StatusEnum.Enabled)
         {
             throw new BusinessException("账号已被停用，请联系管理员", ApiResultCode.Forbidden);
         }
 
+        cacheService.Remove(failKey);
         return await CreateSessionAsync(user, loginIp, userAgent);
     }
+
+    private Task WriteLoginLogAsync(string userName, long userId, bool success, string message, string? loginIp, string? userAgent) =>
+        logService.RecordLoginAsync(new SysLoginLog
+        {
+            UserId = userId,
+            UserName = userName,
+            Success = success,
+            Message = message,
+            Ip = loginIp,
+            UserAgent = userAgent?.Length > 255 ? userAgent[..255] : userAgent
+        });
 
     public async Task<LoginResult> RefreshAsync(string refreshToken, string? loginIp, string? userAgent)
     {
@@ -105,6 +168,34 @@ public class SysAuthService(
         await sessionRepository.DeletePhysicalWhereAsync(x => x.Id == sessionId);
 
     public async Task<UserDto?> GetUserProfileAsync(long userId) => await userService.GetDetailAsync(userId);
+
+    public async Task ChangePasswordAsync(long userId, string oldPassword, string newPassword, string? operatorName)
+    {
+        var policyError = PasswordPolicy.Validate(newPassword);
+        if (policyError != null)
+        {
+            throw new BusinessException(policyError, ApiResultCode.BadRequest);
+        }
+
+        var user = await userRepository.GetByIdAsync(userId)
+            ?? throw new BusinessException("账号不存在", ApiResultCode.Unauthorized);
+        if (!PasswordHelper.Verify(oldPassword, user.Password))
+        {
+            throw new BusinessException("旧密码不正确", ApiResultCode.BadRequest);
+        }
+        if (PasswordHelper.Verify(newPassword, user.Password))
+        {
+            throw new BusinessException("新密码不能与旧密码相同", ApiResultCode.BadRequest);
+        }
+
+        var hashed = PasswordHelper.Encrypt(newPassword);
+        await userRepository.UpdateWhereAsync(
+            x => x.Id == userId,
+            x => new SysUser { Password = hashed, UpdateTime = DateTime.Now, UpdateBy = operatorName });
+
+        // 改密后清除全部会话（含当前），强制重新登录
+        await sessionRepository.DeletePhysicalWhereAsync(x => x.UserId == userId);
+    }
 
     #region 内部
 

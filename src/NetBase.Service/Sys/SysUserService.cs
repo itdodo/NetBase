@@ -75,10 +75,18 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             await EnsureRolesExistAsync(dto.RoleIds);
         }
 
+        var password = dto.Password.IsNullOrEmpty() ? PasswordHelper.DefaultPassword : dto.Password;
+        // 密码复杂度服务端强制校验（默认密码本身满足策略）
+        var policyError = PasswordPolicy.Validate(password);
+        if (policyError != null)
+        {
+            throw new BusinessException(policyError, ApiResultCode.BadRequest);
+        }
+
         var user = new SysUser
         {
             UserName = dto.UserName,
-            Password = PasswordHelper.Encrypt(dto.Password.IsNullOrEmpty() ? PasswordHelper.DefaultPassword : dto.Password),
+            Password = PasswordHelper.Encrypt(password),
             NickName = dto.NickName,
             Phone = dto.Phone,
             Email = dto.Email,
@@ -152,11 +160,19 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
     {
         _ = await GetRequiredAsync(id);
         var password = newPassword.IsNullOrEmpty() ? PasswordHelper.DefaultPassword : newPassword;
+        // 密码复杂度服务端强制校验（管理员重置同样受策略约束）
+        var policyError = PasswordPolicy.Validate(password);
+        if (policyError != null)
+        {
+            throw new BusinessException(policyError, ApiResultCode.BadRequest);
+        }
         // 哈希在表达式外计算，闭包变量会被 SqlSugar 参数化；静态方法调用放入表达式树无法翻译
         var hashed = PasswordHelper.Encrypt(password);
         await Repository.UpdateWhereAsync(
             x => x.Id == id,
             x => new SysUser { Password = hashed, UpdateTime = DateTime.Now, UpdateBy = operatorName });
+        // 重置密码后清除该用户全部会话，强制重新登录
+        await _userSessionRepository.DeletePhysicalWhereAsync(x => x.UserId == id);
     }
 
     public async Task AssignRolesAsync(long userId, List<long> roleIds)

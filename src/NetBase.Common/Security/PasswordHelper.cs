@@ -19,7 +19,7 @@ public static class PasswordHelper
     private const int HashSize = 32;
 
     /// <summary>新用户默认密码</summary>
-    public const string DefaultPassword = "123456";
+    public const string DefaultPassword = "Net123456";
 
     public static string Encrypt(string password)
     {

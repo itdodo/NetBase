@@ -38,6 +38,7 @@ builder.Services
     {
         options.Filters.Add<ModelValidationFilter>();
         options.Filters.Add<GlobalExceptionFilter>();
+        options.Filters.Add<OperationLogFilter>();
     })
     .AddJsonOptions(options =>
     {
@@ -49,6 +50,27 @@ builder.Services
         // 关闭 [ApiController] 默认的 400 ProblemDetails 响应，统一走 ModelValidationFilter
         options.SuppressModelStateInvalidFilter = true;
     });
+
+// 操作日志：自动记录全部写操作（参数脱敏）
+builder.Services.AddScoped<OperationLogFilter>();
+
+// 登录限流：每 IP 每分钟最多 10 次登录尝试（防暴力破解，与失败锁定互为补充）
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("login", context =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            $"login:{context.Connection.RemoteIpAddress}",
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1)
+            }));
+});
+
+// 健康检查：数据库连通性探针（供负载均衡/K8s 使用）
+builder.Services.AddHealthChecks()
+    .AddCheck<DatabaseHealthCheck>("database");
 
 // 认证授权：JWT Bearer + 动态权限码策略
 var jwtSection = builder.Configuration.GetSection(JwtOptions.SectionName);
@@ -152,11 +174,12 @@ if (app.Environment.IsDevelopment())
 app.UseSerilogRequestLogging();
 app.UseCors();
 app.UseHttpsRedirection();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// 健康检查端点
-app.MapGet("/health", () => Results.Ok(new { status = "ok", time = DateTime.Now }));
+// 健康检查端点（含数据库探针）
+app.MapHealthChecks("/health");
 
 app.Run();

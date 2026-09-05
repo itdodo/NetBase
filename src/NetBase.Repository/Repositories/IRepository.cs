@@ -92,6 +92,9 @@ public interface IRepository<T> where T : BaseEntity, new()
 
     #endregion
 
-    /// <summary>开启事务执行（同连接内多个操作原子提交）</summary>
+    /// <summary>开启事务执行（同连接内多个操作原子提交，异常时回滚并原样抛出）</summary>
     TResult Transaction<TResult>(Func<TResult> action);
+
+    /// <summary>开启异步事务执行（同连接内多个操作原子提交，异常时回滚并原样抛出）</summary>
+    Task<TResult> TransactionAsync<TResult>(Func<Task<TResult>> action);
 }

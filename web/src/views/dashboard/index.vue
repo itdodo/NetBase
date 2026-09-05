@@ -29,12 +29,13 @@ const menuCount = computed(() => {
       <el-descriptions-item label="前端框架">Vue 3 + Element Plus + Vite</el-descriptions-item>
     </el-descriptions>
     <el-alert
+      v-if="menuCount === 0"
       class="tip"
       type="warning"
       show-icon
       :closable="false"
       title="提示"
-      description="菜单数据来自 /api/sys/menu/tree。若此处显示 0 项，请确认后端已启动且数据库初始化成功（appsettings.json 中 Db:InitEnabled=true）。"
+      description="菜单数据来自 /api/sys/menu/tree。此处显示 0 项，请确认后端已启动且数据库初始化成功（appsettings.json 中 Db:InitEnabled=true）。"
     />
   </el-card>
 </template>

@@ -105,9 +105,14 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
             throw new BusinessException("不允许删除内置管理员角色");
         }
 
-        await Repository.DeleteAsync(id);
-        await _userRoleRepository.DeleteWhereAsync(x => x.RoleId == id);
-        await _roleMenuRepository.DeleteWhereAsync(x => x.RoleId == id);
+        // 角色、用户角色、角色菜单三表整体事务
+        await Repository.TransactionAsync(async () =>
+        {
+            await Repository.DeleteAsync(id);
+            await _userRoleRepository.DeleteWhereAsync(x => x.RoleId == id);
+            await _roleMenuRepository.DeleteWhereAsync(x => x.RoleId == id);
+            return true;
+        });
     }
 
     public async Task AssignMenusAsync(long roleId, List<long> menuIds)
@@ -123,15 +128,20 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
             }
         }
 
-        await _roleMenuRepository.DeleteWhereAsync(x => x.RoleId == roleId);
-        if (distinct.Count > 0)
+        // 先删后插整体事务，避免中途失败丢失角色全部菜单授权
+        await Repository.TransactionAsync(async () =>
         {
-            await _roleMenuRepository.InsertRangeAsync(distinct.Select(menuId => new SysRoleMenu
+            await _roleMenuRepository.DeleteWhereAsync(x => x.RoleId == roleId);
+            if (distinct.Count > 0)
             {
-                RoleId = roleId,
-                MenuId = menuId
-            }));
-        }
+                await _roleMenuRepository.InsertRangeAsync(distinct.Select(menuId => new SysRoleMenu
+                {
+                    RoleId = roleId,
+                    MenuId = menuId
+                }));
+            }
+            return true;
+        });
     }
 
     public async Task<List<long>> GetMenuIdsAsync(long roleId)

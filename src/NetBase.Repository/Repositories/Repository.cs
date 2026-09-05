@@ -174,5 +174,24 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
 
     #endregion
 
-    public TResult Transaction<TResult>(Func<TResult> action) => Db.Ado.UseTran(action).Data;
+    public TResult Transaction<TResult>(Func<TResult> action)
+    {
+        // UseTran 会把异常吞进 DbResult，这里重抛以保证业务异常（如参数校验）正常向上传递且已回滚
+        var result = Db.Ado.UseTran(action);
+        if (!result.IsSuccess)
+        {
+            throw result.ErrorException ?? new Exception("事务执行失败");
+        }
+        return result.Data;
+    }
+
+    public async Task<TResult> TransactionAsync<TResult>(Func<Task<TResult>> action)
+    {
+        var result = await Db.Ado.UseTranAsync(action);
+        if (!result.IsSuccess)
+        {
+            throw result.ErrorException ?? new Exception("事务执行失败");
+        }
+        return result.Data;
+    }
 }

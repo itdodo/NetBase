@@ -78,8 +78,13 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             Status = dto.Status,
             CreateBy = operatorName
         };
-        await Repository.InsertAsync(user);
-        await SaveUserRolesAsync(user.Id, dto.RoleIds);
+        // 用户与角色关联整体事务，避免中途失败产生孤儿数据
+        await Repository.TransactionAsync(async () =>
+        {
+            await Repository.InsertAsync(user);
+            await SaveUserRolesAsync(user.Id, dto.RoleIds);
+            return true;
+        });
         return user.Id;
     }
 
@@ -98,12 +103,15 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         user.Status = dto.Status;
         user.UpdateTime = DateTime.Now;
         user.UpdateBy = operatorName;
-        await Repository.UpdateAsync(user);
-
-        if (dto.RoleIds != null)
+        await Repository.TransactionAsync(async () =>
         {
-            await SaveUserRolesAsync(id, dto.RoleIds);
-        }
+            await Repository.UpdateAsync(user);
+            if (dto.RoleIds != null)
+            {
+                await SaveUserRolesAsync(id, dto.RoleIds);
+            }
+            return true;
+        });
     }
 
     public async new Task DeleteAsync(long id)
@@ -114,8 +122,12 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             throw new BusinessException("不允许删除内置管理员账号");
         }
 
-        await Repository.DeleteAsync(id);
-        await _userRoleRepository.DeleteWhereAsync(x => x.UserId == id);
+        await Repository.TransactionAsync(async () =>
+        {
+            await Repository.DeleteAsync(id);
+            await _userRoleRepository.DeleteWhereAsync(x => x.UserId == id);
+            return true;
+        });
     }
 
     public async Task ResetPasswordAsync(long id, string? newPassword)
@@ -136,7 +148,11 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         {
             await EnsureRolesExistAsync(roleIds);
         }
-        await SaveUserRolesAsync(userId, roleIds);
+        await Repository.TransactionAsync(async () =>
+        {
+            await SaveUserRolesAsync(userId, roleIds);
+            return true;
+        });
     }
 
     public Task<SysUser?> GetByUserNameAsync(string userName) =>

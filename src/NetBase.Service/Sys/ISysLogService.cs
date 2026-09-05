@@ -79,6 +79,12 @@ public interface ISysLogService
     /// <summary>操作日志分页</summary>
     Task<PageResult<OperationLogDto>> GetOperationLogPageAsync(LogQueryDto query);
 
+    /// <summary>操作日志导出（全量，条件同分页）</summary>
+    Task<List<OperationLogDto>> GetOperationLogExportAsync(LogQueryDto query);
+
+    /// <summary>登录日志导出（全量，条件同分页）</summary>
+    Task<List<LoginLogDto>> GetLoginLogExportAsync(LogQueryDto query);
+
     /// <summary>登录日志分页</summary>
     Task<PageResult<LoginLogDto>> GetLoginLogPageAsync(LogQueryDto query);
 }

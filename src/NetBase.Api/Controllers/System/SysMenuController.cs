@@ -8,7 +8,7 @@ using NetBase.Service.Sys;
 namespace NetBase.Api.Controllers.System;
 
 /// <summary>系统菜单管理</summary>
-[Route("api/sys/menu")]
+[Route("api/v1/sys/menu")]
 public class SysMenuController(
     ISysMenuService menuService,
     ICurrentUserService currentUserService) : BaseController(currentUserService)

@@ -14,6 +14,7 @@ import {
 } from '@/api/user'
 import { getRoleList } from '@/api/role'
 import { formatDateTime } from '@/utils/format'
+import { download } from '@/utils/download'
 import type { RoleSimple, User } from '@/types/api'
 
 const loading = ref(false)
@@ -37,6 +38,10 @@ async function loadData() {
 function handleSearch() {
   query.pageIndex = 1
   loadData()
+}
+
+async function handleExport(): Promise<void> {
+  await download('/sys/user/export', { ...query }, `用户列表_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
 function handleReset() {
@@ -157,6 +162,7 @@ onMounted(() => {
       <el-button v-permission="'sys:user:add'" type="success" :icon="Plus" @click="openCreate">
         新增用户
       </el-button>
+      <el-button v-permission="'sys:user:list'" type="warning" @click="handleExport">导出</el-button>
     </div>
 
     <!-- 数据表格 -->
@@ -188,10 +194,10 @@ onMounted(() => {
       />
       <el-table-column label="操作" width="185">
         <template #default="{ row }">
-          <el-button v-permission="'sys:user:edit'" link type="primary" @click="openEdit(row)">
+          <el-button v-permission="'sys:user:edit'" link type="primary" @click="openEdit(row as User)">
             编辑
           </el-button>
-          <el-button v-permission="'sys:user:edit'" link type="warning" @click="handleResetPassword(row)">
+          <el-button v-permission="'sys:user:edit'" link type="warning" @click="handleResetPassword(row as User)">
             重置密码
           </el-button>
           <el-button
@@ -199,7 +205,7 @@ onMounted(() => {
             link
             type="danger"
             :disabled="row.userName === 'admin'"
-            @click="handleDelete(row)"
+            @click="handleDelete(row as User)"
           >
             删除
           </el-button>

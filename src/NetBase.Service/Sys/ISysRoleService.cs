@@ -13,6 +13,9 @@ public interface ISysRoleService
     /// <summary>查询全部可用角色（下拉框用）</summary>
     Task<List<RoleSimpleDto>> GetAllEnabledAsync();
 
+    /// <summary>按查询条件取全量角色（导出用，不分页）</summary>
+    Task<List<RoleDto>> GetExportListAsync(RoleQueryDto query);
+
     /// <summary>查询角色详情</summary>
     Task<RoleDto?> GetDetailAsync(long id);
 

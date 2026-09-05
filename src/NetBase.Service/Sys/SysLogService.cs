@@ -39,7 +39,28 @@ public class SysLogService(
         }
     }
 
+    /// <summary>操作日志导出（全量，条件同分页；不走分页以免上限截断）</summary>
+    public async Task<List<OperationLogDto>> GetOperationLogExportAsync(LogQueryDto query)
+    {
+        var logs = await operationLogRepository.GetListAsync(BuildOperationPredicate(query));
+        return logs.Select(ToOperationDto).ToList();
+    }
+
+    /// <summary>登录日志导出（全量，条件同分页）</summary>
+    public async Task<List<LoginLogDto>> GetLoginLogExportAsync(LogQueryDto query)
+    {
+        var logs = await loginLogRepository.GetListAsync(BuildLoginPredicate(query));
+        return logs.Select(ToLoginDto).ToList();
+    }
+
     public async Task<PageResult<OperationLogDto>> GetOperationLogPageAsync(LogQueryDto query)
+    {
+        var page = await operationLogRepository.GetPageListAsync(BuildOperationPredicate(query), query);
+        var items = page.Items.Select(ToOperationDto).ToList();
+        return PageResult<OperationLogDto>.Of(items, page.Total, page.PageIndex, page.PageSize);
+    }
+
+    private Expression<Func<SysOperationLog, bool>>? BuildOperationPredicate(LogQueryDto query)
     {
         var hasCondition = false;
         var exp = Expressionable.Create<SysOperationLog>();
@@ -57,28 +78,34 @@ public class SysLogService(
             var success = query.Success.Value == 1;
             exp.And(x => x.Success == success);
         }
-
-        var page = await operationLogRepository.GetPageListAsync(hasCondition ? exp.ToExpression() : null, query);
-        var items = page.Items.Select(x => new OperationLogDto
-        {
-            Id = x.Id,
-            UserId = x.UserId,
-            UserName = x.UserName,
-            Module = x.Module,
-            Action = x.Action,
-            HttpMethod = x.HttpMethod,
-            Path = x.Path,
-            Params = x.Params,
-            Success = x.Success,
-            ErrorMessage = x.ErrorMessage,
-            ElapsedMs = x.ElapsedMs,
-            Ip = x.Ip,
-            CreateTime = x.CreateTime
-        }).ToList();
-        return PageResult<OperationLogDto>.Of(items, page.Total, page.PageIndex, page.PageSize);
+        return hasCondition ? exp.ToExpression() : null;
     }
 
+    private static OperationLogDto ToOperationDto(SysOperationLog x) => new()
+    {
+        Id = x.Id,
+        UserId = x.UserId,
+        UserName = x.UserName,
+        Module = x.Module,
+        Action = x.Action,
+        HttpMethod = x.HttpMethod,
+        Path = x.Path,
+        Params = x.Params,
+        Success = x.Success,
+        ErrorMessage = x.ErrorMessage,
+        ElapsedMs = x.ElapsedMs,
+        Ip = x.Ip,
+        CreateTime = x.CreateTime
+    };
+
     public async Task<PageResult<LoginLogDto>> GetLoginLogPageAsync(LogQueryDto query)
+    {
+        var page = await loginLogRepository.GetPageListAsync(BuildLoginPredicate(query), query);
+        var items = page.Items.Select(ToLoginDto).ToList();
+        return PageResult<LoginLogDto>.Of(items, page.Total, page.PageIndex, page.PageSize);
+    }
+
+    private Expression<Func<SysLoginLog, bool>>? BuildLoginPredicate(LogQueryDto query)
     {
         var hasCondition = false;
         var exp = Expressionable.Create<SysLoginLog>();
@@ -96,19 +123,18 @@ public class SysLogService(
             var success = query.Success.Value == 1;
             exp.And(x => x.Success == success);
         }
-
-        var page = await loginLogRepository.GetPageListAsync(hasCondition ? exp.ToExpression() : null, query);
-        var items = page.Items.Select(x => new LoginLogDto
-        {
-            Id = x.Id,
-            UserId = x.UserId,
-            UserName = x.UserName,
-            Success = x.Success,
-            Message = x.Message,
-            Ip = x.Ip,
-            UserAgent = x.UserAgent,
-            CreateTime = x.CreateTime
-        }).ToList();
-        return PageResult<LoginLogDto>.Of(items, page.Total, page.PageIndex, page.PageSize);
+        return hasCondition ? exp.ToExpression() : null;
     }
+
+    private static LoginLogDto ToLoginDto(SysLoginLog x) => new()
+    {
+        Id = x.Id,
+        UserId = x.UserId,
+        UserName = x.UserName,
+        Success = x.Success,
+        Message = x.Message,
+        Ip = x.Ip,
+        UserAgent = x.UserAgent,
+        CreateTime = x.CreateTime
+    };
 }

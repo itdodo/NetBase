@@ -26,16 +26,26 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         IRepository<SysRole> roleRepository,
         IRepository<SysUserRole> userRoleRepository,
         IRepository<SysUserSession> userSessionRepository,
-        IPermissionService permissionService) : base(repository)
+        IPermissionService permissionService,
+        ISysConfigService configService) : base(repository)
     {
         _roleRepository = roleRepository;
         _userRoleRepository = userRoleRepository;
         _userSessionRepository = userSessionRepository;
         _permissionService = permissionService;
+        _configService = configService;
     }
 
     private readonly IRepository<SysUserSession> _userSessionRepository;
     private readonly IPermissionService _permissionService;
+    private readonly ISysConfigService _configService;
+
+    /// <summary>默认密码：优先取系统参数 sys.pwd.defaultPassword，未配置回退内置值</summary>
+    private async Task<string> GetDefaultPasswordAsync()
+    {
+        var configured = await _configService.GetConfigValueAsync("sys.pwd.defaultPassword");
+        return configured.IsNotNullOrEmpty() ? configured : PasswordHelper.DefaultPassword;
+    }
 
     public async Task<PageResult<UserDto>> GetPageListAsync(UserQueryDto query)
     {
@@ -44,6 +54,13 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         var result = PageResult<UserDto>.Of(
             await ToDtosAsync(page.Items), page.Total, page.PageIndex, page.PageSize);
         return result;
+    }
+
+    /// <summary>按查询条件取全量用户（导出用，不分页）</summary>
+    public async Task<List<UserDto>> GetExportListAsync(UserQueryDto query)
+    {
+        var users = await Repository.GetListAsync(BuildPredicate(query));
+        return await ToDtosAsync(users);
     }
 
     public async Task<List<UserDto>> GetAllEnabledAsync()
@@ -75,7 +92,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             await EnsureRolesExistAsync(dto.RoleIds);
         }
 
-        var password = dto.Password.IsNullOrEmpty() ? PasswordHelper.DefaultPassword : dto.Password;
+        var password = dto.Password.IsNullOrEmpty() ? await GetDefaultPasswordAsync() : dto.Password;
         // 密码复杂度服务端强制校验（默认密码本身满足策略）
         var policyError = PasswordPolicy.Validate(password);
         if (policyError != null)
@@ -159,7 +176,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
     public async Task ResetPasswordAsync(long id, string? newPassword, string? operatorName = null)
     {
         _ = await GetRequiredAsync(id);
-        var password = newPassword.IsNullOrEmpty() ? PasswordHelper.DefaultPassword : newPassword;
+        var password = newPassword.IsNullOrEmpty() ? await GetDefaultPasswordAsync() : newPassword;
         // 密码复杂度服务端强制校验（管理员重置同样受策略约束）
         var policyError = PasswordPolicy.Validate(password);
         if (policyError != null)

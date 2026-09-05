@@ -22,14 +22,20 @@ public class SysAuthService(
     IPermissionService permissionService,
     ISysLogService logService,
     ICacheService cacheService,
+    ISysConfigService configService,
     IOptions<JwtOptions> jwtOptions) : ISysAuthService
 {
     private readonly JwtOptions _jwt = jwtOptions.Value;
 
-    /// <summary>失败锁定阈值（次数 / 时间窗，参数化留待系统配置模块）</summary>
+    /// <summary>失败锁定阈值/窗口：可经系统参数 sys.login.failThreshold / sys.login.lockMinutes 运维调整</summary>
     private const int FailThreshold = 5;
+    private const int LockMinutes = 10;
     private static readonly TimeSpan FailWindow = TimeSpan.FromMinutes(10);
-    private static readonly TimeSpan LockDuration = TimeSpan.FromMinutes(10);
+
+    /// <summary>读取锁定阈值（参数配置优先，缺省回退内置值）</summary>
+    private Task<int> GetFailThresholdAsync() => configService.GetIntConfigAsync("sys.login.failThreshold", FailThreshold);
+
+    private Task<int> GetLockMinutesAsync() => configService.GetIntConfigAsync("sys.login.lockMinutes", LockMinutes);
 
     public async Task<LoginResult> LoginAsync(string userName, string password, string? loginIp, string? userAgent)
     {
@@ -65,13 +71,14 @@ public class SysAuthService(
             throw new BusinessException("用户名和密码不能为空", ApiResultCode.BadRequest);
         }
 
-        // 登录失败锁定：连续失败达阈值则锁定一段时间（暴力破解防护）
+        // 登录失败锁定：连续失败达阈值则锁定一段时间（阈值/时长支持参数配置）
         var key = userName.ToLowerInvariant();
         var failKey = $"netbase:login:fail:{key}";
         var lockKey = $"netbase:login:lock:{key}";
         if (cacheService.Get<bool>(lockKey))
         {
-            throw new BusinessException($"密码错误次数过多，账号已锁定，请 {LockDuration.TotalMinutes:F0} 分钟后重试", ApiResultCode.BadRequest);
+            var lockMinutes = await GetLockMinutesAsync();
+            throw new BusinessException($"密码错误次数过多，账号已锁定，请 {lockMinutes} 分钟后重试", ApiResultCode.BadRequest);
         }
 
         var user = await userRepository.GetFirstAsync(x => x.UserName == userName);
@@ -79,11 +86,13 @@ public class SysAuthService(
         if (user == null || !passwordOk)
         {
             // 统一错误提示，不泄露账号是否存在；失败计数入缓存，达阈值锁定
+            var threshold = await GetFailThresholdAsync();
             var fails = cacheService.Get<int>(failKey) + 1;
             cacheService.Set(failKey, fails, FailWindow);
-            if (fails >= FailThreshold)
+            if (fails >= threshold)
             {
-                cacheService.Set(lockKey, true, LockDuration);
+                var lockMinutes = await GetLockMinutesAsync();
+                cacheService.Set(lockKey, true, TimeSpan.FromMinutes(lockMinutes));
             }
             return null;
         }

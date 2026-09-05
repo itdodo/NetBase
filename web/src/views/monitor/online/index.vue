@@ -48,7 +48,7 @@ onMounted(loadData)
       <el-table-column prop="expireTime" label="过期时间" width="165" :formatter="formatDateTime" />
       <el-table-column label="操作" width="110" align="center">
         <template #default="{ row }">
-          <el-button v-permission="'monitor:online:list'" link type="danger" @click="handleKick(row)">
+          <el-button v-permission="'monitor:online:list'" link type="danger" @click="handleKick(row as SessionInfo)">
             强制下线
           </el-button>
         </template>

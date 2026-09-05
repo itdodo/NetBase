@@ -192,10 +192,10 @@ onMounted(loadData)
           >
             添加下级
           </el-button>
-          <el-button v-permission="'sys:menu:edit'" link type="primary" @click="openEdit(row)">
+          <el-button v-permission="'sys:menu:edit'" link type="primary" @click="openEdit(row as MenuTree)">
             编辑
           </el-button>
-          <el-button v-permission="'sys:menu:delete'" link type="danger" @click="handleDelete(row)">
+          <el-button v-permission="'sys:menu:delete'" link type="danger" @click="handleDelete(row as MenuTree)">
             删除
           </el-button>
         </template>

@@ -9,7 +9,7 @@ import { refreshTokenApi } from '@/api/auth'
  * 401 时用 RefreshToken 静默续期（单飞：并发 401 只刷新一次）并重放原请求。
  */
 const request = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   timeout: 15000
 })
 
@@ -48,6 +48,10 @@ function forceLogout(): void {
 
 request.interceptors.response.use(
   (response) => {
+    // 二进制响应（文件导出）直接透传
+    if (response.config.responseType === 'blob') {
+      return response.data as never
+    }
     const result = response.data as { code: number; message: string; data: unknown }
     if (result.code !== 200) {
       ElMessage.error(result.message || '操作失败')

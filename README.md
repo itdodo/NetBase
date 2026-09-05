@@ -12,7 +12,11 @@
 | 缓存 | MemoryCache（默认）/ Redis（备用） | 配置一键切换 |
 | 消息队列 | RabbitMQ（备用，默认关闭） | RabbitMQ.Client 7.x 异步 API |
 | 日志 | Serilog | 控制台 + 按日滚动文件（Logs/） |
-| API 文档 | .NET 10 内置 OpenAPI + Swagger UI | `/swagger` |
+| API 文档 | .NET 10 内置 OpenAPI + Swagger UI + XML 注释 | `/swagger`（Bearer 调试） |
+| 认证 | JWT Bearer + RefreshToken 轮换 + 会话表 | 登录锁定/强制下线/在线用户 |
+| 审计 | 操作日志 + 登录日志（参数脱敏） | 等保要求 |
+| Excel | MiniExcel | 列表导出 |
+| 部署 | Dockerfile + docker-compose | 前端静态文件由 API 托管，单容器 |
 
 ## 解决方案结构
 
@@ -50,7 +54,8 @@ dotnet run          # 默认 http://localhost:5026；Swagger 见 /swagger
 
 首次启动会自动 **CodeFirst 建表并写入种子数据**（`Db:InitEnabled=false` 可关闭）：
 
-- 账号：`admin` / 密码：`123456`（历史库）；新用户默认密码为 `Net123456`（满足密码策略：6 位以上含字母和数字）
+- 账号：`admin` / 密码：`123456`（历史库存量账号；新建用户默认密码为系统参数 `sys.pwd.defaultPassword`，当前值 `Net123456`，满足密码策略）
+- 登录保护：连续失败 5 次锁定 10 分钟（系统参数可调），每 IP 每分钟限 10 次尝试
 - 角色：`超级管理员（admin）`
 - 菜单：系统管理（用户/角色/菜单 + 增删改按钮权限）、系统监控
 
@@ -81,7 +86,11 @@ SysUser ──< SysUserRole >── SysRole ──< SysRoleMenu >── SysMenu(
 - 菜单按钮类型带 `Permission` 权限码（如 `sys:user:add`），为后续接口鉴权预留
 - 所有业务表继承 `BaseEntity`：自增主键、创建/更新审计字段、`ISoftDelete` 软删除（查询自动过滤）
 
-## API 一览（/api/sys）
+## API 版本
+
+所有接口路径带版本段：`/api/v1/...`，配合 Swagger XML 注释（接口/DTO 说明自动进文档）。
+
+## API 一览（/api/v1）
 
 | 模块 | 方法与路由 | 说明 |
 |---|---|---|
@@ -142,9 +151,18 @@ web/src/
   接入 JWT 时仅需替换 `stores/user.ts` 中 login 的 mock 实现
 - **降级策略**：菜单接口不可用时提示并以基础模式进入（仅首页），不白屏
 
+## Docker 部署
+
+```bash
+docker compose up -d        # 单容器：API 托管前端静态文件 + SqlServer，自动建表种子
+# 访问 http://localhost:8080（生产环境务必覆盖 Jwt__SecretKey 与数据库密码环境变量）
+```
+
+本地生产模式验证：`cd web && npm run build`，将 `web/dist` 复制到 `src/NetBase.Api/wwwroot/` 后 `dotnet run`。
+
 ## 后续扩展点（按需求演进）
 
-1. **认证授权**：后端接入 JWT Bearer + 权限过滤器（读取 `SysMenu.Permission` 校验接口权限），前端替换 `stores/user.ts` 的 mock 登录；`PasswordHelper` 建议升级为 BCrypt/PBKDF2
-2. **部署**：前端 `npm run build` 后可将 `web/dist` 由 API 托管（`UseStaticFiles` + Fallback 单进程部署），或 Nginx 独立部署
-3. **Redis/RabbitMQ**：后端已封装（`ICacheService`、`IRabbitMqPublisher`），配置开关即用
-4. **多租户/审计日志/操作日志**：可在 `BaseEntity` 与 AOP 上扩展
+1. **部门/组织架构 + 数据权限**（本部门/本部门及以下/全部）——企业 RBAC 的第二权限维度
+2. **代码生成器**（三层样板生成）、文件上传、通知公告、定时任务
+3. **多租户、国际化、业务错误码体系**
+4. **Redis/RabbitMQ**：后端已封装（`ICacheService`、`IRabbitMqPublisher`），配置开关即用

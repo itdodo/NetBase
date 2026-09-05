@@ -13,6 +13,9 @@ public interface ISysUserService
     /// <summary>查询全部可用用户（下拉框用）</summary>
     Task<List<UserDto>> GetAllEnabledAsync();
 
+    /// <summary>按查询条件取全量用户（导出用，不分页）</summary>
+    Task<List<UserDto>> GetExportListAsync(UserQueryDto query);
+
     /// <summary>查询用户详情（含角色）</summary>
     Task<UserDto?> GetDetailAsync(long id);
 

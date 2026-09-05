@@ -12,6 +12,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-  </PropertyGroup>
+    <!-- XML 注释：供 OpenAPI 文档展示接口/DTO 说明；1591=公开成员缺注释（框架代码不强制） -->
+  <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  <NoWarn>$(NoWarn);1591</NoWarn>
+</PropertyGroup>
 
 </Project>

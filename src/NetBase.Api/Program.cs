@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using NetBase.Api.Auth;
 using NetBase.Api.Filters;
+using NetBase.Api.Middlewares;
 using NetBase.Api.Services;
 using NetBase.Common.Users;
 using NetBase.Middleware;
@@ -171,13 +172,31 @@ if (app.Environment.IsDevelopment())
     }); // /swagger
 }
 
+// 前端静态托管：wwwroot 存在前端构建产物时启用（Docker 单容器部署形态）
+var indexPage = Path.Combine(app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"), "index.html");
+if (File.Exists(indexPage))
+{
+    app.UseStaticFiles();
+}
+
 app.UseSerilogRequestLogging();
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseCors();
 app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// SPA 回退：非 API 路由刷新时返回 index.html（仅前端产物存在时）
+if (File.Exists(indexPage))
+{
+    app.MapFallbackToFile("index.html");
+}
 
 // 健康检查端点（含数据库探针）
 app.MapHealthChecks("/health");

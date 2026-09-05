@@ -11,7 +11,7 @@ namespace NetBase.Api.Controllers.Auth;
 
 /// <summary>认证：登录、刷新、登出、在线会话管理</summary>
 [ApiController]
-[Route("api/auth")]
+[Route("api/v1/auth")]
 public class AuthController(
     ISysAuthService authService,
     IPermissionService permissionService,

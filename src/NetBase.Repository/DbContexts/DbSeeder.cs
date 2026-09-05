@@ -75,6 +75,9 @@ public class DbSeeder
 
         // 增量种子：为升级库补充新版本菜单（按权限码幂等判断），并授予 admin 角色
         EnsureLogMenus(db, adminRoleId, now);
+        EnsureSystemMenus(db, adminRoleId, now);
+        SeedConfigs(db, now);
+        SeedSampleDicts(db, now);
 
         // 外键列索引：权限查询/会话校验/菜单树是高频路径，避免全表扫描
         EnsureIndex(db, "sys_user_role", "ix_sys_user_role_userid", "UserId");
@@ -275,4 +278,114 @@ public class DbSeeder
             Permission = $"{permissionPrefix}:delete", Sort = 3, CreateTime = now, CreateBy = "system"
         }
     ];
-}
+
+    /// <summary>内置系统参数（幂等：按参数键判断）</summary>
+    private void SeedConfigs(ISqlSugarClient db, DateTime now)
+    {
+        (string Key, string Value, string Name, string Remark)[] configs =
+        [
+            ("sys.pwd.defaultPassword", "Net123456", "默认初始密码", "新建用户/重置密码使用的默认密码，需满足密码策略"),
+            ("sys.login.failThreshold", "5", "登录失败锁定阈值", "连续失败达到该次数后锁定账号"),
+            ("sys.login.lockMinutes", "10", "登录锁定时长(分钟)", "账号锁定持续时间")
+        ];
+
+        foreach (var spec in configs)
+        {
+            if (db.Queryable<SysConfig>().Any(x => x.ConfigKey == spec.Key))
+            {
+                continue;
+            }
+            db.Insertable(new SysConfig
+            {
+                ConfigKey = spec.Key,
+                ConfigValue = spec.Value,
+                ConfigName = spec.Name,
+                IsBuiltIn = true,
+                Remark = spec.Remark,
+                CreateTime = now,
+                CreateBy = "system"
+            }).ExecuteCommand();
+            _logger?.LogInformation("种子数据：内置参数 {Key} 已写入", spec.Key);
+        }
+    }
+
+    /// <summary>示例字典（幂等：按字典编码判断）</summary>
+    private void SeedSampleDicts(ISqlSugarClient db, DateTime now)
+    {
+        if (db.Queryable<SysDictType>().Any(x => x.DictCode == "demo_priority"))
+        {
+            return;
+        }
+
+        var type = db.Insertable(new SysDictType
+        {
+            DictCode = "demo_priority",
+            DictName = "优先级（示例）",
+            Status = 1,
+            Remark = "框架自带的字典使用示例，业务字典照此模式维护",
+            CreateTime = now,
+            CreateBy = "system"
+        }).ExecuteReturnEntity();
+
+        (string Label, string Value, int Sort)[] items =
+        [
+            ("高", "1", 1),
+            ("中", "2", 2),
+            ("低", "3", 3)
+        ];
+        db.Insertable(items.Select(i => new SysDictData
+        {
+            DictTypeId = type.Id,
+            Label = i.Label,
+            Value = i.Value,
+            Sort = i.Sort,
+            Status = 1,
+            CreateTime = now,
+            CreateBy = "system"
+        }).ToList()).ExecuteCommand();
+        _logger?.LogInformation("种子数据：示例字典 demo_priority 已写入");
+    }
+
+    /// <summary>增量补充「系统管理」下的字典/参数菜单（按权限码幂等）</summary>
+    private void EnsureSystemMenus(ISqlSugarClient db, long adminRoleId, DateTime now)
+    {
+        var systemDir = db.Queryable<SysMenu>().First(x => x.MenuName == "系统管理" && x.MenuType == (int)MenuTypeEnum.Directory);
+        if (systemDir == null)
+        {
+            return;
+        }
+
+        (string Name, string Path, string Component, string Permission, int Sort)[] menus =
+        [
+            ("字典管理", "/system/dict", "system/dict/index", "sys:dict:list", 4),
+            ("参数配置", "/system/config", "system/config/index", "sys:config:list", 5)
+        ];
+
+        foreach (var spec in menus)
+        {
+            if (db.Queryable<SysMenu>().Any(x => x.Permission == spec.Permission))
+            {
+                continue;
+            }
+
+            var menu = db.Insertable(new SysMenu
+            {
+                ParentId = systemDir.Id,
+                MenuName = spec.Name,
+                MenuType = (int)MenuTypeEnum.Menu,
+                Path = spec.Path,
+                Component = spec.Component,
+                Permission = spec.Permission,
+                Sort = spec.Sort,
+                CreateTime = now,
+                CreateBy = "system"
+            }).ExecuteReturnEntity();
+
+            if (!db.Queryable<SysRoleMenu>().Any(x => x.RoleId == adminRoleId && x.MenuId == menu.Id))
+            {
+                db.Insertable(new SysRoleMenu { RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
+            }
+            _logger?.LogInformation("种子数据：增量菜单「{Name}」已写入", spec.Name);
+        }
+    }}
+

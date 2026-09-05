@@ -51,6 +51,14 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
             .ToList();
     }
 
+    /// <summary>按查询条件取全量角色（导出用，不分页）</summary>
+    public async Task<List<RoleDto>> GetExportListAsync(RoleQueryDto query)
+    {
+        var predicate = BuildPredicate(query);
+        var roles = await Repository.GetListAsync(predicate);
+        return roles.OrderBy(x => x.Sort).Select(ToDto).ToList();
+    }
+
     public async Task<RoleDto?> GetDetailAsync(long id)
     {
         var role = await Repository.GetByIdAsync(id);

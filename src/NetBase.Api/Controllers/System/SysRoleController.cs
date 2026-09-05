@@ -8,7 +8,7 @@ using NetBase.Service.Sys;
 namespace NetBase.Api.Controllers.System;
 
 /// <summary>系统角色管理</summary>
-[Route("api/sys/role")]
+[Route("api/v1/sys/role")]
 public class SysRoleController(
     ISysRoleService roleService,
     ICurrentUserService currentUserService) : BaseController(currentUserService)
@@ -36,6 +36,23 @@ public class SysRoleController(
     public async Task<ApiResult<RoleDto?>> GetDetail(long id)
     {
         return Success(await roleService.GetDetailAsync(id));
+    }
+
+    /// <summary>导出角色列表（xlsx，条件同分页）</summary>
+    [HasPermission("sys:role:list")]
+    [HttpGet("export")]
+    public async Task<IActionResult> Export([FromQuery] RoleQueryDto query)
+    {
+        var list = await roleService.GetExportListAsync(query);
+        var rows = list.Select(r => new
+        {
+            角色名称 = r.RoleName,
+            角色编码 = r.RoleCode,
+            状态 = r.Status == 1 ? "启用" : "停用",
+            排序 = r.Sort,
+            创建时间 = r.CreateTime.ToString("yyyy-MM-dd HH:mm:ss")
+        });
+        return ExcelResult(rows, $"角色列表_{DateTime.Now:yyyyMMddHHmmss}.xlsx");
     }
 
     /// <summary>创建角色</summary>

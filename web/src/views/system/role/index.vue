@@ -16,6 +16,7 @@ import {
 } from '@/api/role'
 import { getMenuTree } from '@/api/menu'
 import { formatDateTime } from '@/utils/format'
+import { download } from '@/utils/download'
 import type { MenuTree, Role } from '@/types/api'
 
 const loading = ref(false)
@@ -38,6 +39,10 @@ async function loadData() {
 function handleSearch() {
   query.pageIndex = 1
   loadData()
+}
+
+async function handleExport(): Promise<void> {
+  await download('/sys/role/export', { ...query }, `角色列表_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
 function handleReset() {
@@ -169,6 +174,7 @@ onMounted(loadData)
       <el-button v-permission="'sys:role:add'" type="success" :icon="Plus" @click="openCreate">
         新增角色
       </el-button>
+      <el-button v-permission="'sys:role:list'" type="warning" @click="handleExport">导出</el-button>
     </div>
 
     <el-table v-loading="loading" :data="list" border stripe>
@@ -190,10 +196,10 @@ onMounted(loadData)
       />
       <el-table-column label="操作" width="185">
         <template #default="{ row }">
-          <el-button v-permission="'sys:role:edit'" link type="primary" @click="openEdit(row)">
+          <el-button v-permission="'sys:role:edit'" link type="primary" @click="openEdit(row as Role)">
             编辑
           </el-button>
-          <el-button v-permission="'sys:role:edit'" link type="success" @click="openAssignMenus(row)">
+          <el-button v-permission="'sys:role:edit'" link type="success" @click="openAssignMenus(row as Role)">
             分配菜单
           </el-button>
           <el-button
@@ -201,7 +207,7 @@ onMounted(loadData)
             link
             type="danger"
             :disabled="row.roleCode === 'admin'"
-            @click="handleDelete(row)"
+            @click="handleDelete(row as Role)"
           >
             删除
           </el-button>

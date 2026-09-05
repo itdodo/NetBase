@@ -8,7 +8,7 @@ using NetBase.Service.Sys;
 namespace NetBase.Api.Controllers.System;
 
 /// <summary>系统用户管理</summary>
-[Route("api/sys/user")]
+[Route("api/v1/sys/user")]
 public class SysUserController(
     ISysUserService userService,
     ICurrentUserService currentUserService) : BaseController(currentUserService)
@@ -36,6 +36,26 @@ public class SysUserController(
     public async Task<ApiResult<UserDto?>> GetDetail(long id)
     {
         return Success(await userService.GetDetailAsync(id));
+    }
+
+    /// <summary>导出用户列表（xlsx，条件同分页）</summary>
+    [HasPermission("sys:user:list")]
+    [HttpGet("export")]
+    public async Task<IActionResult> Export([FromQuery] UserQueryDto query)
+    {
+        var list = await userService.GetExportListAsync(query);
+        var rows = list.Select(u => new
+        {
+            用户名 = u.UserName,
+            昵称 = u.NickName,
+            手机号 = u.Phone,
+            邮箱 = u.Email,
+            状态 = u.Status == 1 ? "启用" : "停用",
+            角色 = string.Join(",", u.Roles.Select(r => r.RoleName)),
+            最后登录时间 = u.LastLoginTime?.ToString("yyyy-MM-dd HH:mm:ss"),
+            创建时间 = u.CreateTime.ToString("yyyy-MM-dd HH:mm:ss")
+        });
+        return ExcelResult(rows, $"用户列表_{DateTime.Now:yyyyMMddHHmmss}.xlsx");
     }
 
     /// <summary>创建用户</summary>

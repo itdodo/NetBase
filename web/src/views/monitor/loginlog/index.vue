@@ -4,6 +4,7 @@ import { Refresh, Search } from '@element-plus/icons-vue'
 import { getLoginLogPage } from '@/api/log'
 import type { LoginLogInfo } from '@/api/log'
 import { formatDateTime } from '@/utils/format'
+import { download } from '@/utils/download'
 
 defineOptions({ name: 'MonitorLoginlogView' })
 
@@ -27,6 +28,10 @@ async function loadData(): Promise<void> {
 function handleSearch(): void {
   query.pageIndex = 1
   loadData()
+}
+
+async function handleExport(): Promise<void> {
+  await download('/sys/log/login/export', { ...query }, `登录日志_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
 function handleReset(): void {
@@ -55,6 +60,7 @@ onMounted(loadData)
       </el-select>
       <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
       <el-button :icon="Refresh" @click="handleReset">重置</el-button>
+      <el-button v-permission="'monitor:loginlog:list'" type="warning" @click="handleExport">导出</el-button>
     </div>
 
     <el-table v-loading="loading" :data="list" border stripe>

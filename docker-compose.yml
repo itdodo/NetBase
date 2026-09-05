@@ -1,0 +1,35 @@
+# NetBase 单容器部署：应用 + SqlServer
+# 用法：docker compose up -d
+# 注意：生产环境务必通过环境变量覆盖 Jwt__SecretKey 与数据库密码
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: netbase-db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "YourStrong@Password1"
+    ports:
+      - "1433:1433"
+    volumes:
+      - netbase-db:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Password1' -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      retries: 10
+      start_period: 30s
+
+  api:
+    build: .
+    container_name: netbase-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      Db__ConnectionString: "Server=db;Database=NetBase;User Id=sa;Password=YourStrong@Password1;TrustServerCertificate=True;"
+      Jwt__SecretKey: "CHANGE_ME_Please-Use-A-Random-Key-At-Least-32-Chars-Long!"
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  netbase-db:

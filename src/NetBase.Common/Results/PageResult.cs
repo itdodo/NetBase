@@ -19,6 +19,12 @@ public class PageQuery
         get => _pageSize;
         set => _pageSize = value is < 1 or > 200 ? 20 : value;
     }
+
+    /// <summary>排序列名（实体属性名，不区分大小写；无效值回退主键 Id）</summary>
+    public string? SortField { get; set; }
+
+    /// <summary>是否降序，默认 true</summary>
+    public bool SortDesc { get; set; } = true;
 }
 
 /// <summary>分页返回结果</summary>

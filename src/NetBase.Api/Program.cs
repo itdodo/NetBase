@@ -2,6 +2,8 @@ using System.Text.Encodings.Web;
 using System.Text.Unicode;
 using Microsoft.AspNetCore.Mvc;
 using NetBase.Api.Filters;
+using NetBase.Api.Services;
+using NetBase.Common.Users;
 using NetBase.Middleware;
 using NetBase.Repository;
 using NetBase.Repository.DbContexts;
@@ -17,6 +19,10 @@ builder.Host.UseSerilog((context, configuration) => configuration.ReadFrom.Confi
 builder.Services.AddNetBaseRepository(builder.Configuration);
 builder.Services.AddNetBaseService();
 builder.Services.AddNetBaseMiddleware(builder.Configuration);
+
+// 当前用户（认证接入后自动从 Claims 解析，业务代码已按此取审计操作人）
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<ICurrentUserService, CurrentUserService>();
 
 // 控制器 + 全局过滤器（模型验证、异常处理）
 builder.Services

@@ -1,3 +1,7 @@
+<script setup lang="ts">
+defineOptions({ name: 'MonitorOnlineView' })
+</script>
+
 <template>
   <el-card>
     <el-empty description="在线用户功能需要接入认证后会话支持后实现">

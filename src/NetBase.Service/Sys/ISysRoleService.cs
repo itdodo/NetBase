@@ -23,7 +23,7 @@ public interface ISysRoleService
     Task UpdateAsync(long id, RoleSaveDto dto, string? operatorName = null);
 
     /// <summary>删除角色（软删除，同时清理关联；不允许删除内置 admin 角色）</summary>
-    Task DeleteAsync(long id);
+    Task DeleteAsync(long id, string? operatorName = null);
 
     /// <summary>为角色分配菜单（全量重设）</summary>
     Task AssignMenusAsync(long roleId, List<long> menuIds);

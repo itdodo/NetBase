@@ -34,9 +34,10 @@ request.interceptors.response.use(
     const message = error.response?.data?.message
     if (status === 401) {
       clearToken()
-      // 认证接入后此处跳登录页；避免在登录页循环提示
+      // 认证接入后此处跳登录页并携带回跳地址；避免在登录页循环提示
       if (location.pathname !== '/login') {
-        location.href = '/login'
+        const redirect = encodeURIComponent(location.pathname + location.search)
+        location.href = `/login?redirect=${redirect}`
       }
       return Promise.reject(error)
     }

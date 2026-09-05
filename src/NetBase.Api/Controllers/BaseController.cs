@@ -1,12 +1,16 @@
 using Microsoft.AspNetCore.Mvc;
 using NetBase.Common.Results;
+using NetBase.Common.Users;
 
 namespace NetBase.Api.Controllers;
 
-/// <summary>控制器基类：统一路由与返回封装</summary>
+/// <summary>控制器基类：统一路由、返回封装与当前用户</summary>
 [ApiController]
-public abstract class BaseController : ControllerBase
+public abstract class BaseController(ICurrentUserService currentUserService) : ControllerBase
 {
+    /// <summary>当前登录用户名（认证接入前回退为 system，保证审计字段始终有值）</summary>
+    protected string OperatorName => currentUserService.UserName ?? "system";
+
     /// <summary>成功返回（无数据）</summary>
     protected static ApiResult Success(string message = "操作成功") => ApiResult.Ok(message);
 

@@ -85,6 +85,9 @@ public interface IRepository<T> where T : BaseEntity, new()
     /// <summary>按实体删除</summary>
     bool Delete(T entity);
 
+    /// <summary>按实体异步删除（实体实现 ISoftDelete 时为软删除）</summary>
+    Task<bool> DeleteAsync(T entity);
+
     /// <summary>按条件删除</summary>
     int DeleteWhere(Expression<Func<T, bool>> predicate);
 

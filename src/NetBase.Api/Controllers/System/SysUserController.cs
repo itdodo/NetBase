@@ -1,3 +1,4 @@
+using NetBase.Common.Users;
 using Microsoft.AspNetCore.Mvc;
 using NetBase.Common.Results;
 using NetBase.Model.Dtos;
@@ -7,7 +8,9 @@ namespace NetBase.Api.Controllers.System;
 
 /// <summary>系统用户管理</summary>
 [Route("api/sys/user")]
-public class SysUserController(ISysUserService userService) : BaseController
+public class SysUserController(
+    ISysUserService userService,
+    ICurrentUserService currentUserService) : BaseController(currentUserService)
 {
     /// <summary>分页查询用户</summary>
     [HttpGet("page")]
@@ -35,7 +38,7 @@ public class SysUserController(ISysUserService userService) : BaseController
     [HttpPost]
     public async Task<ApiResult<long>> Create([FromBody] UserCreateDto dto)
     {
-        var id = await userService.CreateAsync(dto);
+        var id = await userService.CreateAsync(dto, OperatorName);
         return Success(id, "创建成功");
     }
 
@@ -43,7 +46,7 @@ public class SysUserController(ISysUserService userService) : BaseController
     [HttpPut("{id:long}")]
     public async Task<ApiResult> Update(long id, [FromBody] UserUpdateDto dto)
     {
-        await userService.UpdateAsync(id, dto);
+        await userService.UpdateAsync(id, dto, OperatorName);
         return Success();
     }
 
@@ -51,7 +54,7 @@ public class SysUserController(ISysUserService userService) : BaseController
     [HttpDelete("{id:long}")]
     public async Task<ApiResult> Delete(long id)
     {
-        await userService.DeleteAsync(id);
+        await userService.DeleteAsync(id, OperatorName);
         return Success();
     }
 
@@ -59,7 +62,7 @@ public class SysUserController(ISysUserService userService) : BaseController
     [HttpPut("{id:long}/password/reset")]
     public async Task<ApiResult> ResetPassword(long id, [FromBody] ResetPasswordDto? dto)
     {
-        await userService.ResetPasswordAsync(id, dto?.NewPassword);
+        await userService.ResetPasswordAsync(id, dto?.NewPassword, OperatorName);
         return ApiResult.Ok("密码已重置");
     }
 

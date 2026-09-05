@@ -46,6 +46,16 @@ export const usePermissionStore = defineStore('permission', () => {
       list.forEach((m) => {
         // 类型 2-菜单 注册为页面路由；目录仅用于侧边栏分组；按钮无页面
         if (m.menuType === 2) {
+          const component = m.component || ''
+          // 缓存名与页面组件 defineOptions name 约定：system/user/index → SystemUserView
+          // （index 段为目录约定不参与命名；非 index 结尾如 system/user/list → SystemUserListView）
+          const cachedName = component
+            ? component
+                .split('/')
+                .filter((seg) => seg.toLowerCase() !== 'index')
+                .map((seg) => seg.charAt(0).toUpperCase() + seg.slice(1))
+                .join('') + 'View'
+            : undefined
           routes.push({
             path: m.path || `/menu-${m.id}`,
             name: `menu-${m.id}`,
@@ -55,7 +65,7 @@ export const usePermissionStore = defineStore('permission', () => {
                 path: '',
                 name: `menu-${m.id}-index`,
                 component: m.component ? loadView(m.component) : loadView('error/404'),
-                meta: { title: m.menuName, icon: m.icon }
+                meta: { title: m.menuName, icon: m.icon, cachedName }
               }
             ]
           })

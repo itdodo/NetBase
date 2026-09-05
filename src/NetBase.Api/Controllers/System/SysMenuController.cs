@@ -1,3 +1,4 @@
+using NetBase.Common.Users;
 using Microsoft.AspNetCore.Mvc;
 using NetBase.Common.Results;
 using NetBase.Model.Dtos;
@@ -7,7 +8,9 @@ namespace NetBase.Api.Controllers.System;
 
 /// <summary>系统菜单管理</summary>
 [Route("api/sys/menu")]
-public class SysMenuController(ISysMenuService menuService) : BaseController
+public class SysMenuController(
+    ISysMenuService menuService,
+    ICurrentUserService currentUserService) : BaseController(currentUserService)
 {
     /// <summary>查询菜单树（全量）</summary>
     [HttpGet("tree")]
@@ -34,7 +37,7 @@ public class SysMenuController(ISysMenuService menuService) : BaseController
     [HttpPost]
     public async Task<ApiResult<long>> Create([FromBody] MenuSaveDto dto)
     {
-        var id = await menuService.CreateAsync(dto);
+        var id = await menuService.CreateAsync(dto, OperatorName);
         return Success(id, "创建成功");
     }
 
@@ -42,7 +45,7 @@ public class SysMenuController(ISysMenuService menuService) : BaseController
     [HttpPut("{id:long}")]
     public async Task<ApiResult> Update(long id, [FromBody] MenuSaveDto dto)
     {
-        await menuService.UpdateAsync(id, dto);
+        await menuService.UpdateAsync(id, dto, OperatorName);
         return Success();
     }
 
@@ -50,7 +53,7 @@ public class SysMenuController(ISysMenuService menuService) : BaseController
     [HttpDelete("{id:long}")]
     public async Task<ApiResult> Delete(long id)
     {
-        await menuService.DeleteAsync(id);
+        await menuService.DeleteAsync(id, OperatorName);
         return Success();
     }
 }

@@ -114,7 +114,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         });
     }
 
-    public async new Task DeleteAsync(long id)
+    public async new Task DeleteAsync(long id, string? operatorName = null)
     {
         var user = await GetRequiredAsync(id);
         if (user.UserName == AdminUserName)
@@ -122,15 +122,17 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             throw new BusinessException("不允许删除内置管理员账号");
         }
 
+        user.UpdateBy = operatorName;
+        user.UpdateTime = DateTime.Now;
         await Repository.TransactionAsync(async () =>
         {
-            await Repository.DeleteAsync(id);
+            await Repository.DeleteAsync(user);
             await _userRoleRepository.DeleteWhereAsync(x => x.UserId == id);
             return true;
         });
     }
 
-    public async Task ResetPasswordAsync(long id, string? newPassword)
+    public async Task ResetPasswordAsync(long id, string? newPassword, string? operatorName = null)
     {
         _ = await GetRequiredAsync(id);
         var password = newPassword.IsNullOrEmpty() ? PasswordHelper.DefaultPassword : newPassword;
@@ -138,7 +140,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         var hashed = PasswordHelper.Encrypt(password);
         await Repository.UpdateWhereAsync(
             x => x.Id == id,
-            x => new SysUser { Password = hashed, UpdateTime = DateTime.Now });
+            x => new SysUser { Password = hashed, UpdateTime = DateTime.Now, UpdateBy = operatorName });
     }
 
     public async Task AssignRolesAsync(long userId, List<long> roleIds)

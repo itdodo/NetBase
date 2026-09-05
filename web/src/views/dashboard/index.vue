@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+defineOptions({ name: 'DashboardView' })
+
 import type { MenuTree } from '@/types/api'
 import { useUserStore } from '@/stores/user'
 import { usePermissionStore } from '@/stores/permission'

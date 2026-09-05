@@ -117,9 +117,9 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
         await Repository.UpdateAsync(menu);
     }
 
-    public async new Task DeleteAsync(long id)
+    public async new Task DeleteAsync(long id, string? operatorName = null)
     {
-        _ = await GetRequiredAsync(id);
+        var menu = await GetRequiredAsync(id);
         if (await Repository.AnyAsync(x => x.ParentId == id))
         {
             throw new BusinessException("存在子菜单，不允许删除");
@@ -129,7 +129,9 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
             throw new BusinessException("菜单已被角色引用，请先取消角色授权");
         }
 
-        await Repository.DeleteAsync(id);
+        menu.UpdateBy = operatorName;
+        menu.UpdateTime = DateTime.Now;
+        await Repository.DeleteAsync(menu);
     }
 
     private async Task<SysMenu> GetRequiredAsync(long id) =>

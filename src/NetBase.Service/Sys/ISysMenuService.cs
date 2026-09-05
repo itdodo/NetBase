@@ -21,5 +21,5 @@ public interface ISysMenuService
     Task UpdateAsync(long id, MenuSaveDto dto, string? operatorName = null);
 
     /// <summary>删除菜单（校验子节点与角色引用）</summary>
-    Task DeleteAsync(long id);
+    Task DeleteAsync(long id, string? operatorName = null);
 }

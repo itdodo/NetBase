@@ -1,3 +1,4 @@
+using NetBase.Common.Users;
 using Microsoft.AspNetCore.Mvc;
 using NetBase.Common.Results;
 using NetBase.Model.Dtos;
@@ -7,7 +8,9 @@ namespace NetBase.Api.Controllers.System;
 
 /// <summary>系统角色管理</summary>
 [Route("api/sys/role")]
-public class SysRoleController(ISysRoleService roleService) : BaseController
+public class SysRoleController(
+    ISysRoleService roleService,
+    ICurrentUserService currentUserService) : BaseController(currentUserService)
 {
     /// <summary>分页查询角色</summary>
     [HttpGet("page")]
@@ -35,7 +38,7 @@ public class SysRoleController(ISysRoleService roleService) : BaseController
     [HttpPost]
     public async Task<ApiResult<long>> Create([FromBody] RoleSaveDto dto)
     {
-        var id = await roleService.CreateAsync(dto);
+        var id = await roleService.CreateAsync(dto, OperatorName);
         return Success(id, "创建成功");
     }
 
@@ -43,7 +46,7 @@ public class SysRoleController(ISysRoleService roleService) : BaseController
     [HttpPut("{id:long}")]
     public async Task<ApiResult> Update(long id, [FromBody] RoleSaveDto dto)
     {
-        await roleService.UpdateAsync(id, dto);
+        await roleService.UpdateAsync(id, dto, OperatorName);
         return Success();
     }
 
@@ -51,7 +54,7 @@ public class SysRoleController(ISysRoleService roleService) : BaseController
     [HttpDelete("{id:long}")]
     public async Task<ApiResult> Delete(long id)
     {
-        await roleService.DeleteAsync(id);
+        await roleService.DeleteAsync(id, OperatorName);
         return Success();
     }
 

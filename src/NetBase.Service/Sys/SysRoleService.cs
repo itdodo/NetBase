@@ -97,7 +97,7 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
         await Repository.UpdateAsync(role);
     }
 
-    public async new Task DeleteAsync(long id)
+    public async new Task DeleteAsync(long id, string? operatorName = null)
     {
         var role = await GetRequiredAsync(id);
         if (role.RoleCode == AdminRoleCode)
@@ -105,10 +105,12 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
             throw new BusinessException("不允许删除内置管理员角色");
         }
 
+        role.UpdateBy = operatorName;
+        role.UpdateTime = DateTime.Now;
         // 角色、用户角色、角色菜单三表整体事务
         await Repository.TransactionAsync(async () =>
         {
-            await Repository.DeleteAsync(id);
+            await Repository.DeleteAsync(role);
             await _userRoleRepository.DeleteWhereAsync(x => x.RoleId == id);
             await _roleMenuRepository.DeleteWhereAsync(x => x.RoleId == id);
             return true;

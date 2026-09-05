@@ -23,10 +23,10 @@ public interface ISysUserService
     Task UpdateAsync(long id, UserUpdateDto dto, string? operatorName = null);
 
     /// <summary>删除用户（软删除，同时清理角色关联；不允许删除 admin）</summary>
-    Task DeleteAsync(long id);
+    Task DeleteAsync(long id, string? operatorName = null);
 
     /// <summary>重置密码为指定值（为空则用默认密码）</summary>
-    Task ResetPasswordAsync(long id, string? newPassword);
+    Task ResetPasswordAsync(long id, string? newPassword, string? operatorName = null);
 
     /// <summary>为用户分配角色（全量重设）</summary>
     Task AssignRolesAsync(long userId, List<long> roleIds);

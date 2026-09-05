@@ -45,8 +45,7 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
     public PageResult<T> GetPageList(Expression<Func<T, bool>>? predicate, PageQuery page)
     {
         int total = 0;
-        var items = (predicate == null ? Queryable : Queryable.Where(predicate))
-            .OrderByDescending(x => x.Id)
+        var items = BuildPageQuery(predicate, page)
             .ToPageList(page.PageIndex, page.PageSize, ref total);
         return PageResult<T>.Of(items, total, page.PageIndex, page.PageSize);
     }
@@ -54,10 +53,35 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
     public async Task<PageResult<T>> GetPageListAsync(Expression<Func<T, bool>>? predicate, PageQuery page)
     {
         RefAsync<int> total = 0;
-        var items = await (predicate == null ? Queryable : Queryable.Where(predicate))
-            .OrderByDescending(x => x.Id)
+        var items = await BuildPageQuery(predicate, page)
             .ToPageListAsync(page.PageIndex, page.PageSize, total);
         return PageResult<T>.Of(items, total, page.PageIndex, page.PageSize);
+    }
+
+    /// <summary>
+    /// 组装分页查询：排序字段经实体属性反射白名单校验（无效回退主键），杜绝 SQL 注入。
+    /// </summary>
+    private ISugarQueryable<T> BuildPageQuery(Expression<Func<T, bool>>? predicate, PageQuery page)
+    {
+        var queryable = predicate == null ? Queryable : Queryable.Where(predicate);
+        var sortField = ResolveSortField(page.SortField);
+        return page.SortDesc
+            ? queryable.OrderBy($"{sortField} desc")
+            : queryable.OrderBy($"{sortField} asc");
+    }
+
+    /// <summary>校验排序列是否为实体公开属性，无效值回退主键</summary>
+    private static string ResolveSortField(string? sortField)
+    {
+        if (string.IsNullOrWhiteSpace(sortField))
+        {
+            return nameof(BaseEntity.Id);
+        }
+
+        var name = sortField.Trim();
+        var exists = typeof(T).GetProperties()
+            .Any(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        return exists ? name : nameof(BaseEntity.Id);
     }
 
     public long Count(Expression<Func<T, bool>>? predicate = null) =>
@@ -118,6 +142,8 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
     }
 
     public bool Delete(T entity) => DeleteEntity(entity);
+
+    public Task<bool> DeleteAsync(T entity) => DeleteEntityAsync(entity);
 
     public int DeleteWhere(Expression<Func<T, bool>> predicate)
     {

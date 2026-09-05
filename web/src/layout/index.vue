@@ -18,6 +18,11 @@ const tabsStore = useTabsStore()
 const isCollapse = ref(false)
 const userName = computed(() => userStore.userName)
 
+/** keep-alive 缓存名单：当前打开页签对应的组件名，关闭页签即释放缓存 */
+const cachedNames = computed(() =>
+  tabsStore.visitedViews.map((v) => v.cachedName).filter((n): n is string => !!n),
+)
+
 const breadcrumbs = computed(() =>
   route.matched
     .filter((r) => r.meta?.title)
@@ -74,7 +79,11 @@ async function handleLogout() {
       <TagsView />
 
       <el-main class="main">
-        <router-view />
+        <router-view v-slot="{ Component }">
+          <keep-alive :include="cachedNames">
+            <component :is="Component" />
+          </keep-alive>
+        </router-view>
       </el-main>
     </el-container>
   </el-container>

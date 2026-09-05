@@ -30,6 +30,7 @@ const activePath = computed(() => route.path)
     text-color="#a7b1c2"
     active-text-color="#ffffff"
     :collapse-transition="false"
+    unique-opened
     router
   >
     <MenuTreeItem v-for="menu in visibleMenus" :key="menu.id" :menu="menu" />

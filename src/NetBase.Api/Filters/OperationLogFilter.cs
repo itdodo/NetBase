@@ -38,7 +38,8 @@ public class OperationLogFilter(ISysLogService logService, ICurrentUserService c
             HttpMethod = httpMethod,
             Path = Truncate(context.HttpContext.Request.Path.Value, 200),
             Params = SensitiveData.Serialize(context.ActionArguments),
-            Success = executed.Exception == null,
+            // Canceled=被前置过滤器短路（模型验证/防重拒绝），同样视为失败操作
+            Success = executed.Exception == null && !executed.Canceled,
             ErrorMessage = Truncate(executed.Exception?.Message, 500),
             ElapsedMs = stopwatch.ElapsedMilliseconds,
             Ip = GetClientIp(context.HttpContext)

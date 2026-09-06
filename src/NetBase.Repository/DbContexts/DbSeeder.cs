@@ -76,9 +76,13 @@ public class DbSeeder
         // 增量种子：为升级库补充新版本菜单（按权限码幂等判断），并授予 admin 角色
         EnsureLogMenus(db, adminRoleId, now);
         EnsureSystemMenus(db, adminRoleId, now);
+        EnsureNoticeMenu(db, adminRoleId, now);
+        // 增量菜单的 CRUD 按钮权限码补齐（否则 admin 写操作 403）
+        EnsureCrudButtons(db, "sys:dict:list", adminRoleId, now);
+        EnsureCrudButtons(db, "sys:config:list", adminRoleId, now);
+        EnsureCrudButtons(db, "sys:notice:list", adminRoleId, now);
         SeedConfigs(db, now);
         SeedSampleDicts(db, now);
-        EnsureNoticeMenu(db, adminRoleId, now);
         SeedSampleNotice(db, now);
 
         // 外键列索引：权限查询/会话校验/菜单树是高频路径，避免全表扫描
@@ -137,6 +141,35 @@ public class DbSeeder
                 db.Insertable(new SysRoleMenu { RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
             }
             _logger?.LogInformation("种子数据：增量菜单「{Name}」已写入", spec.Name);
+        }
+    }
+
+    /// <summary>
+    /// 为指定模块补齐增/改/删按钮权限码（幂等）。
+    /// 增量菜单此前只种了 list 权限码，导致写操作全部 403。
+    /// </summary>
+    private void EnsureCrudButtons(ISqlSugarClient db, string listPermission, long adminRoleId, DateTime now)
+    {
+        var parent = db.Queryable<SysMenu>().First(x => x.Permission == listPermission);
+        if (parent == null)
+        {
+            return;
+        }
+
+        var prefix = listPermission.Replace(":list", string.Empty);
+        var buttons = BuildCrudButtons(parent.Id, prefix, now);
+        foreach (var button in buttons)
+        {
+            if (db.Queryable<SysMenu>().Any(x => x.Permission == button.Permission))
+            {
+                continue;
+            }
+
+            var menu = db.Insertable(button).ExecuteReturnEntity();
+            if (!db.Queryable<SysRoleMenu>().Any(x => x.RoleId == adminRoleId && x.MenuId == menu.Id))
+            {
+                db.Insertable(new SysRoleMenu { RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
+            }
         }
     }
 

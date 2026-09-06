@@ -83,7 +83,8 @@ public class SysDictService(
         var type = await typeRepository.GetByIdAsync(id)
             ?? throw new BusinessException($"字典类型不存在（Id={id}）", ApiResultCode.NotFound);
         await typeRepository.DeleteAsync(id);
-        await dataRepository.DeletePhysicalWhereAsync(x => x.DictTypeId == id);
+        // 数据项与类型保持一致的软删除（级联可追溯）
+        await dataRepository.DeleteWhereAsync(x => x.DictTypeId == id);
         await cacheService.RemoveAsync(CacheKey(type.DictCode));
     }
 

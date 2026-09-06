@@ -98,6 +98,11 @@ public class SysConfigService(
     {
         var config = await repository.GetByIdAsync(id)
             ?? throw new BusinessException($"参数不存在（Id={id}）", ApiResultCode.NotFound);
+        // 内置参数的业务键不可变更（值/名称/备注可改），否则业务读取将静默失效
+        if (config.IsBuiltIn && !string.Equals(config.ConfigKey, dto.ConfigKey, StringComparison.Ordinal))
+        {
+            throw new BusinessException("内置参数不允许修改参数键，仅可修改参数值", ApiResultCode.BadRequest);
+        }
         if (await repository.AnyAsync(x => x.ConfigKey == dto.ConfigKey && x.Id != id))
         {
             throw new BusinessException($"参数键 {dto.ConfigKey} 已存在", ApiResultCode.BadRequest);

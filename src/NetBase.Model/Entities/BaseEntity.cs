@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using SqlSugar;
 
 namespace NetBase.Model.Entities;
@@ -7,8 +8,9 @@ namespace NetBase.Model.Entities;
 /// </summary>
 public abstract class BaseEntity : ISoftDelete
 {
-    /// <summary>主键，自增</summary>
-    [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnDescription = "主键ID")]
+    /// <summary>主键（雪花ID，插入时由 ID 生成器填充；序列化为字符串防前端精度丢失）</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
+    [SugarColumn(IsPrimaryKey = true, ColumnDescription = "主键ID")]
     public long Id { get; set; }
 
     /// <summary>创建时间</summary>

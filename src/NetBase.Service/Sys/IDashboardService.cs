@@ -6,22 +6,22 @@ namespace NetBase.Service.Sys;
 public class DashboardStatsDto
 {
     /// <summary>用户总数</summary>
-    public long UserCount { get; set; }
+    public int UserCount { get; set; }
 
     /// <summary>角色数</summary>
-    public long RoleCount { get; set; }
+    public int RoleCount { get; set; }
 
     /// <summary>在线会话数（活跃）</summary>
-    public long OnlineSessions { get; set; }
+    public int OnlineSessions { get; set; }
 
     /// <summary>今日登录次数（成功）</summary>
-    public long TodayLogins { get; set; }
+    public int TodayLogins { get; set; }
 
     /// <summary>今日操作数</summary>
-    public long TodayOperations { get; set; }
+    public int TodayOperations { get; set; }
 
     /// <summary>公告数</summary>
-    public long NoticeCount { get; set; }
+    public int NoticeCount { get; set; }
 
     /// <summary>近 7 天登录趋势（成功/失败）</summary>
     public List<LoginTrendPoint> LoginTrend { get; set; } = [];

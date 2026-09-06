@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using MiniExcelLibs.Attributes;
 using NetBase.Common.Results;
 
+using System.Text.Json.Serialization;
 namespace NetBase.Model.Dtos;
 
 /// <summary>用户分页查询条件</summary>
@@ -16,12 +17,14 @@ public class UserQueryDto : PageQuery
     public int? Status { get; set; }
 
     /// <summary>部门过滤（含下级部门）</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     public long? DeptId { get; set; }
 }
 
 /// <summary>用户列表/详情返回</summary>
 public class UserDto
 {
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     public long Id { get; set; }
 
     public string UserName { get; set; } = string.Empty;
@@ -46,6 +49,7 @@ public class UserDto
     public List<RoleSimpleDto> Roles { get; set; } = [];
 
     /// <summary>所属部门ID</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     public long DeptId { get; set; }
 
     /// <summary>所属部门名称</summary>
@@ -87,6 +91,7 @@ public class UserCreateDto
     public List<long> RoleIds { get; set; } = [];
 
     /// <summary>所属部门ID</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     [Range(1, long.MaxValue, ErrorMessage = "请选择所属部门")]
     public long DeptId { get; set; }
 }
@@ -116,6 +121,7 @@ public class UserUpdateDto
     public List<long>? RoleIds { get; set; }
 
     /// <summary>所属部门ID</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     [Range(1, long.MaxValue, ErrorMessage = "请选择所属部门")]
     public long DeptId { get; set; }
 }

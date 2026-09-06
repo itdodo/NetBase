@@ -17,9 +17,9 @@ public class SysMessageController(ISysMessageService messageService, ICurrentUse
     /// <summary>发送消息（管理端）</summary>
     [HasPermission("sys:notice:add")]
     [HttpPost]
-    public async Task<ApiResult<long>> Send([FromBody] MessageSendDto dto)
+    public async Task<ApiResult<string>> Send([FromBody] MessageSendDto dto)
     {
-        return Success(await messageService.SendAsync(dto, OperatorName), "发送成功");
+        return SuccessId(await messageService.SendAsync(dto, OperatorName), "发送成功");
     }
 
     /// <summary>我的收件箱分页</summary>

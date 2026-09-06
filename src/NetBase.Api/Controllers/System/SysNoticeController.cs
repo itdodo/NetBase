@@ -41,9 +41,9 @@ public class SysNoticeController(ISysNoticeService noticeService, ICurrentUserSe
     /// <summary>创建公告</summary>
     [HasPermission("sys:notice:add")]
     [HttpPost]
-    public async Task<ApiResult<long>> Create([FromBody] NoticeSaveDto dto)
+    public async Task<ApiResult<string>> Create([FromBody] NoticeSaveDto dto)
     {
-        return Success(await noticeService.CreateAsync(dto, OperatorName), "创建成功");
+        return SuccessId(await noticeService.CreateAsync(dto, OperatorName), "创建成功");
     }
 
     /// <summary>更新公告</summary>

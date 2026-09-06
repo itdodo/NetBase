@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using NetBase.Common.Results;
 
+using System.Text.Json.Serialization;
 namespace NetBase.Model.Dtos;
 
 /// <summary>字典类型查询</summary>
@@ -38,6 +39,7 @@ public class DictTypeSaveDto
 public class DictDataSaveDto
 {
     /// <summary>所属字典类型ID</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     [Range(1, long.MaxValue, ErrorMessage = "字典类型ID无效")]
     public long DictTypeId { get; set; }
 
@@ -67,6 +69,7 @@ public class DictDataSaveDto
 /// <summary>字典数据项返回（下拉框/业务取值）</summary>
 public class DictDataDto
 {
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     public long Id { get; set; }
 
     public string Label { get; set; } = string.Empty;

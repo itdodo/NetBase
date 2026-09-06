@@ -3,12 +3,14 @@ using NetBase.Common.Results;
 using NetBase.Model.Dtos;
 using NetBase.Model.Entities;
 
+using System.Text.Json.Serialization;
 namespace NetBase.Service.Sys;
 
 /// <summary>消息发送请求</summary>
 public class MessageSendDto
 {
     /// <summary>接收人ID</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     [Range(1, long.MaxValue, ErrorMessage = "接收人无效")]
     public long ReceiverId { get; set; }
 

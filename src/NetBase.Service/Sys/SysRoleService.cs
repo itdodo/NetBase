@@ -3,6 +3,7 @@ using NetBase.Common.Extensions;
 using NetBase.Common.Results;
 using NetBase.Model.Dtos;
 using NetBase.Model.Entities;
+using Mapster;
 using NetBase.Model.Enums;
 using NetBase.Repository.Repositories;
 using NetBase.Service.Base;
@@ -232,14 +233,5 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
             .ToExpression();
     }
 
-    private static RoleDto ToDto(SysRole role) => new()
-    {
-        Id = role.Id,
-        RoleName = role.RoleName,
-        RoleCode = role.RoleCode,
-        Status = role.Status,
-        Sort = role.Sort,
-        DataScope = role.DataScope,
-        CreateTime = role.CreateTime
-    };
+    private static RoleDto ToDto(SysRole role) => role.Adapt<RoleDto>();
 }

@@ -1,5 +1,6 @@
 using SqlSugar;
 
+using System.Text.Json.Serialization;
 namespace NetBase.Model.Entities;
 
 /// <summary>操作日志（写操作自动记录，参数脱敏）</summary>
@@ -7,6 +8,7 @@ namespace NetBase.Model.Entities;
 public class SysOperationLog : BaseEntity
 {
     /// <summary>操作人ID</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     [SugarColumn(ColumnDescription = "操作人ID")]
     public long UserId { get; set; }
 

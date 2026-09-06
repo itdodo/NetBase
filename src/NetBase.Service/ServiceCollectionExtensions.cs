@@ -28,6 +28,12 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<IDashboardService, DashboardService>();
         services.TryAddScoped<ISystemMonitorService, SystemMonitorService>();
         services.TryAddScoped<ISysFileService, SysFileService>();
+        // Lazy.Captcha.Core：验证码生成（内存存储默认；分布式部署可换其 Redis 存储）
+        services.AddCaptcha(options =>
+        {
+            options.CodeLength = 4;
+            options.ImageOption.FontSize = 26;
+        });
         services.TryAddScoped<ICaptchaService, CaptchaService>();
 
         // 认证授权

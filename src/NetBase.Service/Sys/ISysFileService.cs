@@ -1,10 +1,12 @@
 using NetBase.Model.Entities;
 
+using System.Text.Json.Serialization;
 namespace NetBase.Service.Sys;
 
 /// <summary>文件上传结果</summary>
 public class FileUploadResult
 {
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     public long Id { get; set; }
 
     /// <summary>访问地址（/api/v1/file/{id}）</summary>

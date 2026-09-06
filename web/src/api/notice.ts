@@ -29,7 +29,7 @@ export const getNoticeDetail = (id: number) => request.get<never, NoticeInfo>(`/
 export const getLatestNotices = () => request.get<never, NoticeInfo[]>('/sys/notice/latest')
 
 /** 创建/更新/删除公告 */
-export const createNotice = (data: NoticeSave) => request.post<never, number>('/sys/notice', data)
+export const createNotice = (data: NoticeSave) => request.post<never, string>('/sys/notice', data)
 export const updateNotice = (id: number, data: NoticeSave) => request.put<never, void>(`/sys/notice/${id}`, data)
 export const deleteNotice = (id: number) => request.delete<never, void>(`/sys/notice/${id}`)
 

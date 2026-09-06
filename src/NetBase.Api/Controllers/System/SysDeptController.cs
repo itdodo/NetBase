@@ -31,9 +31,9 @@ public class SysDeptController(ISysDeptService deptService, ICurrentUserService 
     /// <summary>创建部门</summary>
     [HasPermission("sys:dept:add")]
     [HttpPost]
-    public async Task<ApiResult<long>> Create([FromBody] DeptSaveDto dto)
+    public async Task<ApiResult<string>> Create([FromBody] DeptSaveDto dto)
     {
-        return Success(await deptService.CreateAsync(dto, OperatorName), "创建成功");
+        return SuccessId(await deptService.CreateAsync(dto, OperatorName), "创建成功");
     }
 
     /// <summary>更新部门</summary>

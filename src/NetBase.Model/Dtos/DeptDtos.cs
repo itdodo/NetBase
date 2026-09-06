@@ -1,12 +1,15 @@
 using System.ComponentModel.DataAnnotations;
 
+using System.Text.Json.Serialization;
 namespace NetBase.Model.Dtos;
 
 /// <summary>部门树节点</summary>
 public class DeptTreeDto
 {
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     public long Id { get; set; }
 
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     public long ParentId { get; set; }
 
     public string DeptName { get; set; } = string.Empty;
@@ -30,6 +33,7 @@ public class DeptTreeDto
 public class DeptSaveDto
 {
     /// <summary>父级部门ID，顶级为 0</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     [Range(0, long.MaxValue, ErrorMessage = "父级部门ID无效")]
     public long ParentId { get; set; }
 

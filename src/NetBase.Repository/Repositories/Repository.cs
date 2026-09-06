@@ -110,10 +110,29 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
         return entity;
     }
 
-    public int InsertRange(IEnumerable<T> entities) => Db.Insertable(entities.ToList()).ExecuteCommand();
+    public int InsertRange(IEnumerable<T> entities)
+    {
+        // 批量插入走 UNION ALL 路径，AOP 填充不触发——显式填雪花主键
+        FillSnowflakeIds(entities);
+        return Db.Insertable(entities.ToList()).ExecuteCommand();
+    }
 
-    public async Task<int> InsertRangeAsync(IEnumerable<T> entities) =>
-        await Db.Insertable(entities.ToList()).ExecuteCommandAsync();
+    public async Task<int> InsertRangeAsync(IEnumerable<T> entities)
+    {
+        FillSnowflakeIds(entities);
+        return await Db.Insertable(entities.ToList()).ExecuteCommandAsync();
+    }
+
+    private static void FillSnowflakeIds(IEnumerable<T> entities)
+    {
+        foreach (var entity in entities)
+        {
+            if (entity.Id == 0)
+            {
+                entity.Id = Yitter.IdGenerator.YitIdHelper.NextId();
+            }
+        }
+    }
 
     public bool Update(T entity) => Db.Updateable(entity).ExecuteCommand() > 0;
 

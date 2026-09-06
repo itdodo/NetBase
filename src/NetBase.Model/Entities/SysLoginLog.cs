@@ -1,5 +1,6 @@
 using SqlSugar;
 
+using System.Text.Json.Serialization;
 namespace NetBase.Model.Entities;
 
 /// <summary>登录日志（成功与失败均记录，满足安全审计要求）</summary>
@@ -7,6 +8,7 @@ namespace NetBase.Model.Entities;
 public class SysLoginLog : BaseEntity
 {
     /// <summary>用户ID（登录失败且账号不存在时为 0）</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     [SugarColumn(ColumnDescription = "用户ID")]
     public long UserId { get; set; }
 

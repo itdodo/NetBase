@@ -1,6 +1,7 @@
 using NetBase.Common.Results;
 using NetBase.Model.Dtos;
 
+using System.Text.Json.Serialization;
 namespace NetBase.Service.Sys;
 
 /// <summary>登录结果（token 对 + 用户信息 + 权限码）</summary>
@@ -21,8 +22,10 @@ public class LoginResult
 /// <summary>在线会话条目</summary>
 public class SessionDto
 {
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     public long Id { get; set; }
 
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     public long UserId { get; set; }
 
     public string UserName { get; set; } = string.Empty;

@@ -21,6 +21,9 @@ public abstract class BaseController(ICurrentUserService currentUserService) : C
     /// <summary>失败返回</summary>
     protected static ApiResult Fail(string message, int code = ApiResultCode.Fail) => ApiResult.Fail(message, code);
 
+    /// <summary>成功返回雪花ID（字符串化防前端精度丢失）</summary>
+    protected static ApiResult<string> SuccessId(long id, string message = "操作成功") => ApiResult<string>.Ok(id.ToString(), message);
+
     /// <summary>Excel 导出结果（MiniExcel 生成 xlsx）</summary>
     protected FileContentResult ExcelResult<T>(IEnumerable<T> rows, string fileName)
     {

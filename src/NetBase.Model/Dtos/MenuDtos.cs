@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
+using System.Text.Json.Serialization;
 namespace NetBase.Model.Dtos;
 
 /// <summary>菜单树节点</summary>
@@ -40,6 +41,7 @@ public class MenuTreeDto
 public class MenuSaveDto
 {
     /// <summary>父级菜单ID，顶级为 0</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     [Range(0, long.MaxValue, ErrorMessage = "父级菜单ID无效")]
     public long ParentId { get; set; }
 

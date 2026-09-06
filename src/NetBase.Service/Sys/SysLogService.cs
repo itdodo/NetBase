@@ -4,6 +4,7 @@ using NetBase.Common.Results;
 using NetBase.Model.Dtos;
 using NetBase.Model.Entities;
 using NetBase.Repository.Repositories;
+using Mapster;
 using SqlSugar;
 using System.Linq.Expressions;
 
@@ -82,22 +83,7 @@ public class SysLogService(
             .ToExpression();
     }
 
-    private static OperationLogDto ToOperationDto(SysOperationLog x) => new()
-    {
-        Id = x.Id,
-        UserId = x.UserId,
-        UserName = x.UserName,
-        Module = x.Module,
-        Action = x.Action,
-        HttpMethod = x.HttpMethod,
-        Path = x.Path,
-        Params = x.Params,
-        Success = x.Success,
-        ErrorMessage = x.ErrorMessage,
-        ElapsedMs = x.ElapsedMs,
-        Ip = x.Ip,
-        CreateTime = x.CreateTime
-    };
+    private static OperationLogDto ToOperationDto(SysOperationLog x) => x.Adapt<OperationLogDto>();
 
     public async Task<PageResult<LoginLogDto>> GetLoginLogPageAsync(LogQueryDto query)
     {
@@ -120,15 +106,5 @@ public class SysLogService(
             .ToExpression();
     }
 
-    private static LoginLogDto ToLoginDto(SysLoginLog x) => new()
-    {
-        Id = x.Id,
-        UserId = x.UserId,
-        UserName = x.UserName,
-        Success = x.Success,
-        Message = x.Message,
-        Ip = x.Ip,
-        UserAgent = x.UserAgent,
-        CreateTime = x.CreateTime
-    };
+    private static LoginLogDto ToLoginDto(SysLoginLog x) => x.Adapt<LoginLogDto>();
 }

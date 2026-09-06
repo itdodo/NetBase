@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using NetBase.Common.Results;
 
+using System.Text.Json.Serialization;
 namespace NetBase.Model.Dtos;
 
 /// <summary>角色分页查询条件</summary>
@@ -18,6 +19,7 @@ public class RoleQueryDto : PageQuery
 /// <summary>角色返回</summary>
 public class RoleDto
 {
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     public long Id { get; set; }
 
     public string RoleName { get; set; } = string.Empty;
@@ -38,6 +40,7 @@ public class RoleDto
 /// <summary>角色简要信息（用于下拉框、用户角色展示）</summary>
 public class RoleSimpleDto
 {
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     public long Id { get; set; }
 
     public string RoleName { get; set; } = string.Empty;

@@ -40,10 +40,10 @@ public class SysMenuController(
     /// <summary>创建菜单（目录/菜单/按钮）</summary>
     [HasPermission("sys:menu:add")]
         [HttpPost]
-    public async Task<ApiResult<long>> Create([FromBody] MenuSaveDto dto)
+    public async Task<ApiResult<string>> Create([FromBody] MenuSaveDto dto)
     {
         var id = await menuService.CreateAsync(dto, OperatorName);
-        return Success(id, "创建成功");
+        return SuccessId(id, "创建成功");
     }
 
     /// <summary>更新菜单（父级不能是自身或子孙节点）</summary>

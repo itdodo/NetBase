@@ -12,7 +12,7 @@ export const getMenuTreeByRole = (roleId: number) =>
 export const getMenuDetail = (id: number) => request.get<never, MenuTree>(`/sys/menu/${id}`)
 
 /** 创建菜单（目录/菜单/按钮） */
-export const createMenu = (data: MenuSave) => request.post<never, number>('/sys/menu', data)
+export const createMenu = (data: MenuSave) => request.post<never, string>('/sys/menu', data)
 
 /** 更新菜单 */
 export const updateMenu = (id: number, data: MenuSave) =>

@@ -25,9 +25,9 @@ public class SysConfigController(ISysConfigService configService, ICurrentUserSe
     /// <summary>创建参数</summary>
     [HasPermission("sys:config:add")]
     [HttpPost]
-    public async Task<ApiResult<long>> Create([FromBody] ConfigSaveDto dto)
+    public async Task<ApiResult<string>> Create([FromBody] ConfigSaveDto dto)
     {
-        return Success(await configService.CreateAsync(dto, OperatorName), "创建成功");
+        return SuccessId(await configService.CreateAsync(dto, OperatorName), "创建成功");
     }
 
     /// <summary>更新参数</summary>

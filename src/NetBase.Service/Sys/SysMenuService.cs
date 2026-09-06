@@ -4,6 +4,7 @@ using NetBase.Common.Results;
 using NetBase.Model.Dtos;
 using NetBase.Model.Entities;
 using NetBase.Repository.Repositories;
+using Mapster;
 using NetBase.Service.Base;
 
 namespace NetBase.Service.Sys;
@@ -185,19 +186,5 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
             .ToList();
     }
 
-    private static MenuTreeDto ToTreeDto(SysMenu x) => new()
-    {
-        Id = x.Id,
-        ParentId = x.ParentId,
-        MenuName = x.MenuName,
-        MenuType = x.MenuType,
-        Path = x.Path,
-        Component = x.Component,
-        Permission = x.Permission,
-        Icon = x.Icon,
-        Sort = x.Sort,
-        Visible = x.Visible,
-        Status = x.Status,
-        CreateTime = x.CreateTime
-    };
+    private static MenuTreeDto ToTreeDto(SysMenu x) => x.Adapt<MenuTreeDto>();
 }

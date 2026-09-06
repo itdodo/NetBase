@@ -104,10 +104,10 @@ public class SysUserController(
     [HasPermission("sys:user:add")]
     [NoRepeatSubmit]
     [HttpPost]
-    public async Task<ApiResult<long>> Create([FromBody] UserCreateDto dto)
+    public async Task<ApiResult<string>> Create([FromBody] UserCreateDto dto)
     {
         var id = await userService.CreateAsync(dto, OperatorName);
-        return Success(id, "创建成功");
+        return SuccessId(id, "创建成功");
     }
 
     /// <summary>更新用户（RoleIds 传入则全量重设角色）</summary>

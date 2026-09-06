@@ -12,7 +12,7 @@ export const getRoleList = () => request.get<never, RoleSimple[]>('/sys/role/lis
 export const getRoleDetail = (id: number) => request.get<never, Role>(`/sys/role/${id}`)
 
 /** 创建角色 */
-export const createRole = (data: RoleSave) => request.post<never, number>('/sys/role', data)
+export const createRole = (data: RoleSave) => request.post<never, string>('/sys/role', data)
 
 /** 更新角色 */
 export const updateRole = (id: number, data: RoleSave) =>

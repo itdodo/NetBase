@@ -3,6 +3,7 @@ using NetBase.Common.Extensions;
 using NetBase.Common.Results;
 using NetBase.Model.Dtos;
 using NetBase.Model.Entities;
+using Mapster;
 using NetBase.Model.Enums;
 using NetBase.Repository.Repositories;
 
@@ -148,17 +149,11 @@ public class SysDeptService(
     {
         return all.Where(x => x.ParentId == parentId)
             .OrderBy(x => x.Sort)
-            .Select(x => new DeptTreeDto
+            .Select(x =>
             {
-                Id = x.Id,
-                ParentId = x.ParentId,
-                DeptName = x.DeptName,
-                DeptCode = x.DeptCode,
-                Leader = x.Leader,
-                Sort = x.Sort,
-                Status = x.Status,
-                CreateTime = x.CreateTime,
-                Children = BuildTree(all, x.Id)
+                var node = x.Adapt<DeptTreeDto>();
+                node.Children = BuildTree(all, x.Id);
+                return node;
             })
             .ToList();
     }

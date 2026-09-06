@@ -1,4 +1,5 @@
 using SqlSugar;
+using System.Text.Json.Serialization;
 
 namespace NetBase.Model.Entities;
 
@@ -19,6 +20,7 @@ public class SysMessage : BaseEntity
     public string? SenderName { get; set; }
 
     /// <summary>接收人ID</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     [SugarColumn(ColumnDescription = "接收人ID")]
     public long ReceiverId { get; set; }
 

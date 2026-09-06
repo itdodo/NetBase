@@ -33,9 +33,9 @@ public class SysDictController(ISysDictService dictService, ICurrentUserService 
     /// <summary>创建字典类型</summary>
     [HasPermission("sys:dict:add")]
     [HttpPost("type")]
-    public async Task<ApiResult<long>> CreateType([FromBody] DictTypeSaveDto dto)
+    public async Task<ApiResult<string>> CreateType([FromBody] DictTypeSaveDto dto)
     {
-        return Success(await dictService.CreateTypeAsync(dto, OperatorName), "创建成功");
+        return SuccessId(await dictService.CreateTypeAsync(dto, OperatorName), "创建成功");
     }
 
     /// <summary>更新字典类型</summary>
@@ -75,9 +75,9 @@ public class SysDictController(ISysDictService dictService, ICurrentUserService 
     /// <summary>创建字典数据项</summary>
     [HasPermission("sys:dict:add")]
     [HttpPost("data")]
-    public async Task<ApiResult<long>> CreateData([FromBody] DictDataSaveDto dto)
+    public async Task<ApiResult<string>> CreateData([FromBody] DictDataSaveDto dto)
     {
-        return Success(await dictService.CreateDataAsync(dto, OperatorName), "创建成功");
+        return SuccessId(await dictService.CreateDataAsync(dto, OperatorName), "创建成功");
     }
 
     /// <summary>更新字典数据项</summary>

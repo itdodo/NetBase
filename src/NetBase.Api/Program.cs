@@ -50,6 +50,9 @@ builder.Services
     {
         // 中文不转义，前端可读
         options.JsonSerializerOptions.Encoder = JavaScriptEncoder.Create(UnicodeRanges.All);
+        // 雪花ID配套：允许前端传字符串形式的数字；写出侧仅 ID 字段经 LongToStringConverter 转字符串（精准）
+        options.JsonSerializerOptions.NumberHandling =
+            System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString;
     })
     .ConfigureApiBehaviorOptions(options =>
     {

@@ -1,4 +1,5 @@
 using SqlSugar;
+using System.Text.Json.Serialization;
 
 namespace NetBase.Model.Entities;
 
@@ -31,6 +32,7 @@ public class SysFile : BaseEntity
     public string? BizType { get; set; }
 
     /// <summary>上传人ID</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     [SugarColumn(ColumnDescription = "上传人ID")]
     public long UploadUserId { get; set; }
 }

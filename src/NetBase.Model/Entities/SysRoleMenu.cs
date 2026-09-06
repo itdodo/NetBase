@@ -1,4 +1,5 @@
 using SqlSugar;
+using System.Text.Json.Serialization;
 
 namespace NetBase.Model.Entities;
 
@@ -7,10 +8,12 @@ namespace NetBase.Model.Entities;
 public class SysRoleMenu : BaseEntity
 {
     /// <summary>角色ID</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     [SugarColumn(ColumnDescription = "角色ID")]
     public long RoleId { get; set; }
 
     /// <summary>菜单ID</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     [SugarColumn(ColumnDescription = "菜单ID")]
     public long MenuId { get; set; }
 }

@@ -63,7 +63,7 @@ public class DbSeeder
                 CreateBy = "system"
             };
             db.Insertable(admin).ExecuteReturnEntity();
-            db.Insertable(new SysUserRole { UserId = admin.Id, RoleId = adminRoleId, CreateTime = now }).ExecuteCommand();
+            db.Insertable(new SysUserRole { Id = NewId(), UserId = admin.Id, RoleId = adminRoleId, CreateTime = now }).ExecuteCommand();
             _logger?.LogInformation("种子数据：admin 账号已创建，默认密码 {Password}", PasswordHelper.DefaultPassword);
         }
 
@@ -144,7 +144,7 @@ public class DbSeeder
             // 授予 admin 角色（存在性幂等）
             if (!db.Queryable<SysRoleMenu>().Any(x => x.RoleId == adminRoleId && x.MenuId == menu.Id))
             {
-                db.Insertable(new SysRoleMenu { RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
+                db.Insertable(new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
             }
             _logger?.LogInformation("种子数据：增量菜单「{Name}」已写入", spec.Name);
         }
@@ -174,7 +174,7 @@ public class DbSeeder
             var menu = db.Insertable(button).ExecuteReturnEntity();
             if (!db.Queryable<SysRoleMenu>().Any(x => x.RoleId == adminRoleId && x.MenuId == menu.Id))
             {
-                db.Insertable(new SysRoleMenu { RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
+                db.Insertable(new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
             }
         }
     }
@@ -259,6 +259,7 @@ public class DbSeeder
 
         db.Insertable(new SysMenu
         {
+            Id = NewId(),
             ParentId = monitorDir.Id,
             MenuName = "在线用户",
             MenuType = (int)MenuTypeEnum.Menu,
@@ -274,12 +275,14 @@ public class DbSeeder
         buttons.AddRange(BuildCrudButtons(userMenu.Id, "sys:user", now));
         buttons.AddRange(BuildCrudButtons(roleMenu.Id, "sys:role", now));
         buttons.AddRange(BuildCrudButtons(menuMenu.Id, "sys:menu", now));
+        buttons.ForEach(b => b.Id = b.Id == 0 ? Yitter.IdGenerator.YitIdHelper.NextId() : b.Id);
         db.Insertable(buttons).ExecuteCommand();
 
         // 全部菜单授予 admin 角色
         var menuIds = db.Queryable<SysMenu>().Select(x => x.Id).ToList();
         db.Insertable(menuIds.Select(menuId => new SysRoleMenu
         {
+            Id = Yitter.IdGenerator.YitIdHelper.NextId(),
             RoleId = adminRoleId,
             MenuId = menuId,
             CreateTime = now
@@ -305,17 +308,17 @@ public class DbSeeder
     [
         new()
         {
-            ParentId = parentId, MenuName = "新增", MenuType = (int)MenuTypeEnum.Button,
+            Id = NewId(), ParentId = parentId, MenuName = "新增", MenuType = (int)MenuTypeEnum.Button,
             Permission = $"{permissionPrefix}:add", Sort = 1, CreateTime = now, CreateBy = "system"
         },
         new()
         {
-            ParentId = parentId, MenuName = "编辑", MenuType = (int)MenuTypeEnum.Button,
+            Id = NewId(), ParentId = parentId, MenuName = "编辑", MenuType = (int)MenuTypeEnum.Button,
             Permission = $"{permissionPrefix}:edit", Sort = 2, CreateTime = now, CreateBy = "system"
         },
         new()
         {
-            ParentId = parentId, MenuName = "删除", MenuType = (int)MenuTypeEnum.Button,
+            Id = NewId(), ParentId = parentId, MenuName = "删除", MenuType = (int)MenuTypeEnum.Button,
             Permission = $"{permissionPrefix}:delete", Sort = 3, CreateTime = now, CreateBy = "system"
         }
     ];
@@ -328,30 +331,35 @@ public class DbSeeder
         {
             var root = db.Insertable(new SysDept
             {
+            Id = NewId(),
                 ParentId = 0, DeptName = "总公司", DeptCode = "HQ", Sort = 1,
                 Status = 1, CreateTime = now, CreateBy = "system"
             }).ExecuteReturnEntity();
 
             var rd = db.Insertable(new SysDept
             {
+            Id = NewId(),
                 ParentId = root.Id, DeptName = "研发部", DeptCode = "RD", Sort = 1,
                 Status = 1, CreateTime = now, CreateBy = "system"
             }).ExecuteReturnEntity();
 
             db.Insertable(new SysDept
             {
+                Id = NewId(),
                 ParentId = root.Id, DeptName = "市场部", DeptCode = "MKT", Sort = 2,
                 Status = 1, CreateTime = now, CreateBy = "system"
             }).ExecuteCommand();
 
             db.Insertable(new SysDept
             {
+                Id = NewId(),
                 ParentId = rd.Id, DeptName = "研发一组", DeptCode = "RD1", Sort = 1,
                 Status = 1, CreateTime = now, CreateBy = "system"
             }).ExecuteCommand();
 
             db.Insertable(new SysDept
             {
+                Id = NewId(),
                 ParentId = rd.Id, DeptName = "研发二组", DeptCode = "RD2", Sort = 2,
                 Status = 1, CreateTime = now, CreateBy = "system"
             }).ExecuteCommand();
@@ -395,7 +403,7 @@ public class DbSeeder
         db.Insertable(BuildCrudButtons(menu.Id, "sys:dept", now)).ExecuteCommand();
         var menuIds = new List<long> { menu.Id };
         menuIds.AddRange(db.Queryable<SysMenu>().Where(x => x.ParentId == menu.Id).Select(x => x.Id).ToList());
-        db.Insertable(menuIds.Select(menuId => new SysRoleMenu { RoleId = adminRoleId, MenuId = menuId, CreateTime = now }).ToList()).ExecuteCommand();
+        db.Insertable(menuIds.Select(menuId => new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = menuId, CreateTime = now }).ToList()).ExecuteCommand();
         _logger?.LogInformation("种子数据：增量菜单「部门管理」已写入");
     }
 
@@ -423,10 +431,12 @@ public class DbSeeder
 
         if (!db.Queryable<SysRoleMenu>().Any(x => x.RoleId == adminRoleId && x.MenuId == menu.Id))
         {
-            db.Insertable(new SysRoleMenu { RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
+            db.Insertable(new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
         }
         _logger?.LogInformation("种子数据：增量菜单「服务监控」已写入");
     }
+
+    private static long NewId() => Yitter.IdGenerator.YitIdHelper.NextId();
 
     /// <summary>内置系统参数（幂等：按参数键判断）</summary>
     private void SeedConfigs(ISqlSugarClient db, DateTime now)
@@ -447,6 +457,7 @@ public class DbSeeder
             }
             db.Insertable(new SysConfig
             {
+                Id = NewId(),
                 ConfigKey = spec.Key,
                 ConfigValue = spec.Value,
                 ConfigName = spec.Name,
@@ -483,7 +494,7 @@ public class DbSeeder
 
         if (!db.Queryable<SysRoleMenu>().Any(x => x.RoleId == adminRoleId && x.MenuId == menu.Id))
         {
-            db.Insertable(new SysRoleMenu { RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
+            db.Insertable(new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
         }
         _logger?.LogInformation("种子数据：增量菜单「通知公告」已写入");
     }
@@ -497,6 +508,7 @@ public class DbSeeder
         }
         db.Insertable(new SysNotice
         {
+            Id = NewId(),
             Title = "欢迎使用 NetBase 管理系统",
             NoticeType = 1,
             Content = "框架已内置：用户/角色/菜单/字典/参数/公告管理、操作与登录审计、Excel 导入导出、登录验证码与防重复提交。本条为示例公告，可在通知公告管理中维护。",
@@ -532,6 +544,7 @@ public class DbSeeder
         ];
         db.Insertable(items.Select(i => new SysDictData
         {
+            Id = Yitter.IdGenerator.YitIdHelper.NextId(),
             DictTypeId = type.Id,
             Label = i.Label,
             Value = i.Value,
@@ -580,7 +593,7 @@ public class DbSeeder
 
             if (!db.Queryable<SysRoleMenu>().Any(x => x.RoleId == adminRoleId && x.MenuId == menu.Id))
             {
-                db.Insertable(new SysRoleMenu { RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
+                db.Insertable(new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
             }
             _logger?.LogInformation("种子数据：增量菜单「{Name}」已写入", spec.Name);
         }

@@ -1,4 +1,5 @@
 using NetBase.Model.Enums;
+using System.Text.Json.Serialization;
 using SqlSugar;
 
 namespace NetBase.Model.Entities;
@@ -11,6 +12,7 @@ namespace NetBase.Model.Entities;
 public class SysMenu : BaseEntity
 {
     /// <summary>父级菜单ID，顶级为 0</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     [SugarColumn(ColumnDescription = "父级菜单ID")]
     public long ParentId { get; set; }
 

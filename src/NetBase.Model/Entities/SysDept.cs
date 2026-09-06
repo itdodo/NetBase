@@ -1,4 +1,5 @@
 using SqlSugar;
+using System.Text.Json.Serialization;
 
 namespace NetBase.Model.Entities;
 
@@ -7,6 +8,7 @@ namespace NetBase.Model.Entities;
 public class SysDept : BaseEntity
 {
     /// <summary>父级部门ID，顶级为 0</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     [SugarColumn(ColumnDescription = "父级部门ID")]
     public long ParentId { get; set; }
 
@@ -36,10 +38,12 @@ public class SysDept : BaseEntity
 public class SysRoleDept : BaseEntity
 {
     /// <summary>角色ID</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     [SugarColumn(ColumnDescription = "角色ID")]
     public long RoleId { get; set; }
 
     /// <summary>部门ID</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     [SugarColumn(ColumnDescription = "部门ID")]
     public long DeptId { get; set; }
 }

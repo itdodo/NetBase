@@ -59,10 +59,10 @@ public class SysRoleController(
     [HasPermission("sys:role:add")]
     [NoRepeatSubmit]
     [HttpPost]
-    public async Task<ApiResult<long>> Create([FromBody] RoleSaveDto dto)
+    public async Task<ApiResult<string>> Create([FromBody] RoleSaveDto dto)
     {
         var id = await roleService.CreateAsync(dto, OperatorName);
-        return Success(id, "创建成功");
+        return SuccessId(id, "创建成功");
     }
 
     /// <summary>更新角色</summary>

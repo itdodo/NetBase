@@ -34,7 +34,7 @@ public class PageResult<T>
     public List<T> Items { get; set; } = [];
 
     /// <summary>总记录数</summary>
-    public long Total { get; set; }
+    public int Total { get; set; }
 
     /// <summary>页码</summary>
     public int PageIndex { get; set; }
@@ -43,8 +43,8 @@ public class PageResult<T>
     public int PageSize { get; set; }
 
     /// <summary>总页数</summary>
-    public long TotalPages => PageSize <= 0 ? 0 : (long)Math.Ceiling(Total / (double)PageSize);
+    public int TotalPages => PageSize <= 0 ? 0 : (int)Math.Ceiling(Total / (double)PageSize);
 
     public static PageResult<T> Of(List<T> items, long total, int pageIndex, int pageSize) =>
-        new() { Items = items, Total = total, PageIndex = pageIndex, PageSize = pageSize };
+        new() { Items = items, Total = (int)total, PageIndex = pageIndex, PageSize = pageSize };
 }

@@ -13,7 +13,7 @@ export const getUserList = () => request.get<never, User[]>('/sys/user/list')
 export const getUserDetail = (id: number) => request.get<never, User>(`/sys/user/${id}`)
 
 /** 创建用户 */
-export const createUser = (data: UserCreate) => request.post<never, number>('/sys/user', data)
+export const createUser = (data: UserCreate) => request.post<never, string>('/sys/user', data)
 
 /** 更新用户（roleIds 传入则全量重设角色） */
 export const updateUser = (id: number, data: UserUpdate) =>

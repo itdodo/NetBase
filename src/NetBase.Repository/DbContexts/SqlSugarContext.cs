@@ -25,6 +25,9 @@ public class SqlSugarOptions
 
     /// <summary>慢SQL阈值（毫秒）</summary>
     public int SlowSqlThresholdMs { get; set; } = 3000;
+
+    /// <summary>雪花ID机器码（多实例部署须各不相同，0-63）</summary>
+    public ushort SnowflakeWorkerId { get; set; } = 1;
 }
 
 /// <summary>
@@ -41,6 +44,11 @@ public class SqlSugarContext
     public SqlSugarContext(SqlSugarOptions options, IOperatorProvider? operatorProvider, ILogger<SqlSugarContext>? logger = null)
     {
         Options = options;
+
+        // 雪花ID初始化（Yitter.IdGenerator）：多实例部署须保证 WorkerId 唯一
+        Yitter.IdGenerator.YitIdHelper.SetIdGenerator(
+            new Yitter.IdGenerator.IdGeneratorOptions(options.SnowflakeWorkerId));
+
         if (options.ConnectionString.IsNullOrEmpty())
         {
             // 未配置连接串时允许启动（仅提供非数据库能力），首次使用 Client 时给出明确错误
@@ -66,6 +74,11 @@ public class SqlSugarContext
             {
                 switch (entityInfo.OperationType)
                 {
+                    case DataFilterType.InsertByObject when entityInfo.PropertyName == nameof(BaseEntity.Id)
+                                                             && oldValue is 0 or null:
+                        // 雪花ID：主键为默认值时由生成器填充
+                        entityInfo.SetValue(Yitter.IdGenerator.YitIdHelper.NextId());
+                        break;
                     case DataFilterType.InsertByObject when entityInfo.PropertyName == nameof(BaseEntity.CreateTime):
                         entityInfo.SetValue(DateTime.Now);
                         break;

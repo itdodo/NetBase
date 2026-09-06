@@ -20,13 +20,13 @@ public class DashboardService(
 
         var stats = new DashboardStatsDto
         {
-            UserCount = await userRepository.CountAsync(),
-            RoleCount = await roleRepository.CountAsync(),
+            UserCount = (int)await userRepository.CountAsync(),
+            RoleCount = (int)await roleRepository.CountAsync(),
             // 活跃会话 = RefreshToken 未过期（登录即建会话）
-            OnlineSessions = await sessionRepository.CountAsync(x => x.ExpireTime > DateTime.Now),
-            TodayLogins = await loginLogRepository.CountAsync(x => x.Success && x.CreateTime >= today),
-            TodayOperations = await operationLogRepository.CountAsync(x => x.CreateTime >= today),
-            NoticeCount = await noticeRepository.CountAsync()
+            OnlineSessions = (int)await sessionRepository.CountAsync(x => x.ExpireTime > DateTime.Now),
+            TodayLogins = (int)await loginLogRepository.CountAsync(x => x.Success && x.CreateTime >= today),
+            TodayOperations = (int)await operationLogRepository.CountAsync(x => x.CreateTime >= today),
+            NoticeCount = (int)await noticeRepository.CountAsync()
         };
 
         // 近 7 天登录日志 → 内存按日聚合（日志量级可控；更大规模可改为 SQL GroupBy）

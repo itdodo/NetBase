@@ -14,7 +14,7 @@ const formRef = ref<FormInstance>()
 const loading = ref(false)
 const form = reactive({ userName: 'admin', password: '123456', captchaId: '', captchaCode: '' })
 const captchaSvg = ref('')
-const defaultCaptchaSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='40'><rect width='120' height='40' fill='#f5f7fa'/></svg>`
+const defaultCaptchaSvg = ''
 
 async function refreshCaptcha(): Promise<void> {
   try {
@@ -77,11 +77,11 @@ async function handleLogin() {
         <el-form-item prop="captchaCode">
           <div class="captcha-row">
             <el-input v-model="form.captchaCode" placeholder="验证码" :prefix-icon="Refresh" maxlength="4" />
-            <div
+            <img
               class="captcha-img"
               title="点击刷新"
+              :src="captchaSvg || defaultCaptchaSvg"
               @click="refreshCaptcha"
-              v-html="captchaSvg || defaultCaptchaSvg"
             />
           </div>
         </el-form-item>
@@ -133,7 +133,7 @@ async function handleLogin() {
   cursor: pointer;
   flex-shrink: 0;
   border-radius: 4px;
-  overflow: hidden;
-  line-height: 0;
+  height: 40px;
+  display: block;
 }
 </style>

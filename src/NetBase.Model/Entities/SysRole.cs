@@ -22,4 +22,8 @@ public class SysRole : BaseEntity
     /// <summary>排序号，越小越靠前</summary>
     [SugarColumn(ColumnDescription = "排序号")]
     public int Sort { get; set; }
+
+    /// <summary>数据范围：1-全部 2-自定义 3-本部门 4-本部门及以下 5-仅本人</summary>
+    [SugarColumn(ColumnDescription = "数据范围", DefaultValue = "1")]
+    public int DataScope { get; set; } = (int)DataScopeEnum.All;
 }

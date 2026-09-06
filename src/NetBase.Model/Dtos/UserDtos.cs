@@ -14,6 +14,9 @@ public class UserQueryDto : PageQuery
     /// <summary>状态过滤</summary>
     [Range(0, 1, ErrorMessage = "状态取值无效")]
     public int? Status { get; set; }
+
+    /// <summary>部门过滤（含下级部门）</summary>
+    public long? DeptId { get; set; }
 }
 
 /// <summary>用户列表/详情返回</summary>
@@ -41,6 +44,12 @@ public class UserDto
 
     /// <summary>拥有的角色</summary>
     public List<RoleSimpleDto> Roles { get; set; } = [];
+
+    /// <summary>所属部门ID</summary>
+    public long DeptId { get; set; }
+
+    /// <summary>所属部门名称</summary>
+    public string? DeptName { get; set; }
 }
 
 /// <summary>创建用户请求</summary>
@@ -76,6 +85,10 @@ public class UserCreateDto
 
     /// <summary>角色ID列表</summary>
     public List<long> RoleIds { get; set; } = [];
+
+    /// <summary>所属部门ID</summary>
+    [Range(1, long.MaxValue, ErrorMessage = "请选择所属部门")]
+    public long DeptId { get; set; }
 }
 
 /// <summary>更新用户请求</summary>
@@ -101,6 +114,10 @@ public class UserUpdateDto
 
     /// <summary>角色ID列表（传入则全量重设）</summary>
     public List<long>? RoleIds { get; set; }
+
+    /// <summary>所属部门ID</summary>
+    [Range(1, long.MaxValue, ErrorMessage = "请选择所属部门")]
+    public long DeptId { get; set; }
 }
 
 /// <summary>重置密码请求</summary>

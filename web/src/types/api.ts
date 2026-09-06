@@ -42,6 +42,8 @@ export interface User {
   id: number
   userName: string
   nickName?: string
+  deptId: number
+  deptName?: string
   avatar?: string
   phone?: string
   email?: string
@@ -53,6 +55,7 @@ export interface User {
 
 export interface UserCreate {
   userName: string
+  deptId: number
   nickName?: string
   phone?: string
   email?: string
@@ -63,6 +66,7 @@ export interface UserCreate {
 
 export interface UserUpdate {
   nickName?: string
+  deptId: number
   phone?: string
   email?: string
   status: number
@@ -75,6 +79,7 @@ export interface Role {
   roleCode: string
   status: number
   sort: number
+  dataScope: number
   createTime: string
 }
 
@@ -88,6 +93,8 @@ export interface RoleSave {
   roleCode: string
   status: number
   sort: number
+  dataScope: number
+  deptIds?: number[]
 }
 
 /** 菜单类型：1-目录 2-菜单 3-按钮 */

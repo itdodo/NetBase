@@ -22,6 +22,8 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<ISysDictService, SysDictService>();
         services.TryAddScoped<ISysConfigService, SysConfigService>();
         services.TryAddScoped<ISysNoticeService, SysNoticeService>();
+        services.TryAddScoped<ISysDeptService, SysDeptService>();
+        services.TryAddScoped<IDataScopeService, DataScopeService>();
         services.TryAddScoped<ISysFileService, SysFileService>();
         services.TryAddScoped<ICaptchaService, CaptchaService>();
 

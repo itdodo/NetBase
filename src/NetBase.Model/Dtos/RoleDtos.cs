@@ -29,6 +29,9 @@ public class RoleDto
 
     public int Sort { get; set; }
 
+    /// <summary>数据范围：1-全部 2-自定义 3-本部门 4-本部门及以下 5-仅本人</summary>
+    public int DataScope { get; set; }
+
     public DateTime CreateTime { get; set; }
 }
 
@@ -63,6 +66,13 @@ public class RoleSaveDto
     /// <summary>排序号</summary>
     [Range(0, int.MaxValue, ErrorMessage = "排序号不能为负")]
     public int Sort { get; set; }
+
+    /// <summary>数据范围：1-全部 2-自定义 3-本部门 4-本部门及以下 5-仅本人</summary>
+    [Range(1, 5)]
+    public int DataScope { get; set; } = 1;
+
+    /// <summary>自定义数据权限的部门ID列表（DataScope=2 时生效）</summary>
+    public List<long>? DeptIds { get; set; }
 }
 
 /// <summary>分配菜单请求</summary>

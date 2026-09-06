@@ -10,6 +10,8 @@ using Microsoft.IdentityModel.Tokens;
 using NetBase.Api.Auth;
 using NetBase.Api.Filters;
 using NetBase.Api.Middlewares;
+using NetBase.Model.Entities;
+using NetBase.Service.Sys;
 using NetBase.Api.Services;
 using NetBase.Service.Sys;
 using NetBase.Common.Users;
@@ -193,6 +195,7 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseRateLimiter();
 app.UseAuthentication();
+app.UseMiddleware<DataScopeMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 

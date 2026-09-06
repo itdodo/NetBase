@@ -94,6 +94,15 @@ SysUser ──< SysUserRole >── SysRole ──< SysRoleMenu >── SysMenu(
 
 所有接口路径带版本段：`/api/v1/...`，配合 Swagger XML 注释（接口/DTO 说明自动进文档）。
 
+## 数据权限模型
+
+业务实体实现 `IDataScope`（DeptId + OwnerUserId 列）即自动纳入数据权限过滤：
+
+```
+角色.DataScope: 1全部 2自定义(SysRoleDept勾选) 3本部门 4本部门及以下 5仅本人
+多角色取并集（部门集合 ∪ 本人数据），请求级过滤器注入，业务代码零侵入
+```
+
 ## API 一览（/api/v1）
 
 | 模块 | 方法与路由 | 说明 |

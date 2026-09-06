@@ -20,6 +20,7 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
     private readonly IRepository<SysUserRole> _userRoleRepository;
     private readonly IRepository<SysRoleMenu> _roleMenuRepository;
     private readonly IRepository<SysMenu> _menuRepository;
+    private readonly IRepository<SysRoleDept> _roleDeptRepository;
     private readonly IPermissionService _permissionService;
 
     public SysRoleService(
@@ -27,11 +28,13 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
         IRepository<SysUserRole> userRoleRepository,
         IRepository<SysRoleMenu> roleMenuRepository,
         IRepository<SysMenu> menuRepository,
+        IRepository<SysRoleDept> roleDeptRepository,
         IPermissionService permissionService) : base(repository)
     {
         _userRoleRepository = userRoleRepository;
         _roleMenuRepository = roleMenuRepository;
         _menuRepository = menuRepository;
+        _roleDeptRepository = roleDeptRepository;
         _permissionService = permissionService;
     }
 
@@ -79,9 +82,14 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
             RoleCode = dto.RoleCode,
             Status = dto.Status,
             Sort = dto.Sort,
+            DataScope = dto.DataScope,
             CreateBy = operatorName
         };
         await Repository.InsertAsync(role);
+        if (dto.DataScope == (int)DataScopeEnum.Custom)
+        {
+            await SaveRoleDeptsAsync(role.Id, dto.DeptIds);
+        }
         return role.Id;
     }
 
@@ -103,9 +111,34 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
         role.RoleCode = dto.RoleCode;
         role.Status = dto.Status;
         role.Sort = dto.Sort;
+        role.DataScope = dto.DataScope;
         role.UpdateTime = DateTime.Now;
         role.UpdateBy = operatorName;
         await Repository.UpdateAsync(role);
+
+        // 数据权限=自定义时重设部门勾选；其他档清空勾选
+        if (dto.DataScope == (int)DataScopeEnum.Custom && dto.DeptIds != null)
+        {
+            await SaveRoleDeptsAsync(id, dto.DeptIds);
+        }
+        else if (dto.DataScope != (int)DataScopeEnum.Custom)
+        {
+            await _roleDeptRepository.DeleteWhereAsync(x => x.RoleId == id);
+        }
+    }
+
+    private async Task SaveRoleDeptsAsync(long roleId, List<long>? deptIds)
+    {
+        var distinct = (deptIds ?? []).Distinct().ToList();
+        await _roleDeptRepository.DeleteWhereAsync(x => x.RoleId == roleId);
+        if (distinct.Count > 0)
+        {
+            await _roleDeptRepository.InsertRangeAsync(distinct.Select(deptId => new SysRoleDept
+            {
+                RoleId = roleId,
+                DeptId = deptId
+            }));
+        }
     }
 
     public async new Task DeleteAsync(long id, string? operatorName = null)
@@ -124,6 +157,7 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
             await Repository.DeleteAsync(role);
             await _userRoleRepository.DeleteWhereAsync(x => x.RoleId == id);
             await _roleMenuRepository.DeleteWhereAsync(x => x.RoleId == id);
+            await _roleDeptRepository.DeleteWhereAsync(x => x.RoleId == id);
             return true;
         });
         _permissionService.InvalidateAll();
@@ -164,6 +198,13 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
         _ = await GetRequiredAsync(roleId);
         var relations = await _roleMenuRepository.GetListAsync(x => x.RoleId == roleId);
         return relations.Select(x => x.MenuId).ToList();
+    }
+
+    public async Task<List<long>> GetRoleDeptIdsAsync(long roleId)
+    {
+        _ = await GetRequiredAsync(roleId);
+        var relations = await _roleDeptRepository.GetListAsync(x => x.RoleId == roleId);
+        return relations.Select(x => x.DeptId).ToList();
     }
 
     private async Task<SysRole> GetRequiredAsync(long id) =>
@@ -208,6 +249,7 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
         RoleCode = role.RoleCode,
         Status = role.Status,
         Sort = role.Sort,
+        DataScope = role.DataScope,
         CreateTime = role.CreateTime
     };
 }

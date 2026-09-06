@@ -62,6 +62,7 @@ const form = reactive({
   email: '',
   password: '',
   status: 1,
+  deptId: undefined as number | undefined,
   roleIds: [] as number[]
 })
 
@@ -101,6 +102,7 @@ async function handleSave() {
       email: form.email,
       password: form.password || undefined,
       status: form.status,
+      deptId: form.deptId!,
       roleIds: form.roleIds
     })
     ElMessage.success('创建成功')
@@ -110,6 +112,7 @@ async function handleSave() {
       phone: form.phone,
       email: form.email,
       status: form.status,
+      deptId: form.deptId!,
       roleIds: form.roleIds
     })
     ElMessage.success('更新成功')

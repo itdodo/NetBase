@@ -33,4 +33,7 @@ public interface ISysRoleService
 
     /// <summary>查询角色已分配的菜单ID</summary>
     Task<List<long>> GetMenuIdsAsync(long roleId);
+
+    /// <summary>查询角色自定义数据权限的部门ID</summary>
+    Task<List<long>> GetRoleDeptIdsAsync(long roleId);
 }

@@ -22,3 +22,22 @@ public enum MenuTypeEnum
     /// <summary>按钮（权限点）</summary>
     Button = 3
 }
+
+/// <summary>数据范围（角色维度）</summary>
+public enum DataScopeEnum
+{
+    /// <summary>全部数据</summary>
+    All = 1,
+
+    /// <summary>自定义部门（SysRoleDept 勾选）</summary>
+    Custom = 2,
+
+    /// <summary>本部门</summary>
+    Dept = 3,
+
+    /// <summary>本部门及以下</summary>
+    DeptAndChild = 4,
+
+    /// <summary>仅本人</summary>
+    Self = 5
+}

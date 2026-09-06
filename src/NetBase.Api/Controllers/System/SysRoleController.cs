@@ -91,6 +91,14 @@ public class SysRoleController(
         return Success(await roleService.GetMenuIdsAsync(id));
     }
 
+    /// <summary>查询角色自定义数据权限的部门ID</summary>
+    [HasPermission("sys:role:list")]
+    [HttpGet("{id:long}/dept-ids")]
+    public async Task<ApiResult<List<long>>> GetDeptIds(long id)
+    {
+        return Success(await roleService.GetRoleDeptIdsAsync(id));
+    }
+
     /// <summary>为角色分配菜单（全量重设）</summary>
     [HasPermission("sys:role:edit")]
         [HttpPut("{id:long}/menus")]

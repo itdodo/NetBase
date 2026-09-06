@@ -27,20 +27,25 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         IRepository<SysUserRole> userRoleRepository,
         IRepository<SysUserSession> userSessionRepository,
         IPermissionService permissionService,
-        ISysConfigService configService) : base(repository)
+        ISysConfigService configService,
+        ISysDeptService deptService) : base(repository)
     {
         _roleRepository = roleRepository;
         _userRoleRepository = userRoleRepository;
         _userSessionRepository = userSessionRepository;
         _permissionService = permissionService;
         _configService = configService;
+        _deptService = deptService;
     }
 
     private readonly IRepository<SysUserSession> _userSessionRepository;
     private readonly IPermissionService _permissionService;
     private readonly ISysConfigService _configService;
+    private readonly ISysDeptService _deptService;
 
     /// <summary>默认密码：优先取系统参数 sys.pwd.defaultPassword，未配置回退内置值</summary>
+    private async Task<bool> DeptExistsAsync(long deptId) => await _deptService.GetDetailAsync(deptId) != null;
+
     private async Task<string> GetDefaultPasswordAsync()
     {
         var configured = await _configService.GetConfigValueAsync("sys.pwd.defaultPassword");
@@ -49,7 +54,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
 
     public async Task<PageResult<UserDto>> GetPageListAsync(UserQueryDto query)
     {
-        var predicate = BuildPredicate(query);
+        var predicate = await BuildPredicateAsync(query);
         var page = await Repository.GetPageListAsync(predicate, query);
         var result = PageResult<UserDto>.Of(
             await ToDtosAsync(page.Items), page.Total, page.PageIndex, page.PageSize);
@@ -59,7 +64,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
     /// <summary>按查询条件取全量用户（导出用，不分页）</summary>
     public async Task<List<UserDto>> GetExportListAsync(UserQueryDto query)
     {
-        var users = await Repository.GetListAsync(BuildPredicate(query));
+        var users = await Repository.GetListAsync(await BuildPredicateAsync(query));
         return await ToDtosAsync(users);
     }
 
@@ -174,6 +179,10 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         {
             throw new BusinessException(policyError, ApiResultCode.BadRequest);
         }
+        if (!await DeptExistsAsync(dto.DeptId))
+        {
+            throw new BusinessException("所属部门不存在", ApiResultCode.BadRequest);
+        }
 
         var user = new SysUser
         {
@@ -183,12 +192,15 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             Phone = dto.Phone,
             Email = dto.Email,
             Status = dto.Status,
+            DeptId = dto.DeptId,
             CreateBy = operatorName
         };
         // 用户与角色关联整体事务，避免中途失败产生孤儿数据
         await Repository.TransactionAsync(async () =>
         {
             await Repository.InsertAsync(user);
+            // 回填数据归属人（仅本人范围依赖此列）
+            await Repository.UpdateWhereAsync(x => x.Id == user.Id, x => new SysUser { OwnerUserId = user.Id });
             await SaveUserRolesAsync(user.Id, dto.RoleIds);
             return true;
         });
@@ -204,10 +216,16 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             throw new BusinessException("不允许停用内置管理员账号");
         }
 
+        if (!await DeptExistsAsync(dto.DeptId))
+        {
+            throw new BusinessException("所属部门不存在", ApiResultCode.BadRequest);
+        }
+
         user.NickName = dto.NickName;
         user.Phone = dto.Phone;
         user.Email = dto.Email;
         user.Status = dto.Status;
+        user.DeptId = dto.DeptId;
         user.UpdateTime = DateTime.Now;
         user.UpdateBy = operatorName;
         // 停用用户立即踢下线
@@ -307,7 +325,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         await Repository.GetByIdAsync(id)
         ?? throw new BusinessException($"用户不存在（Id={id}）", ApiResultCode.NotFound);
 
-    private Expression<Func<SysUser, bool>>? BuildPredicate(UserQueryDto query)
+    private async Task<Expression<Func<SysUser, bool>>> BuildPredicateAsync(UserQueryDto query)
     {
         var hasCondition = false;
         var exp = Expressionable.Create<SysUser>();
@@ -323,7 +341,13 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             var status = query.Status.Value;
             exp.And(x => x.Status == status);
         }
-        return hasCondition ? exp.ToExpression() : null;
+        if (query.DeptId.HasValue)
+        {
+            hasCondition = true;
+            var deptIds = await _deptService.GetDeptAndChildIdsAsync(query.DeptId.Value);
+            exp.And(x => deptIds.Contains(x.DeptId));
+        }
+        return exp.ToExpression();
     }
 
     private async Task<List<UserDto>> ToDtosAsync(List<SysUser> users)
@@ -334,6 +358,9 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         }
 
         var userIds = users.Select(x => x.Id).ToList();
+        var deptIds = users.Select(x => x.DeptId).Distinct().ToList();
+        var depts = deptIds.Count == 0 ? [] : await _deptService.GetAllDeptsAsync();
+        var deptMap = depts.Where(d => deptIds.Contains(d.Id)).ToDictionary(d => d.Id, d => d.DeptName);
         var userRoles = await _userRoleRepository.GetListAsync(x => userIds.Contains(x.UserId));
         var roleIds = userRoles.Select(x => x.RoleId).Distinct().ToList();
         var roles = roleIds.Count == 0
@@ -355,6 +382,8 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             Email = x.Email,
             Status = x.Status,
             Avatar = x.Avatar,
+            DeptId = x.DeptId,
+            DeptName = deptMap.TryGetValue(x.DeptId, out var deptName) ? deptName : null,
             LastLoginTime = x.LastLoginTime,
             CreateTime = x.CreateTime,
             Roles = userRoles.Where(ur => ur.UserId == x.Id && roleMap.ContainsKey(ur.RoleId))

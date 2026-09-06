@@ -10,10 +10,13 @@ import {
   assignRoleMenus,
   createRole,
   deleteRole,
+  getRoleDeptIds,
   getRoleMenuIds,
   getRolePage,
   updateRole
 } from '@/api/role'
+import { getDeptTree } from '@/api/dept'
+import type { DeptTree } from '@/api/dept'
 import { getMenuTree } from '@/api/menu'
 import { formatDateTime } from '@/utils/format'
 import { download } from '@/utils/download'
@@ -24,6 +27,16 @@ const list = ref<Role[]>([])
 const total = ref(0)
 
 const query = reactive({ pageIndex: 1, pageSize: 10, keyword: '', status: undefined as number | undefined })
+const deptTree = ref<DeptTree[]>([])
+
+/** 数据范围选项 */
+const scopeOptions = [
+  { value: 1, label: '全部数据' },
+  { value: 2, label: '自定义部门' },
+  { value: 3, label: '本部门' },
+  { value: 4, label: '本部门及以下' },
+  { value: 5, label: '仅本人' }
+]
 
 async function loadData() {
   loading.value = true
@@ -55,7 +68,14 @@ function handleReset() {
 const dialogVisible = ref(false)
 const editingId = ref<number | null>(null)
 const formRef = ref<FormInstance>()
-const form = reactive({ roleName: '', roleCode: '', status: 1, sort: 0 })
+const form = reactive({
+  roleName: '',
+  roleCode: '',
+  status: 1,
+  sort: 0,
+  dataScope: 1,
+  deptIds: [] as number[]
+})
 
 const rules: FormRules = {
   roleName: [{ required: true, message: '请输入角色名称', trigger: 'blur' }],
@@ -64,14 +84,25 @@ const rules: FormRules = {
 
 function openCreate() {
   editingId.value = null
-  Object.assign(form, { roleName: '', roleCode: '', status: 1, sort: 0 })
+  Object.assign(form, { roleName: '', roleCode: '', status: 1, sort: 0, dataScope: 1, deptIds: [] })
   dialogVisible.value = true
 }
 
 function openEdit(row: Role) {
   editingId.value = row.id
-  Object.assign(form, { roleName: row.roleName, roleCode: row.roleCode, status: row.status, sort: row.sort })
+  Object.assign(form, {
+    roleName: row.roleName,
+    roleCode: row.roleCode,
+    status: row.status,
+    sort: row.sort,
+    dataScope: row.dataScope,
+    deptIds: []
+  })
   dialogVisible.value = true
+  // 自定义范围时加载已勾选部门
+  if (row.dataScope === 2) {
+    getRoleDeptIds(row.id).then((ids) => (form.deptIds = ids))
+  }
 }
 
 async function handleSave() {
@@ -151,7 +182,10 @@ async function handleSaveMenus() {
   }
 }
 
-onMounted(loadData)
+onMounted(() => {
+  loadData()
+  getDeptTree().then((tree) => (deptTree.value = tree))
+})
 </script>
 
 <template>
@@ -248,6 +282,22 @@ onMounted(loadData)
         </el-form-item>
         <el-form-item label="排序">
           <el-input-number v-model="form.sort" :min="0" />
+        </el-form-item>
+        <el-form-item label="数据权限">
+          <el-select v-model="form.dataScope" style="width: 100%">
+            <el-option v-for="opt in scopeOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="form.dataScope === 2" label="自定义部门">
+          <el-tree
+            ref="deptTreeRef"
+            :data="deptTree"
+            :props="{ label: 'deptName', children: 'children' }"
+            node-key="id"
+            show-checkbox
+            default-expand-all
+            style="width: 100%; max-height: 220px; overflow: auto"
+          />
         </el-form-item>
       </el-form>
       <template #footer>

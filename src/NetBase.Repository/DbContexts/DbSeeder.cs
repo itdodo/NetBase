@@ -77,6 +77,7 @@ public class DbSeeder
         EnsureLogMenus(db, adminRoleId, now);
         EnsureSystemMenus(db, adminRoleId, now);
         EnsureNoticeMenu(db, adminRoleId, now);
+        SeedDepts(db, adminRoleId, now);
         // 增量菜单的 CRUD 按钮权限码补齐（否则 admin 写操作 403）
         EnsureCrudButtons(db, "sys:dict:list", adminRoleId, now);
         EnsureCrudButtons(db, "sys:config:list", adminRoleId, now);
@@ -84,6 +85,9 @@ public class DbSeeder
         SeedConfigs(db, now);
         SeedSampleDicts(db, now);
         SeedSampleNotice(db, now);
+
+        // 存量用户数据归属人回填（幂等）
+        db.Ado.ExecuteCommand("UPDATE sys_user SET OwnerUserId = Id WHERE OwnerUserId = 0");
 
         // 外键列索引：权限查询/会话校验/菜单树是高频路径，避免全表扫描
         EnsureIndex(db, "sys_user_role", "ix_sys_user_role_userid", "UserId");
@@ -313,6 +317,85 @@ public class DbSeeder
             Permission = $"{permissionPrefix}:delete", Sort = 3, CreateTime = now, CreateBy = "system"
         }
     ];
+
+    /// <summary>示例部门树（幂等：按编码判断）+ admin 挂根部门 + 部门管理菜单</summary>
+    private void SeedDepts(ISqlSugarClient db, long adminRoleId, DateTime now)
+    {
+        // 部门树
+        if (!db.Queryable<SysDept>().Any())
+        {
+            var root = db.Insertable(new SysDept
+            {
+                ParentId = 0, DeptName = "总公司", DeptCode = "HQ", Sort = 1,
+                Status = 1, CreateTime = now, CreateBy = "system"
+            }).ExecuteReturnEntity();
+
+            var rd = db.Insertable(new SysDept
+            {
+                ParentId = root.Id, DeptName = "研发部", DeptCode = "RD", Sort = 1,
+                Status = 1, CreateTime = now, CreateBy = "system"
+            }).ExecuteReturnEntity();
+
+            db.Insertable(new SysDept
+            {
+                ParentId = root.Id, DeptName = "市场部", DeptCode = "MKT", Sort = 2,
+                Status = 1, CreateTime = now, CreateBy = "system"
+            }).ExecuteCommand();
+
+            db.Insertable(new SysDept
+            {
+                ParentId = rd.Id, DeptName = "研发一组", DeptCode = "RD1", Sort = 1,
+                Status = 1, CreateTime = now, CreateBy = "system"
+            }).ExecuteCommand();
+
+            db.Insertable(new SysDept
+            {
+                ParentId = rd.Id, DeptName = "研发二组", DeptCode = "RD2", Sort = 2,
+                Status = 1, CreateTime = now, CreateBy = "system"
+            }).ExecuteCommand();
+
+            _logger?.LogInformation("种子数据：示例部门树已写入");
+        }
+
+        // admin 挂根部门（存量库升级补挂）
+        var rootDept = db.Queryable<SysDept>().First(x => x.DeptCode == "HQ");
+        var adminUser = db.Queryable<SysUser>().First(x => x.UserName == "admin");
+        if (rootDept != null && adminUser != null && adminUser.DeptId != rootDept.Id)
+        {
+            db.Updateable<SysUser>()
+                .SetColumns("DeptId", rootDept.Id)
+                .Where(x => x.Id == adminUser.Id)
+                .ExecuteCommand();
+        }
+
+        // 部门管理菜单（增量）
+        if (db.Queryable<SysMenu>().Any(x => x.Permission == "sys:dept:list"))
+        {
+            return;
+        }
+        var systemDir = db.Queryable<SysMenu>().First(x => x.MenuName == "系统管理" && x.MenuType == (int)MenuTypeEnum.Directory);
+        if (systemDir == null)
+        {
+            return;
+        }
+        var menu = db.Insertable(new SysMenu
+        {
+            ParentId = systemDir.Id,
+            MenuName = "部门管理",
+            MenuType = (int)MenuTypeEnum.Menu,
+            Path = "/system/dept",
+            Component = "system/dept/index",
+            Permission = "sys:dept:list",
+            Sort = 7,
+            CreateTime = now,
+            CreateBy = "system"
+        }).ExecuteReturnEntity();
+        db.Insertable(BuildCrudButtons(menu.Id, "sys:dept", now)).ExecuteCommand();
+        var menuIds = new List<long> { menu.Id };
+        menuIds.AddRange(db.Queryable<SysMenu>().Where(x => x.ParentId == menu.Id).Select(x => x.Id).ToList());
+        db.Insertable(menuIds.Select(menuId => new SysRoleMenu { RoleId = adminRoleId, MenuId = menuId, CreateTime = now }).ToList()).ExecuteCommand();
+        _logger?.LogInformation("种子数据：增量菜单「部门管理」已写入");
+    }
 
     /// <summary>内置系统参数（幂等：按参数键判断）</summary>
     private void SeedConfigs(ISqlSugarClient db, DateTime now)

@@ -344,27 +344,13 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
 
     private async Task<Expression<Func<SysUser, bool>>> BuildPredicateAsync(UserQueryDto query)
     {
-        var hasCondition = false;
-        var exp = Expressionable.Create<SysUser>();
-        if (query.Keyword.IsNotNullOrEmpty())
-        {
-            hasCondition = true;
-            var keyword = query.Keyword!.Trim();
-            exp.And(x => x.UserName.Contains(keyword) || (x.NickName != null && x.NickName.Contains(keyword)));
-        }
-        if (query.Status.HasValue)
-        {
-            hasCondition = true;
-            var status = query.Status.Value;
-            exp.And(x => x.Status == status);
-        }
-        if (query.DeptId.HasValue)
-        {
-            hasCondition = true;
-            var deptIds = await _deptService.GetDeptAndChildIdsAsync(query.DeptId.Value);
-            exp.And(x => deptIds.Contains(x.DeptId));
-        }
-        return exp.ToExpression();
+        var keyword = query.Keyword?.Trim();
+        var deptIds = query.DeptId.HasValue ? await _deptService.GetDeptAndChildIdsAsync(query.DeptId.Value) : null;
+        return Expressionable.Create<SysUser>()
+            .AndIF(keyword.IsNotNullOrEmpty(), x => x.UserName.Contains(keyword!) || (x.NickName != null && x.NickName.Contains(keyword!)))
+            .AndIF(query.Status.HasValue, x => x.Status == query.Status!.Value)
+            .AndIF(deptIds != null, x => deptIds!.Contains(x.DeptId))
+            .ToExpression();
     }
 
     private async Task<List<UserDto>> ToDtosAsync(List<SysUser> users)

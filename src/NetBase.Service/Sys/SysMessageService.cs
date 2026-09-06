@@ -9,10 +9,16 @@ using SqlSugar;
 namespace NetBase.Service.Sys;
 
 /// <summary>站内信实现</summary>
-public class SysMessageService(IRepository<SysMessage> repository) : ISysMessageService
+public class SysMessageService(IRepository<SysMessage> repository, IRepository<SysUser> userRepository) : ISysMessageService
 {
     public async Task<long> SendAsync(MessageSendDto dto, string senderName)
     {
+        // 接收人必须存在（防消息发往无效账号）
+        if (!await userRepository.AnyAsync(x => x.Id == dto.ReceiverId))
+        {
+            throw new BusinessException($"接收用户不存在（Id={dto.ReceiverId}）", ApiResultCode.BadRequest);
+        }
+
         var message = new SysMessage
         {
             Title = dto.Title,
@@ -28,20 +34,14 @@ public class SysMessageService(IRepository<SysMessage> repository) : ISysMessage
     public async Task<PageResult<SysMessage>> GetMyPageAsync(long userId, MessageQueryDto query)
     {
         // 接收人条件恒定携带（防越权泄露他人消息），关键字/已读为可选条件
-        var exp = Expressionable.Create<SysMessage>();
-        exp.And(x => x.ReceiverId == userId);
-        if (query.Keyword.IsNotNullOrEmpty())
-        {
-            var keyword = query.Keyword!.Trim();
-            exp.And(x => x.Title.Contains(keyword) || x.Content.Contains(keyword));
-        }
-        if (query.IsRead.HasValue)
-        {
-            var isRead = query.IsRead.Value == 1;
-            exp.And(x => x.IsRead == isRead);
-        }
-
-        var page = await repository.GetPageListAsync(exp.ToExpression(), query);
+        var keyword = query.Keyword?.Trim();
+        var isRead = query.IsRead.HasValue ? query.IsRead.Value == 1 : (bool?)null;
+        var page = await repository.GetPageListAsync(
+            Expressionable.Create<SysMessage>()
+                .And(x => x.ReceiverId == userId)
+                .AndIF(keyword.IsNotNullOrEmpty(), x => x.Title.Contains(keyword!) || x.Content.Contains(keyword!))
+                .AndIF(isRead.HasValue, x => x.IsRead == isRead!.Value)
+                .ToExpression(), query);
         return PageResult<SysMessage>.Of(page.Items, page.Total, page.PageIndex, page.PageSize);
     }
 

@@ -70,35 +70,16 @@ public class SysLogService(
 
     private Expression<Func<SysOperationLog, bool>>? BuildOperationPredicate(LogQueryDto query)
     {
-        var hasCondition = false;
-        var exp = Expressionable.Create<SysOperationLog>();
-        if (query.Keyword.IsNotNullOrEmpty())
-        {
-            hasCondition = true;
-            var keyword = query.Keyword!.Trim();
-            exp.And(x => (x.UserName != null && x.UserName.Contains(keyword))
-                      || (x.Module != null && x.Module.Contains(keyword))
-                      || (x.Action != null && x.Action.Contains(keyword)));
-        }
-        if (query.Success.HasValue)
-        {
-            hasCondition = true;
-            var success = query.Success.Value == 1;
-            exp.And(x => x.Success == success);
-        }
-        if (query.BeginTime.HasValue)
-        {
-            hasCondition = true;
-            var begin = query.BeginTime.Value;
-            exp.And(x => x.CreateTime >= begin);
-        }
-        if (query.EndTime.HasValue)
-        {
-            hasCondition = true;
-            var end = query.EndTime.Value;
-            exp.And(x => x.CreateTime <= end);
-        }
-        return hasCondition ? exp.ToExpression() : null;
+        var keyword = query.Keyword?.Trim();
+        var success = query.Success.HasValue ? query.Success.Value == 1 : (bool?)null;
+        return Expressionable.Create<SysOperationLog>()
+            .AndIF(keyword.IsNotNullOrEmpty(), x => (x.UserName != null && x.UserName.Contains(keyword!))
+                                                   || (x.Module != null && x.Module.Contains(keyword!))
+                                                   || (x.Action != null && x.Action.Contains(keyword!)))
+            .AndIF(success.HasValue, x => x.Success == success!.Value)
+            .AndIF(query.BeginTime.HasValue, x => x.CreateTime >= query.BeginTime!.Value)
+            .AndIF(query.EndTime.HasValue, x => x.CreateTime <= query.EndTime!.Value)
+            .ToExpression();
     }
 
     private static OperationLogDto ToOperationDto(SysOperationLog x) => new()
@@ -127,35 +108,16 @@ public class SysLogService(
 
     private Expression<Func<SysLoginLog, bool>>? BuildLoginPredicate(LogQueryDto query)
     {
-        var hasCondition = false;
-        var exp = Expressionable.Create<SysLoginLog>();
-        if (query.Keyword.IsNotNullOrEmpty())
-        {
-            hasCondition = true;
-            var keyword = query.Keyword!.Trim();
-            exp.And(x => x.UserName.Contains(keyword)
-                      || (x.Message != null && x.Message.Contains(keyword))
-                      || (x.Ip != null && x.Ip.Contains(keyword)));
-        }
-        if (query.Success.HasValue)
-        {
-            hasCondition = true;
-            var success = query.Success.Value == 1;
-            exp.And(x => x.Success == success);
-        }
-        if (query.BeginTime.HasValue)
-        {
-            hasCondition = true;
-            var begin = query.BeginTime.Value;
-            exp.And(x => x.CreateTime >= begin);
-        }
-        if (query.EndTime.HasValue)
-        {
-            hasCondition = true;
-            var end = query.EndTime.Value;
-            exp.And(x => x.CreateTime <= end);
-        }
-        return hasCondition ? exp.ToExpression() : null;
+        var keyword = query.Keyword?.Trim();
+        var success = query.Success.HasValue ? query.Success.Value == 1 : (bool?)null;
+        return Expressionable.Create<SysLoginLog>()
+            .AndIF(keyword.IsNotNullOrEmpty(), x => x.UserName.Contains(keyword!)
+                                                   || (x.Message != null && x.Message.Contains(keyword!))
+                                                   || (x.Ip != null && x.Ip.Contains(keyword!)))
+            .AndIF(success.HasValue, x => x.Success == success!.Value)
+            .AndIF(query.BeginTime.HasValue, x => x.CreateTime >= query.BeginTime!.Value)
+            .AndIF(query.EndTime.HasValue, x => x.CreateTime <= query.EndTime!.Value)
+            .ToExpression();
     }
 
     private static LoginLogDto ToLoginDto(SysLoginLog x) => new()

@@ -2,6 +2,7 @@ using System.Reflection;
 using Microsoft.Extensions.Logging;
 using NetBase.Common.Extensions;
 using NetBase.Model.Entities;
+using NetBase.Repository.Auditing;
 using SqlSugar;
 
 namespace NetBase.Repository.DbContexts;
@@ -37,7 +38,7 @@ public class SqlSugarContext
 
     private readonly SqlSugarScope? _client;
 
-    public SqlSugarContext(SqlSugarOptions options, ILogger<SqlSugarContext>? logger = null)
+    public SqlSugarContext(SqlSugarOptions options, IOperatorProvider? operatorProvider, ILogger<SqlSugarContext>? logger = null)
     {
         Options = options;
         if (options.ConnectionString.IsNullOrEmpty())
@@ -57,6 +58,29 @@ public class SqlSugarContext
         {
             // 全局软删除过滤器：ISoftDelete 实体自动追加 IsDeleted = 0 条件
             db.QueryFilter.AddTableFilter<ISoftDelete>(x => !x.IsDeleted);
+
+            // 审计字段 AOP 兜底：Insert 自动填创建时间/创建人，Update 自动填更新时间/更新人。
+            // 服务层显式赋值仍优先生效（CreateBy 仅在为空时填充），杜绝遗漏。
+            var operatorName = operatorProvider?.OperatorName ?? "system";
+            db.Aop.DataExecuting = (oldValue, entityInfo) =>
+            {
+                switch (entityInfo.OperationType)
+                {
+                    case DataFilterType.InsertByObject when entityInfo.PropertyName == nameof(BaseEntity.CreateTime):
+                        entityInfo.SetValue(DateTime.Now);
+                        break;
+                    case DataFilterType.InsertByObject when entityInfo.PropertyName == nameof(BaseEntity.CreateBy)
+                                                             && string.IsNullOrEmpty(oldValue as string):
+                        entityInfo.SetValue(operatorName);
+                        break;
+                    case DataFilterType.UpdateByObject when entityInfo.PropertyName == nameof(BaseEntity.UpdateTime):
+                        entityInfo.SetValue(DateTime.Now);
+                        break;
+                    case DataFilterType.UpdateByObject when entityInfo.PropertyName == nameof(BaseEntity.UpdateBy):
+                        entityInfo.SetValue(operatorName);
+                        break;
+                }
+            };
 
             // AOP：SQL 日志 + 慢查询告警 + 错误日志
             db.Aop.OnLogExecuting = (sql, parameters) =>

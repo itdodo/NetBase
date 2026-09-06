@@ -62,15 +62,11 @@ public class SysConfigService(
 
     public async Task<PageResult<SysConfig>> GetPageAsync(ConfigQueryDto query)
     {
-        var hasCondition = false;
-        var exp = Expressionable.Create<SysConfig>();
-        if (query.Keyword.IsNotNullOrEmpty())
-        {
-            hasCondition = true;
-            var keyword = query.Keyword!.Trim();
-            exp.And(x => x.ConfigKey.Contains(keyword) || x.ConfigName.Contains(keyword));
-        }
-        return await repository.GetPageListAsync(hasCondition ? exp.ToExpression() : null, query);
+        var keyword = query.Keyword?.Trim();
+        return await repository.GetPageListAsync(
+            Expressionable.Create<SysConfig>()
+                .AndIF(keyword.IsNotNullOrEmpty(), x => x.ConfigKey.Contains(keyword!) || x.ConfigName.Contains(keyword!))
+                .ToExpression(), query);
     }
 
     public async Task<long> CreateAsync(ConfigSaveDto dto, string? operatorName = null)

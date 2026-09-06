@@ -225,21 +225,11 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
 
     private Expression<Func<SysRole, bool>>? BuildPredicate(RoleQueryDto query)
     {
-        var hasCondition = false;
-        var exp = Expressionable.Create<SysRole>();
-        if (query.Keyword.IsNotNullOrEmpty())
-        {
-            hasCondition = true;
-            var keyword = query.Keyword!.Trim();
-            exp.And(x => x.RoleName.Contains(keyword) || x.RoleCode.Contains(keyword));
-        }
-        if (query.Status.HasValue)
-        {
-            hasCondition = true;
-            var status = query.Status.Value;
-            exp.And(x => x.Status == status);
-        }
-        return hasCondition ? exp.ToExpression() : null;
+        var keyword = query.Keyword?.Trim();
+        return Expressionable.Create<SysRole>()
+            .AndIF(keyword.IsNotNullOrEmpty(), x => x.RoleName.Contains(keyword!) || x.RoleCode.Contains(keyword!))
+            .AndIF(query.Status.HasValue, x => x.Status == query.Status!.Value)
+            .ToExpression();
     }
 
     private static RoleDto ToDto(SysRole role) => new()

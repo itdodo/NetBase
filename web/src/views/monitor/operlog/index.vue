@@ -1,44 +1,49 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Search } from '@element-plus/icons-vue'
-import { getOperationLogPage } from '@/api/log'
 import type { OperationLogInfo } from '@/api/log'
 import { formatDateTime } from '@/utils/format'
 import { cleanupOperationLogs } from '@/api/monitor'
 import { download } from '@/utils/download'
+import { usePageList } from '@/composables/usePageList'
+
+interface OperationLogQuery {
+  pageIndex: number
+  pageSize: number
+  keyword: string
+  success?: number
+  beginTime?: string
+  endTime?: string
+}
 
 defineOptions({ name: 'MonitorOperlogView' })
 
-const loading = ref(false)
-const list = ref<OperationLogInfo[]>([])
-const total = ref(0)
-
-const query = reactive({
-  pageIndex: 1,
-  pageSize: 10,
-  keyword: '',
-  success: undefined as number | undefined,
-  beginTime: undefined as string | undefined,
-  endTime: undefined as string | undefined
-})
+// 列表样板复用 usePageList（加载/分页/查询），本页仅保留时间范围与清理等页面级逻辑
 const dateRange = ref<[string, string] | null>(null)
-
-async function loadData(): Promise<void> {
-  loading.value = true
-  try {
-    const page = await getOperationLogPage(query)
-    list.value = page.items
-    total.value = page.total
-  } finally {
-    loading.value = false
+const {
+  loading,
+  list,
+  total,
+  query,
+  loadData,
+  handleSearch
+} = usePageList<OperationLogInfo, OperationLogQuery>({
+  url: '/sys/log/operation/page',
+  defaultQuery: {
+    pageIndex: 1,
+    pageSize: 10,
+    keyword: '',
+    success: undefined,
+    beginTime: undefined,
+    endTime: undefined
   }
-}
+})
 
-function handleSearch(): void {
-  query.pageIndex = 1
+function handleSearchWithDate(): void {
   query.beginTime = dateRange.value?.[0]
   query.endTime = dateRange.value?.[1]
-  loadData()
+  handleSearch()
 }
 
 async function handleExport(): Promise<void> {
@@ -49,7 +54,7 @@ function handleReset(): void {
   query.keyword = ''
   query.success = undefined
   dateRange.value = null
-  handleSearch()
+  handleSearchWithDate()
 }
 
 async function handleCleanup(): Promise<void> {
@@ -71,7 +76,7 @@ onMounted(loadData)
         clearable
         style="width: 200px"
         :prefix-icon="Search"
-        @keyup.enter="handleSearch"
+        @keyup.enter="handleSearchWithDate"
       />
       <el-select v-model="query.success" placeholder="结果" clearable style="width: 120px">
         <el-option label="成功" :value="1" />
@@ -86,7 +91,7 @@ onMounted(loadData)
         value-format="YYYY-MM-DD"
         style="width: 240px"
       />
-      <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
+      <el-button type="primary" :icon="Search" @click="handleSearchWithDate">查询</el-button>
       <el-button :icon="Refresh" @click="handleReset">重置</el-button>
       <el-button type="danger" plain @click="handleCleanup">清理</el-button>
       <el-button v-permission="'monitor:operlog:list'" type="warning" @click="handleExport">导出</el-button>

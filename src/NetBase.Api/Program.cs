@@ -35,6 +35,7 @@ builder.Services.AddNetBaseMiddleware(builder.Configuration);
 // 当前用户（认证接入后自动从 Claims 解析，业务代码已按此取审计操作人）
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<ICurrentUserService, CurrentUserService>();
+builder.Services.AddSingleton<NetBase.Repository.Auditing.IOperatorProvider, NetBase.Api.Auditing.OperatorProvider>();
 
 // 控制器 + 全局过滤器（模型验证、异常处理）
 builder.Services

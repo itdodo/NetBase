@@ -13,21 +13,12 @@ public class SysNoticeService(IRepository<SysNotice> repository) : ISysNoticeSer
 {
     public async Task<PageResult<SysNotice>> GetPageAsync(NoticeQueryDto query)
     {
-        var hasCondition = false;
-        var exp = Expressionable.Create<SysNotice>();
-        if (query.Keyword.IsNotNullOrEmpty())
-        {
-            hasCondition = true;
-            var keyword = query.Keyword!.Trim();
-            exp.And(x => x.Title.Contains(keyword));
-        }
-        if (query.NoticeType.HasValue)
-        {
-            hasCondition = true;
-            var noticeType = query.NoticeType.Value;
-            exp.And(x => x.NoticeType == noticeType);
-        }
-        return await repository.GetPageListAsync(hasCondition ? exp.ToExpression() : null, query);
+        var keyword = query.Keyword?.Trim();
+        return await repository.GetPageListAsync(
+            Expressionable.Create<SysNotice>()
+                .AndIF(keyword.IsNotNullOrEmpty(), x => x.Title.Contains(keyword!))
+                .AndIF(query.NoticeType.HasValue, x => x.NoticeType == query.NoticeType!.Value)
+                .ToExpression(), query);
     }
 
     public Task<SysNotice?> GetDetailAsync(long id) => repository.GetByIdAsync(id);

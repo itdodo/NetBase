@@ -2,6 +2,8 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
+using NetBase.Common.Extensions;
+using NetBase.Api.Extensions;
 using NetBase.Common.Security;
 using NetBase.Common.Users;
 using NetBase.Model.Entities;
@@ -36,29 +38,16 @@ public class OperationLogFilter(ISysLogService logService, ICurrentUserService c
             Module = descriptor?.ControllerName,
             Action = descriptor?.ActionName,
             HttpMethod = httpMethod,
-            Path = Truncate(context.HttpContext.Request.Path.Value, 200),
+            Path = context.HttpContext.Request.Path.Value.TruncateTo(200),
             Params = SensitiveData.Serialize(context.ActionArguments),
             // Canceled=被前置过滤器短路（模型验证/防重拒绝），同样视为失败操作
             Success = executed.Exception == null && !executed.Canceled,
-            ErrorMessage = Truncate(executed.Exception?.Message, 500),
+            ErrorMessage = executed.Exception?.Message.TruncateTo(500),
             ElapsedMs = stopwatch.ElapsedMilliseconds,
-            Ip = GetClientIp(context.HttpContext)
+            Ip = context.HttpContext.GetClientIp()
         };
 
         await logService.RecordOperationAsync(log);
     }
 
-    private static string? GetClientIp(HttpContext httpContext)
-    {
-        // 反向代理场景优先取转发头第一段
-        var forwarded = httpContext.Request.Headers["X-Forwarded-For"].ToString();
-        if (!string.IsNullOrEmpty(forwarded))
-        {
-            return forwarded.Split(',')[0].Trim();
-        }
-        return httpContext.Connection.RemoteIpAddress?.ToString();
-    }
-
-    private static string? Truncate(string? value, int max) =>
-        string.IsNullOrEmpty(value) ? value : value.Length <= max ? value : value[..max];
 }

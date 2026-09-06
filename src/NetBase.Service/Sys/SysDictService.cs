@@ -21,15 +21,11 @@ public class SysDictService(
 
     public async Task<PageResult<SysDictType>> GetTypePageAsync(DictTypeQueryDto query)
     {
-        var hasCondition = false;
-        var exp = Expressionable.Create<SysDictType>();
-        if (query.Keyword.IsNotNullOrEmpty())
-        {
-            hasCondition = true;
-            var keyword = query.Keyword!.Trim();
-            exp.And(x => x.DictCode.Contains(keyword) || x.DictName.Contains(keyword));
-        }
-        return await typeRepository.GetPageListAsync(hasCondition ? exp.ToExpression() : null, query);
+        var keyword = query.Keyword?.Trim();
+        return await typeRepository.GetPageListAsync(
+            Expressionable.Create<SysDictType>()
+                .AndIF(keyword.IsNotNullOrEmpty(), x => x.DictCode.Contains(keyword!) || x.DictName.Contains(keyword!))
+                .ToExpression(), query);
     }
 
     public Task<SysDictType?> GetTypeDetailAsync(long id) => typeRepository.GetByIdAsync(id);

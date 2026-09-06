@@ -1,4 +1,5 @@
 using NetBase.Model.Entities;
+using NetBase.Common.Cache;
 using NetBase.Model.Enums;
 using NetBase.Repository.Repositories;
 
@@ -10,10 +11,22 @@ public class DataScopeService(
     IRepository<SysRole> roleRepository,
     IRepository<SysUserRole> userRoleRepository,
     IRepository<SysRoleDept> roleDeptRepository,
-    ISysDeptService deptService) : IDataScopeService
+    ISysDeptService deptService,
+    ICacheService cacheService) : IDataScopeService
 {
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(60);
+
+    private string CacheKey(long userId) => $"netbase:datascope:{userId}";
+
     public async Task<DataScopeInfo> GetDataScopeAsync(long userId)
     {
+        var cacheKey = CacheKey(userId);
+        var cached = cacheService.Get<DataScopeInfo>(cacheKey);
+        if (cached != null)
+        {
+            return cached;
+        }
+
         var user = await userRepository.GetByIdAsync(userId);
         if (user == null)
         {
@@ -71,6 +84,7 @@ public class DataScopeService(
             info.IncludeSelfData = true;
         }
 
+        cacheService.Set(cacheKey, info, CacheTtl);
         return info;
     }
 

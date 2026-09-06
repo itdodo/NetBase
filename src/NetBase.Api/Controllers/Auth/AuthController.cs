@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using NetBase.Common.Users;
+using NetBase.Api.Extensions;
 using NetBase.Model.Dtos;
 using NetBase.Api.Auth;
 using NetBase.Common.Results;
@@ -31,7 +32,7 @@ public class AuthController(
         var result = await authService.LoginAsync(
             request.UserName,
             request.Password,
-            HttpContext.Connection.RemoteIpAddress?.ToString(),
+            HttpContext.GetClientIp(),
             Request.Headers.UserAgent.ToString(),
             request.CaptchaId,
             request.CaptchaCode);
@@ -45,7 +46,7 @@ public class AuthController(
     {
         var result = await authService.RefreshAsync(
             request.RefreshToken,
-            HttpContext.Connection.RemoteIpAddress?.ToString(),
+            HttpContext.GetClientIp(),
             Request.Headers.UserAgent.ToString());
         return Success(result, "刷新成功");
     }

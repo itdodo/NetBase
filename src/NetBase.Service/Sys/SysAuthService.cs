@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using NetBase.Common.Cache;
 using NetBase.Common.Exceptions;
 using NetBase.Common.Results;
+using NetBase.Common.Extensions;
 using NetBase.Common.Security;
 using NetBase.Model.Dtos;
 using NetBase.Model.Entities;
@@ -121,7 +122,7 @@ public class SysAuthService(
             Success = success,
             Message = message,
             Ip = loginIp,
-            UserAgent = userAgent?.Length > 255 ? userAgent[..255] : userAgent
+            UserAgent = userAgent.TruncateTo(255)
         });
 
     public async Task<LoginResult> RefreshAsync(string refreshToken, string? loginIp, string? userAgent)
@@ -230,7 +231,7 @@ public class SysAuthService(
             TokenId = tokenId,
             RefreshTokenHash = HashToken(refreshToken),
             LoginIp = loginIp,
-            UserAgent = Truncate(userAgent, 255),
+            UserAgent = userAgent.TruncateTo(255),
             LoginTime = now,
             ExpireTime = now.AddDays(_jwt.RefreshTokenExpireDays)
         };
@@ -278,9 +279,6 @@ public class SysAuthService(
 
     private static string HashToken(string token) =>
         Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token)));
-
-    private static string? Truncate(string? value, int max) =>
-        string.IsNullOrEmpty(value) ? value : value.Length <= max ? value : value[..max];
 
     #endregion
 }

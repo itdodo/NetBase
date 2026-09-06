@@ -96,7 +96,8 @@ public class SysFileService(
         return new FileUploadResult
         {
             Id = record.Id,
-            Url = $"/api/v1/file/{record.Id}",
+            // 按随机存储名访问，防自增 id 枚举下载
+            Url = $"/api/v1/file/d/{record.StorageName}",
             FileName = fileName,
             Size = content.Length
         };
@@ -105,11 +106,18 @@ public class SysFileService(
     public async Task<(SysFile File, byte[] Content)?> GetAsync(long id)
     {
         var record = await repository.GetByIdAsync(id);
-        if (record == null)
-        {
-            return null;
-        }
+        return record == null ? null : await ReadContentAsync(record);
+    }
 
+    public async Task<(SysFile File, byte[] Content)?> GetByStorageNameAsync(string storageName)
+    {
+        // 存储名为 uuid 随机串，无法枚举
+        var record = await repository.GetFirstAsync(x => x.StorageName == storageName);
+        return record == null ? null : await ReadContentAsync(record);
+    }
+
+    private async Task<(SysFile File, byte[] Content)?> ReadContentAsync(SysFile record)
+    {
         var root = string.IsNullOrWhiteSpace(_options.RootPath)
             ? Path.Combine(environment.ContentRootPath, "uploads")
             : _options.RootPath;

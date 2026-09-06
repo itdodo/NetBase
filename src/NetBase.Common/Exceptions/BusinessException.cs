@@ -7,12 +7,16 @@ namespace NetBase.Common.Exceptions;
 /// </summary>
 public class BusinessException : Exception
 {
-    /// <summary>错误码，默认 500</summary>
+    /// <summary>状态码，默认 500</summary>
     public int Code { get; }
 
-    public BusinessException(string message, int code = ApiResultCode.Fail) : base(message)
+    /// <summary>业务错误码（可选，供前端按码处理）</summary>
+    public string? ErrorCode { get; }
+
+    public BusinessException(string message, int code = ApiResultCode.Fail, string? errorCode = null) : base(message)
     {
         Code = code;
+        ErrorCode = errorCode;
     }
 
     public BusinessException(int code, string message) : base(message)

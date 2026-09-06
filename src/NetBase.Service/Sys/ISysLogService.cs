@@ -15,6 +15,12 @@ public class LogQueryDto : PageQuery
     /// <summary>是否成功</summary>
     [Range(0, 1)]
     public int? Success { get; set; }
+
+    /// <summary>开始时间</summary>
+    public DateTime? BeginTime { get; set; }
+
+    /// <summary>结束时间</summary>
+    public DateTime? EndTime { get; set; }
 }
 
 /// <summary>操作日志返回</summary>
@@ -78,6 +84,12 @@ public interface ISysLogService
 
     /// <summary>操作日志分页</summary>
     Task<PageResult<OperationLogDto>> GetOperationLogPageAsync(LogQueryDto query);
+
+    /// <summary>清理指定日期前的操作日志（物理删除）</summary>
+    Task<int> CleanupOperationLogsAsync(DateTime before);
+
+    /// <summary>清理指定日期前的登录日志（物理删除）</summary>
+    Task<int> CleanupLoginLogsAsync(DateTime before);
 
     /// <summary>操作日志导出（全量，条件同分页）</summary>
     Task<List<OperationLogDto>> GetOperationLogExportAsync(LogQueryDto query);

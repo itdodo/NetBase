@@ -20,6 +20,24 @@ public class SysLogController(ISysLogService logService,
         return Success(await logService.GetOperationLogPageAsync(query));
     }
 
+    /// <summary>清理操作日志（物理删除 before 之前记录）</summary>
+    [HasPermission("monitor:operlog:list")]
+    [HttpDelete("operation/cleanup")]
+    public async Task<ApiResult<int>> CleanupOperation([FromQuery] int keepDays = 30)
+    {
+        var count = await logService.CleanupOperationLogsAsync(DateTime.Now.AddDays(-keepDays));
+        return Success(count, $"已清理 {count} 条操作日志");
+    }
+
+    /// <summary>清理登录日志（物理删除 before 之前记录）</summary>
+    [HasPermission("monitor:loginlog:list")]
+    [HttpDelete("login/cleanup")]
+    public async Task<ApiResult<int>> CleanupLogin([FromQuery] int keepDays = 30)
+    {
+        var count = await logService.CleanupLoginLogsAsync(DateTime.Now.AddDays(-keepDays));
+        return Success(count, $"已清理 {count} 条登录日志");
+    }
+
     /// <summary>导出操作日志（xlsx，条件同分页）</summary>
     [HasPermission("monitor:operlog:list")]
     [HttpGet("operation/export")]

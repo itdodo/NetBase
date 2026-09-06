@@ -82,6 +82,8 @@ public class DbSeeder
         EnsureCrudButtons(db, "sys:dict:list", adminRoleId, now);
         EnsureCrudButtons(db, "sys:config:list", adminRoleId, now);
         EnsureCrudButtons(db, "sys:notice:list", adminRoleId, now);
+        // 系统监控目录下的"服务监控"页（进程指标/缓存诊断）
+        EnsureMonitorMenu(db, adminRoleId, now);
         SeedConfigs(db, now);
         SeedSampleDicts(db, now);
         SeedSampleNotice(db, now);
@@ -395,6 +397,35 @@ public class DbSeeder
         menuIds.AddRange(db.Queryable<SysMenu>().Where(x => x.ParentId == menu.Id).Select(x => x.Id).ToList());
         db.Insertable(menuIds.Select(menuId => new SysRoleMenu { RoleId = adminRoleId, MenuId = menuId, CreateTime = now }).ToList()).ExecuteCommand();
         _logger?.LogInformation("种子数据：增量菜单「部门管理」已写入");
+    }
+
+    /// <summary>增量补充「服务监控」菜单（按权限码幂等）</summary>
+    private void EnsureMonitorMenu(ISqlSugarClient db, long adminRoleId, DateTime now)
+    {
+        var monitorDir = db.Queryable<SysMenu>().First(x => x.MenuName == "系统监控" && x.MenuType == (int)MenuTypeEnum.Directory);
+        if (monitorDir == null || db.Queryable<SysMenu>().Any(x => x.Permission == "monitor:system:list"))
+        {
+            return;
+        }
+
+        var menu = db.Insertable(new SysMenu
+        {
+            ParentId = monitorDir.Id,
+            MenuName = "服务监控",
+            MenuType = (int)MenuTypeEnum.Menu,
+            Path = "/monitor/system",
+            Component = "monitor/system/index",
+            Permission = "monitor:system:list",
+            Sort = 3,
+            CreateTime = now,
+            CreateBy = "system"
+        }).ExecuteReturnEntity();
+
+        if (!db.Queryable<SysRoleMenu>().Any(x => x.RoleId == adminRoleId && x.MenuId == menu.Id))
+        {
+            db.Insertable(new SysRoleMenu { RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
+        }
+        _logger?.LogInformation("种子数据：增量菜单「服务监控」已写入");
     }
 
     /// <summary>内置系统参数（幂等：按参数键判断）</summary>

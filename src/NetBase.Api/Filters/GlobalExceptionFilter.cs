@@ -30,7 +30,12 @@ public class GlobalExceptionFilter : IExceptionFilter
         {
             case BusinessException businessException:
                 _logger.LogWarning("业务异常: {Message}", businessException.Message);
-                context.Result = new JsonResult(ApiResult.Fail(businessException.Message, businessException.Code));
+                context.Result = new JsonResult(new ApiResult
+                {
+                    Code = businessException.Code,
+                    Message = businessException.Message,
+                    ErrorCode = businessException.ErrorCode
+                });
                 break;
 
             case OperationCanceledException:

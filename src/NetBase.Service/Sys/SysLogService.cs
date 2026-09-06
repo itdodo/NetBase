@@ -15,6 +15,14 @@ public class SysLogService(
     IRepository<SysLoginLog> loginLogRepository,
     ILogger<SysLogService> logger) : ISysLogService
 {
+    /// <summary>清理指定日期前的日志（物理删除）</summary>
+    public Task<int> CleanupOperationLogsAsync(DateTime before) =>
+        operationLogRepository.DeletePhysicalWhereAsync(x => x.CreateTime < before);
+
+    /// <summary>清理指定日期前的登录日志（物理删除）</summary>
+    public Task<int> CleanupLoginLogsAsync(DateTime before) =>
+        loginLogRepository.DeletePhysicalWhereAsync(x => x.CreateTime < before);
+
     public async Task RecordOperationAsync(SysOperationLog log)
     {
         try
@@ -78,6 +86,18 @@ public class SysLogService(
             var success = query.Success.Value == 1;
             exp.And(x => x.Success == success);
         }
+        if (query.BeginTime.HasValue)
+        {
+            hasCondition = true;
+            var begin = query.BeginTime.Value;
+            exp.And(x => x.CreateTime >= begin);
+        }
+        if (query.EndTime.HasValue)
+        {
+            hasCondition = true;
+            var end = query.EndTime.Value;
+            exp.And(x => x.CreateTime <= end);
+        }
         return hasCondition ? exp.ToExpression() : null;
     }
 
@@ -122,6 +142,18 @@ public class SysLogService(
             hasCondition = true;
             var success = query.Success.Value == 1;
             exp.And(x => x.Success == success);
+        }
+        if (query.BeginTime.HasValue)
+        {
+            hasCondition = true;
+            var begin = query.BeginTime.Value;
+            exp.And(x => x.CreateTime >= begin);
+        }
+        if (query.EndTime.HasValue)
+        {
+            hasCondition = true;
+            var end = query.EndTime.Value;
+            exp.And(x => x.CreateTime <= end);
         }
         return hasCondition ? exp.ToExpression() : null;
     }

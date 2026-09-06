@@ -30,4 +30,7 @@ public interface ISysFileService
 
     /// <summary>读取文件内容（不存在返回 null）</summary>
     Task<(SysFile File, byte[] Content)?> GetAsync(long id);
+
+    /// <summary>按存储名读取文件（防 id 枚举的公开访问路径）</summary>
+    Task<(SysFile File, byte[] Content)?> GetByStorageNameAsync(string storageName);
 }

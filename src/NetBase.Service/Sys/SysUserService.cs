@@ -1,3 +1,4 @@
+using ICacheService = NetBase.Common.Cache.ICacheService;
 using NetBase.Common.Exceptions;
 using NetBase.Common.Extensions;
 using NetBase.Common.Results;
@@ -28,7 +29,8 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         IRepository<SysUserSession> userSessionRepository,
         IPermissionService permissionService,
         ISysConfigService configService,
-        ISysDeptService deptService) : base(repository)
+        ISysDeptService deptService,
+        ICacheService cacheService) : base(repository)
     {
         _roleRepository = roleRepository;
         _userRoleRepository = userRoleRepository;
@@ -36,12 +38,14 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         _permissionService = permissionService;
         _configService = configService;
         _deptService = deptService;
+        _cacheService = cacheService;
     }
 
     private readonly IRepository<SysUserSession> _userSessionRepository;
     private readonly IPermissionService _permissionService;
     private readonly ISysConfigService _configService;
     private readonly ISysDeptService _deptService;
+    private readonly ICacheService _cacheService;
 
     /// <summary>默认密码：优先取系统参数 sys.pwd.defaultPassword，未配置回退内置值</summary>
     private async Task<bool> DeptExistsAsync(long deptId) => await _deptService.GetDetailAsync(deptId) != null;
@@ -123,12 +127,20 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
                 CreateBy = operatorName
             };
 
-            // 角色编码解析（无效编码不阻断导入，仅提示）
-            var roleIds = (row.RoleCodes ?? string.Empty)
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(rc => roleMap.ContainsKey(rc))
-                .Select(rc => roleMap[rc])
-                .ToList();
+            // 角色编码解析：无效编码写入失败明细（不阻断用户导入）
+            var roleIds = new List<long>();
+            foreach (var rc in (row.RoleCodes ?? string.Empty)
+                         .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (roleMap.TryGetValue(rc, out var roleId))
+                {
+                    roleIds.Add(roleId);
+                }
+                else
+                {
+                    errors.Add($"第 {index} 行：{userName} 的角色编码 {rc} 无效，已忽略该角色");
+                }
+            }
 
             await Repository.TransactionAsync(async () =>
             {
@@ -151,8 +163,9 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
 
     public async Task<UserDto?> GetDetailAsync(long id)
     {
-        var user = await Repository.GetByIdAsync(id);
-        return user == null ? null : (await ToDtosAsync([user]))[0];
+        var user = await Repository.GetByIdAsync(id)
+            ?? throw new BusinessException($"用户不存在（Id={id}）", ApiResultCode.NotFound, "SYS_USER_NOT_FOUND");
+        return (await ToDtosAsync([user]))[0];
     }
 
     public async Task<long> CreateAsync(UserCreateDto dto, string? operatorName = null)
@@ -268,7 +281,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
 
     public async Task ResetPasswordAsync(long id, string? newPassword, string? operatorName = null)
     {
-        _ = await GetRequiredAsync(id);
+        var user = await GetRequiredAsync(id);
         var password = newPassword.IsNullOrEmpty() ? await GetDefaultPasswordAsync() : newPassword;
         // 密码复杂度服务端强制校验（管理员重置同样受策略约束）
         var policyError = PasswordPolicy.Validate(password);
@@ -281,8 +294,12 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         await Repository.UpdateWhereAsync(
             x => x.Id == id,
             x => new SysUser { Password = hashed, UpdateTime = DateTime.Now, UpdateBy = operatorName });
-        // 重置密码后清除该用户全部会话，强制重新登录
+        // 重置密码后清除该用户全部会话与登录失败计数，强制重新登录
         await _userSessionRepository.DeletePhysicalWhereAsync(x => x.UserId == id);
+        var failKey = $"netbase:login:fail:{user.UserName.ToLowerInvariant()}";
+        var lockKey = $"netbase:login:lock:{user.UserName.ToLowerInvariant()}";
+        _cacheService.Remove(failKey);
+        _cacheService.Remove(lockKey);
     }
 
     public async Task AssignRolesAsync(long userId, List<long> roleIds)
@@ -323,7 +340,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
 
     private async Task<SysUser> GetRequiredAsync(long id) =>
         await Repository.GetByIdAsync(id)
-        ?? throw new BusinessException($"用户不存在（Id={id}）", ApiResultCode.NotFound);
+        ?? throw new BusinessException($"用户不存在（Id={id}）", ApiResultCode.NotFound, "SYS_USER_NOT_FOUND");
 
     private async Task<Expression<Func<SysUser, bool>>> BuildPredicateAsync(UserQueryDto query)
     {

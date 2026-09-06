@@ -32,3 +32,24 @@ export const getLatestNotices = () => request.get<never, NoticeInfo[]>('/sys/not
 export const createNotice = (data: NoticeSave) => request.post<never, number>('/sys/notice', data)
 export const updateNotice = (id: number, data: NoticeSave) => request.put<never, void>(`/sys/notice/${id}`, data)
 export const deleteNotice = (id: number) => request.delete<never, void>(`/sys/notice/${id}`)
+
+// ============ 站内信 ============
+export interface MessageInfo {
+  id: number
+  title: string
+  content: string
+  senderName?: string
+  receiverId: number
+  isRead: boolean
+  readTime?: string
+  createTime: string
+}
+
+export const getMyMessages = (params: Partial<PageQuery & { keyword?: string; isRead?: number }>) =>
+  request.get<never, PageResult<MessageInfo>>('/sys/message/my/page', { params })
+
+export const getUnreadCount = () => request.get<never, number>('/sys/message/my/unread-count')
+
+export const markMessageRead = (id: number) => request.put<never, void>(`/sys/message/my/${id}/read`)
+
+export const markAllMessagesRead = () => request.put<never, void>('/sys/message/my/read-all')

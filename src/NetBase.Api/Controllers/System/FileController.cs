@@ -27,12 +27,12 @@ public class FileController(ISysFileService fileService, ICurrentUserService cur
         return Success(result, "上传成功");
     }
 
-    /// <summary>访问文件内容（头像等公开资源匿名可读）</summary>
+    /// <summary>访问文件内容（按随机存储名，防 id 枚举；头像等公开资源匿名可读）</summary>
     [AllowAnonymous]
-    [HttpGet("{id:long}")]
-    public async Task<IActionResult> Get(long id)
+    [HttpGet("d/{storageName}")]
+    public async Task<IActionResult> Download(string storageName)
     {
-        var result = await fileService.GetAsync(id);
+        var result = await fileService.GetByStorageNameAsync(storageName);
         if (result == null)
         {
             return NotFound();

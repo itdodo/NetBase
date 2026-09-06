@@ -9,6 +9,8 @@ import TagsView from './components/TagsView.vue'
 import { changePassword } from '@/api/log'
 import { getLatestNotices } from '@/api/notice'
 import type { NoticeInfo } from '@/api/notice'
+import { getMyMessages, getUnreadCount, markAllMessagesRead, markMessageRead } from '@/api/notice'
+import type { MessageInfo } from '@/api/notice'
 import { useUserStore } from '@/stores/user'
 import { usePermissionStore } from '@/stores/permission'
 import { useTabsStore } from '@/stores/tabs'
@@ -44,6 +46,46 @@ const noticeVisible = ref(false)
 const viewingNotice = ref<NoticeInfo | null>(null)
 const noticeDetailVisible = ref(false)
 
+// ---------- 站内信（收件箱，与公告同抽屉 Tab 化） ----------
+const messages = ref<MessageInfo[]>([])
+const messageUnread = ref(0)
+const activeTab = ref('notice')
+
+async function loadMessages(): Promise<void> {
+  try {
+    const page = await getMyMessages({ pageIndex: 1, pageSize: 20 })
+    messages.value = page.items
+    messageUnread.value = await getUnreadCount()
+  } catch {
+    messageUnread.value = 0
+  }
+}
+
+async function handleMarkAllRead(): Promise<void> {
+  await markAllMessagesRead()
+  messageUnread.value = 0
+  if (activeTab.value === 'message') {
+    await loadMessages()
+  }
+}
+
+async function openMessage(item: MessageInfo): Promise<void> {
+  viewingNotice.value = {
+    id: item.id,
+    title: item.title,
+    noticeType: 1,
+    content: item.content,
+    status: 1,
+    createBy: item.senderName,
+    createTime: item.createTime
+  }
+  if (!item.isRead) {
+    await markMessageRead(item.id)
+    await loadMessages()
+  }
+  noticeDetailVisible.value = true
+}
+
 async function loadNotices(): Promise<void> {
   try {
     notices.value = await getLatestNotices()
@@ -52,12 +94,18 @@ async function loadNotices(): Promise<void> {
   }
 }
 
+loadNotices()
+loadMessages()
+
+function openNoticeDrawer(): void {
+  noticeVisible.value = true
+  loadMessages()
+}
+
 function openNotice(item: NoticeInfo): void {
   viewingNotice.value = item
   noticeDetailVisible.value = true
 }
-
-loadNotices()
 
 /** keep-alive 缓存名单：当前打开页签对应的组件名，关闭页签即释放缓存 */
 const cachedNames = computed(() =>
@@ -160,8 +208,8 @@ async function handleChangePassword(): Promise<void> {
             <Moon v-else />
           </el-icon>
 
-          <el-badge :value="notices.length" :hidden="notices.length === 0" :max="9">
-            <el-icon class="header-action" title="通知公告" @click="noticeVisible = true">
+          <el-badge :value="messageUnread" :hidden="messageUnread === 0" :max="9">
+            <el-icon class="header-action" title="通知公告" @click="openNoticeDrawer">
               <Bell />
             </el-icon>
           </el-badge>
@@ -194,17 +242,43 @@ async function handleChangePassword(): Promise<void> {
     </el-container>
 
     <!-- 通知公告列表 -->
-    <el-drawer v-model="noticeVisible" title="通知公告" size="420px">
-      <el-empty v-if="notices.length === 0" description="暂无公告" />
-      <div v-for="item in notices" :key="item.id" class="notice-item" @click="openNotice(item)">
-        <div class="notice-title">
-          <el-tag :type="item.noticeType === 1 ? 'primary' : 'warning'" size="small">
-            {{ item.noticeType === 1 ? '通知' : '公告' }}
-          </el-tag>
-          {{ item.title }}
-        </div>
-        <div class="notice-time">{{ item.createTime }}</div>
-      </div>
+    <el-drawer v-model="noticeVisible" title="通知中心" size="440px">
+      <el-tabs v-model="activeTab">
+        <el-tab-pane label="通知公告" name="notice">
+          <el-empty v-if="notices.length === 0" description="暂无公告" />
+          <div v-for="item in notices" :key="item.id" class="notice-item" @click="openNotice(item)">
+            <div class="notice-title">
+              <el-tag :type="item.noticeType === 1 ? 'primary' : 'warning'" size="small">
+                {{ item.noticeType === 1 ? '通知' : '公告' }}
+              </el-tag>
+              {{ item.title }}
+            </div>
+            <div class="notice-time">{{ item.createTime }}</div>
+          </div>
+        </el-tab-pane>
+        <el-tab-pane name="message">
+          <template #label>
+            站内信
+            <el-badge v-if="messageUnread" :value="messageUnread" :max="9" class="tab-badge" />
+          </template>
+          <div class="drawer-actions">
+            <el-button link type="primary" size="small" :disabled="messageUnread === 0" @click="handleMarkAllRead">
+              全部已读
+            </el-button>
+          </div>
+          <el-empty v-if="messages.length === 0" description="暂无消息" />
+          <div
+            v-for="item in messages"
+            :key="item.id"
+            class="notice-item"
+            :class="{ unread: !item.isRead }"
+            @click="openMessage(item)"
+          >
+            <div class="notice-title">{{ item.title }}</div>
+            <div class="notice-time">{{ item.senderName }} · {{ item.createTime }}</div>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
     </el-drawer>
 
     <el-dialog v-model="noticeDetailVisible" :title="viewingNotice?.title" width="560px" @closed="viewingNotice = null">
@@ -326,6 +400,20 @@ async function handleChangePassword(): Promise<void> {
 .view-content {
   white-space: pre-wrap;
   line-height: 1.7;
+}
+
+.drawer-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.tab-badge {
+  margin-left: 4px;
+}
+
+.notice-item.unread .notice-title {
+  font-weight: 600;
 }
 
 .main {

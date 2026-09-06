@@ -31,6 +31,11 @@ public class ApiResult
     [JsonPropertyOrder(0)]
     public int Code { get; set; } = ApiResultCode.Success;
 
+    /// <summary>业务错误码（可选，如 SYS_USER_NOT_FOUND；供前端按码处理）</summary>
+    [JsonPropertyOrder(2)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ErrorCode { get; set; }
+
     /// <summary>提示信息</summary>
     [JsonPropertyOrder(1)]
     public string Message { get; set; } = "操作成功";

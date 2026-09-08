@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: 后端构建与测试
+    runs-on: ubuntu-latest
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "YourStrong@Password1"
+        ports:
+          - "1433:1433"
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'YourStrong@Password1' -Q 'SELECT 1' || exit 1"
+          --health-interval 10s
+          --health-retries 10
+          --health-start-period 30s
+    env:
+      NETBASE_TEST_CONNECTIONSTRING: "Server=localhost;Database=NetBase_Test;User Id=sa;Password=YourStrong@Password1;TrustServerCertificate=True;"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: 还原依赖
+        run: dotnet restore
+
+      - name: 构建
+        run: dotnet build --no-restore -c Release
+
+      - name: 单元测试
+        run: dotnet test tests/NetBase.Tests --no-build -c Release
+
+      - name: 集成测试
+        run: dotnet test tests/NetBase.IntegrationTests --no-build -c Release
+
+  frontend:
+    name: 前端类型检查与构建
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 类型检查
+        run: npm run type-check
+
+      - name: 构建
+        run: npm run build

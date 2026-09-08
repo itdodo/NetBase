@@ -22,9 +22,15 @@ public sealed class IntegrationFixture
 {
     public IServiceProvider Services { get; }
 
-    /// <summary>测试库连接串（本机 SqlServer；CI 环境用环境变量覆盖）</summary>
-    public const string ConnectionString =
+    /// <summary>连接串环境变量名（CI 覆盖用）</summary>
+    public const string ConnectionStringEnvVar = "NETBASE_TEST_CONNECTIONSTRING";
+
+    private static readonly string DefaultConnectionString =
         "Server=localhost;Database=NetBase_Test;Uid=sa;Pwd=Abcd1234;TrustServerCertificate=True;";
+
+    /// <summary>测试库连接串：环境变量 NETBASE_TEST_CONNECTIONSTRING 优先，缺省本机库</summary>
+    public static string ConnectionString { get; } =
+        Environment.GetEnvironmentVariable(ConnectionStringEnvVar) ?? DefaultConnectionString;
 
     public IntegrationFixture()
     {

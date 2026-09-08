@@ -432,6 +432,8 @@ async function handleChangePassword(): Promise<void> {
 }
 
 .main {
+  /* 覆盖 el-main 默认 20px 内边距 */
+  padding: 10px;
   background: var(--el-bg-color-page);
   overflow: auto;
 }

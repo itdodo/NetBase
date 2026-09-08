@@ -113,25 +113,31 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
     public int InsertRange(IEnumerable<T> entities)
     {
         // 批量插入走 UNION ALL 路径，AOP 填充不触发——显式填雪花主键
-        FillSnowflakeIds(entities);
-        return Db.Insertable(entities.ToList()).ExecuteCommand();
+        var list = MaterializeWithSnowflakeIds(entities);
+        return Db.Insertable(list).ExecuteCommand();
     }
 
     public async Task<int> InsertRangeAsync(IEnumerable<T> entities)
     {
-        FillSnowflakeIds(entities);
-        return await Db.Insertable(entities.ToList()).ExecuteCommandAsync();
+        var list = MaterializeWithSnowflakeIds(entities);
+        return await Db.Insertable(list).ExecuteCommandAsync();
     }
 
-    private static void FillSnowflakeIds(IEnumerable<T> entities)
+    /// <summary>
+    /// 物化为列表并填充雪花主键。注意必须先 ToList 再填充：
+    /// 入参可能是延迟 LINQ（每次枚举产生新对象），填充后再枚举会导致雪花丢失（集成测试捕获的历史 bug）。
+    /// </summary>
+    private static List<T> MaterializeWithSnowflakeIds(IEnumerable<T> entities)
     {
-        foreach (var entity in entities)
+        var list = entities.ToList();
+        foreach (var entity in list)
         {
             if (entity.Id == 0)
             {
                 entity.Id = Yitter.IdGenerator.YitIdHelper.NextId();
             }
         }
+        return list;
     }
 
     public bool Update(T entity) => Db.Updateable(entity).ExecuteCommand() > 0;

@@ -22,4 +22,17 @@ body,
   font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
   background: var(--el-bg-color-page);
 }
+
+/* 侧边栏主题变量（全局，供 layout/Sidebar 引用；暗黑跟随 EP 暗黑背景） */
+:root {
+  --sidebar-bg: #1d2935;
+  --sidebar-text: #a7b1c2;
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.08);
+}
+
+html.dark {
+  --sidebar-bg: var(--el-bg-color);
+  --sidebar-text: var(--el-text-color-regular);
+  --sidebar-hover-bg: var(--el-fill-color-light);
+}
 </style>

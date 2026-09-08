@@ -321,20 +321,11 @@ async function handleChangePassword(): Promise<void> {
 }
 
 .aside {
-  /* 侧边栏主题变量：亮色深蓝灰，暗黑跟随 EP 暗黑背景 */
-  --sidebar-bg: #1d2935;
-  --sidebar-text: #a7b1c2;
-  --sidebar-hover-bg: rgba(255, 255, 255, 0.08);
+  /* 侧边栏配色变量定义在 App.vue 全局（亮/暗两套），此处仅引用 */
   background-color: var(--sidebar-bg);
   transition: width 0.2s;
   /* 菜单过长时侧边栏自身滚动 */
   overflow-y: auto;
-}
-
-html.dark .aside {
-  --sidebar-bg: var(--el-bg-color);
-  --sidebar-text: var(--el-text-color-regular);
-  --sidebar-hover-bg: var(--el-fill-color-light);
 }
 
 .logo {

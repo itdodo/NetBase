@@ -5,6 +5,7 @@ using NetBase.Common.Results;
 using NetBase.Common.Users;
 using NetBase.Model.Dtos;
 using NetBase.Model.Entities;
+using NetBase.Common.Realtime;
 using NetBase.Service.Sys;
 
 namespace NetBase.Api.Controllers.Monitor;
@@ -12,7 +13,10 @@ namespace NetBase.Api.Controllers.Monitor;
 /// <summary>站内信：发送（管理）与收件箱</summary>
 [ApiController]
 [Route("api/v1/sys/message")]
-public class SysMessageController(ISysMessageService messageService, ICurrentUserService currentUserService) : BaseController(currentUserService)
+public class SysMessageController(
+    ISysMessageService messageService,
+    INotifyService notifyService,
+    ICurrentUserService currentUserService) : BaseController(currentUserService)
 {
     /// <summary>发送消息（管理端）</summary>
     [HasPermission("sys:notice:add")]

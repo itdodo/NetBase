@@ -1,9 +1,9 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using NetBase.Common.Results;
 using NetBase.Model.Dtos;
 using NetBase.Model.Entities;
 
-using System.Text.Json.Serialization;
 namespace NetBase.Service.Sys;
 
 /// <summary>消息发送请求</summary>
@@ -23,6 +23,18 @@ public class MessageSendDto
     [Required(ErrorMessage = "内容不能为空")]
     [StringLength(1000)]
     public string Content { get; set; } = string.Empty;
+
+    /// <summary>消息类型：1-系统 2-站内信 3-业务</summary>
+    [Range(1, 3)]
+    public int MsgType { get; set; } = 1;
+
+    /// <summary>业务类型（approval/order 等，可选）</summary>
+    [StringLength(50)]
+    public string? BizType { get; set; }
+
+    /// <summary>业务单据ID（可选）</summary>
+    [StringLength(64)]
+    public string? BizId { get; set; }
 }
 
 /// <summary>消息查询（收件箱）</summary>

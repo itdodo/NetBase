@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { Fold, Expand, ArrowDown, Bell, Moon, Sunny } from '@element-plus/icons-vue'
 import Sidebar from './components/Sidebar.vue'
 import TagsView from './components/TagsView.vue'
 import { changePassword } from '@/api/log'
 import { getLatestNotices } from '@/api/notice'
-import type { NoticeInfo } from '@/api/notice'
 import { getMyMessages, getUnreadCount, markAllMessagesRead, markMessageRead } from '@/api/notice'
-import type { MessageInfo } from '@/api/notice'
+import type { NoticeInfo, MessageInfo } from '@/api/notice'
+import { onForceLogout, onNotice, startRealtime, stopRealtime } from '@/composables/useRealtime'
 import { useUserStore } from '@/stores/user'
 import { usePermissionStore } from '@/stores/permission'
 import { useTabsStore } from '@/stores/tabs'
@@ -97,6 +97,35 @@ async function loadNotices(): Promise<void> {
 loadNotices()
 loadMessages()
 
+// ---------- SignalR 实时通道 ----------
+// 新通知实时弹 toast（站内信同时刷新未读数）
+onNotice(function (notice) {
+  ElNotification({
+    title: notice.title,
+    message: notice.content,
+    type: 'info',
+    duration: 5000
+  })
+  loadMessages()
+})
+
+// 强制下线：服务端已删会话，本地清理并跳登录
+onForceLogout(function (reason) {
+  ElMessageBox.alert(reason || '您的会话已失效', '已强制下线', {
+    confirmButtonText: '重新登录',
+    type: 'warning',
+    callback: function () {
+      stopRealtime()
+      userStore.logout()
+      permissionStore.reset()
+      tabsStore.closeAll()
+      router.push('/login')
+    }
+  })
+})
+
+startRealtime()
+
 function openNoticeDrawer(): void {
   noticeVisible.value = true
   loadMessages()
@@ -123,6 +152,7 @@ function goProfile(): void {
 }
 
 async function handleLogout() {
+  await stopRealtime()
   userStore.logout()
   permissionStore.reset()
   tabsStore.closeAll()

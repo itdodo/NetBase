@@ -25,6 +25,9 @@ public class SysMessageService(IRepository<SysMessage> repository, IRepository<S
             Content = dto.Content,
             SenderName = senderName,
             ReceiverId = dto.ReceiverId,
+            MsgType = dto.MsgType,
+            BizType = dto.BizType,
+            BizId = dto.BizId,
             IsRead = false
         };
         await repository.InsertAsync(message);

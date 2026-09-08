@@ -9,13 +9,16 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using NetBase.Api.Auth;
 using NetBase.Api.Filters;
+using NetBase.Api.Hubs;
 using NetBase.Api.Middlewares;
+using NetBase.Api.Realtime;
 using NetBase.Model.Entities;
 using NetBase.Service.Sys;
 using Hangfire;
 using NetBase.Api.Services;
 using NetBase.Service.Sys;
 using Hangfire;
+using NetBase.Common.Realtime;
 using NetBase.Common.Users;
 using NetBase.Middleware;
 using NetBase.Repository;
@@ -105,6 +108,11 @@ builder.Services.AddHangfire(config => config
 builder.Services.AddHangfireServer();
 builder.Services.AddScoped<NetBase.Api.Jobs.ISystemJobService, NetBase.Api.Jobs.SystemJobService>();
 
+// 实时通知：SignalR（用户连接映射 + 落库推送双写）
+builder.Services.AddSingleton<NetBase.Api.Hubs.IUserConnectionMapping, NetBase.Api.Hubs.UserConnectionMapping>();
+builder.Services.AddScoped<NetBase.Common.Realtime.INotifyService, NetBase.Api.Realtime.NotifyService>();
+builder.Services.AddSignalR();
+
 // 认证授权：JWT Bearer + 动态权限码策略
 var jwtSection = builder.Configuration.GetSection(JwtOptions.SectionName);
 builder.Services.Configure<JwtOptions>(jwtSection);
@@ -125,9 +133,19 @@ builder.Services
             ClockSkew = TimeSpan.FromSeconds(30)
         };
 
-        // 会话校验：签名/有效期之外，验证会话表存在性（登出/强制下线/停用立即生效）
+        // 事件：SignalR WS 握手从 query 取 token + 会话校验（登出/强制下线/停用立即生效）
         options.Events = new JwtBearerEvents
         {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            },
             OnTokenValidated = async context =>
             {
                 var tokenId = context.Principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
@@ -232,6 +250,9 @@ if (hangfireOptions.DashboardEnabled)
         Authorization = new[] { new NetBase.Api.Jobs.HangfireDashboardAuthFilter() }
     });
 }
+
+// Hub 映射（JWT 认证已支持 query access_token）
+app.MapHub<NotifyHub>("/hubs/notify");
 
 // 注册内置定时任务（应用启动时；Scoped 服务须在 Scope 内解析）
 using (var jobScope = app.Services.CreateScope())

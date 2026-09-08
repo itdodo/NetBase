@@ -3,6 +3,7 @@ using Hangfire.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NetBase.Common.Cache;
+using NetBase.Common.Realtime;
 using NetBase.Service.Sys;
 
 namespace NetBase.Api.Jobs;
@@ -70,6 +71,8 @@ public interface ISystemJobService
 public class SystemJobService(
     ISysLogService logService,
     ISysConfigService configService,
+    INotifyService notifyService,
+    NetBase.Api.Hubs.IUserConnectionMapping notifyMapping,
     IBackgroundJobClient backgroundJobClient,
     ILogger<SystemJobService> logger) : ISystemJobService
 {

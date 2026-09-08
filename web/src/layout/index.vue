@@ -321,10 +321,20 @@ async function handleChangePassword(): Promise<void> {
 }
 
 .aside {
-  background-color: #1d2935;
+  /* 侧边栏主题变量：亮色深蓝灰，暗黑跟随 EP 暗黑背景 */
+  --sidebar-bg: #1d2935;
+  --sidebar-text: #a7b1c2;
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.08);
+  background-color: var(--sidebar-bg);
   transition: width 0.2s;
   /* 菜单过长时侧边栏自身滚动 */
   overflow-y: auto;
+}
+
+html.dark .aside {
+  --sidebar-bg: var(--el-bg-color);
+  --sidebar-text: var(--el-text-color-regular);
+  --sidebar-hover-bg: var(--el-fill-color-light);
 }
 
 .logo {
@@ -382,6 +392,10 @@ async function handleChangePassword(): Promise<void> {
 
 .header-action:hover {
   color: #409eff;
+}
+
+.notice-item:hover {
+  background: var(--el-fill-color-light);
 }
 
 .notice-item {

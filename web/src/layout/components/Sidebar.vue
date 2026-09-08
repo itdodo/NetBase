@@ -40,9 +40,20 @@ const activePath = computed(() => route.path)
 <style scoped>
 .sidebar-menu {
   border-right: none;
+  /* 颜色来自 layout .aside 的主题变量，亮暗自动切换 */
+  --el-menu-bg-color: var(--sidebar-bg, #1d2935);
+  --el-menu-text-color: var(--sidebar-text, #a7b1c2);
+  --el-menu-hover-bg-color: var(--sidebar-hover-bg, rgba(255, 255, 255, 0.08));
+  --el-menu-active-color: #ffffff;
 }
 
 .sidebar-menu :deep(.el-menu-item.is-active) {
   background-color: #409eff;
+  color: #fff;
+}
+
+.sidebar-menu :deep(.el-menu-item:hover),
+.sidebar-menu :deep(.el-sub-menu__title:hover) {
+  background-color: var(--sidebar-hover-bg, rgba(255, 255, 255, 0.08));
 }
 </style>

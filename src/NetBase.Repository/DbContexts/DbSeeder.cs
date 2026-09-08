@@ -84,6 +84,8 @@ public class DbSeeder
         EnsureCrudButtons(db, "sys:notice:list", adminRoleId, now);
         // 系统监控目录下的"服务监控"页（进程指标/缓存诊断）
         EnsureMonitorMenu(db, adminRoleId, now);
+        // 系统监控目录下的"定时任务"页（Hangfire 作业管理）
+        EnsureJobMenu(db, adminRoleId, now);
         SeedConfigs(db, now);
         SeedSampleDicts(db, now);
         SeedSampleNotice(db, now);
@@ -405,6 +407,62 @@ public class DbSeeder
         menuIds.AddRange(db.Queryable<SysMenu>().Where(x => x.ParentId == menu.Id).Select(x => x.Id).ToList());
         db.Insertable(menuIds.Select(menuId => new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = menuId, CreateTime = now }).ToList()).ExecuteCommand();
         _logger?.LogInformation("种子数据：增量菜单「部门管理」已写入");
+    }
+
+    /// <summary>增量补充「定时任务」菜单（按权限码幂等）</summary>
+    private void EnsureJobMenu(ISqlSugarClient db, long adminRoleId, DateTime now)
+    {
+        var monitorDir = db.Queryable<SysMenu>().First(x => x.MenuName == "系统监控" && x.MenuType == (int)MenuTypeEnum.Directory);
+        if (monitorDir == null || db.Queryable<SysMenu>().Any(x => x.Permission == "monitor:job:list"))
+        {
+            return;
+        }
+
+        var menu = db.Insertable(new SysMenu
+        {
+            Id = NewId(),
+            ParentId = monitorDir.Id,
+            MenuName = "定时任务",
+            MenuType = (int)MenuTypeEnum.Menu,
+            Path = "/monitor/job",
+            Component = "monitor/job/index",
+            Permission = "monitor:job:list",
+            Sort = 4,
+            CreateTime = now,
+            CreateBy = "system"
+        }).ExecuteReturnEntity();
+
+        var editMenu = db.Insertable(new SysMenu
+        {
+            Id = NewId(),
+            ParentId = menu.Id,
+            MenuName = "任务管理",
+            MenuType = (int)MenuTypeEnum.Button,
+            Permission = "monitor:job:edit",
+            Sort = 1,
+            CreateTime = now,
+            CreateBy = "system"
+        }).ExecuteReturnEntity();
+
+        var triggerMenu = db.Insertable(new SysMenu
+        {
+            Id = NewId(),
+            ParentId = menu.Id,
+            MenuName = "任务触发",
+            MenuType = (int)MenuTypeEnum.Button,
+            Permission = "monitor:job:trigger",
+            Sort = 2,
+            CreateTime = now,
+            CreateBy = "system"
+        }).ExecuteReturnEntity();
+
+        db.Insertable(new[]
+        {
+            new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now },
+            new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = editMenu.Id, CreateTime = now },
+            new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = triggerMenu.Id, CreateTime = now }
+        }).ExecuteCommand();
+        _logger?.LogInformation("种子数据：增量菜单「定时任务」已写入");
     }
 
     /// <summary>增量补充「服务监控」菜单（按权限码幂等）</summary>

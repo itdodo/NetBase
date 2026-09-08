@@ -12,14 +12,17 @@ using NetBase.Api.Filters;
 using NetBase.Api.Middlewares;
 using NetBase.Model.Entities;
 using NetBase.Service.Sys;
+using Hangfire;
 using NetBase.Api.Services;
 using NetBase.Service.Sys;
+using Hangfire;
 using NetBase.Common.Users;
 using NetBase.Middleware;
 using NetBase.Repository;
 using NetBase.Repository.DbContexts;
 using NetBase.Service;
 using NetBase.Service.Sys;
+using Hangfire;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -82,6 +85,25 @@ builder.Services.AddRateLimiter(options =>
 // 健康检查：数据库连通性探针（供负载均衡/K8s 使用）
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database");
+
+// 定时任务：Hangfire（SqlServer 存储，免费版核心组件）
+builder.Services.Configure<NetBase.Api.Jobs.HangfireOptions>(builder.Configuration.GetSection(NetBase.Api.Jobs.HangfireOptions.SectionName));
+var hangfireOptions = builder.Configuration.GetSection(NetBase.Api.Jobs.HangfireOptions.SectionName).Get<NetBase.Api.Jobs.HangfireOptions>() ?? new NetBase.Api.Jobs.HangfireOptions();
+var hangfireConnectionString = builder.Configuration.GetConnectionString("Hangfire")
+    ?? builder.Configuration.GetSection("Db:ConnectionString").Value
+    ?? "Server=localhost;Database=NetBase;Uid=sa;Pwd=Abcd1234;TrustServerCertificate=True;";
+builder.Services.AddHangfire(config => config
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UseSqlServerStorage(hangfireConnectionString, new Hangfire.SqlServer.SqlServerStorageOptions
+    {
+        CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
+        SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
+        QueuePollInterval = TimeSpan.FromSeconds(15)
+    }));
+builder.Services.AddHangfireServer();
+builder.Services.AddScoped<NetBase.Api.Jobs.ISystemJobService, NetBase.Api.Jobs.SystemJobService>();
 
 // 认证授权：JWT Bearer + 动态权限码策略
 var jwtSection = builder.Configuration.GetSection(JwtOptions.SectionName);
@@ -201,6 +223,21 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseMiddleware<DataScopeMiddleware>();
 app.UseAuthorization();
+
+// Hangfire Dashboard（默认仅本机访问；生产建议保持关闭，管理动作走系统管理页）
+if (hangfireOptions.DashboardEnabled)
+{
+    app.UseHangfireDashboard("/hangfire", new DashboardOptions
+    {
+        Authorization = new[] { new NetBase.Api.Jobs.HangfireDashboardAuthFilter() }
+    });
+}
+
+// 注册内置定时任务（应用启动时；Scoped 服务须在 Scope 内解析）
+using (var jobScope = app.Services.CreateScope())
+{
+    jobScope.ServiceProvider.GetRequiredService<NetBase.Api.Jobs.ISystemJobService>().RegisterJobs();
+}
 app.MapControllers();
 
 // SPA 回退：非 API 路由刷新时返回 index.html（仅前端产物存在时）

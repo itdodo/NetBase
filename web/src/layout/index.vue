@@ -353,6 +353,16 @@ async function handleChangePassword(): Promise<void> {
 
 .header-right {
   margin-left: auto;
+  /* 图标/徽章/下拉混排，改用 flex 垂直居中（默认基线对齐会被 badge 角标撑偏） */
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.header-right :deep(.el-badge) {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
 }
 
 .user-info {

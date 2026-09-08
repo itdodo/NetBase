@@ -26,9 +26,6 @@ const activePath = computed(() => route.path)
     class="sidebar-menu"
     :collapse="collapse"
     :default-active="activePath"
-    background-color="#1d2935"
-    text-color="#a7b1c2"
-    active-text-color="#ffffff"
     :collapse-transition="false"
     unique-opened
     router

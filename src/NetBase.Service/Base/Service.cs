@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using NetBase.Common.Exceptions;
 using NetBase.Common.Results;
 using NetBase.Model.Entities;
 using NetBase.Repository.Repositories;
@@ -42,6 +43,13 @@ public class BaseService<T> : IBaseService<T> where T : BaseEntity, new()
     public bool Update(T entity) => Repository.Update(entity);
 
     public Task<bool> UpdateAsync(T entity) => Repository.UpdateAsync(entity);
+
+    /// <summary>
+    /// 按主键取实体，不存在时抛 NotFound 业务异常（通用模式收敛：各服务不再各自实现）。
+    /// </summary>
+    protected async Task<T> GetRequiredAsync(long id, string notFoundMessage, string? errorCode = null) =>
+        await Repository.GetByIdAsync(id)
+        ?? throw new BusinessException(notFoundMessage, ApiResultCode.NotFound, errorCode);
 
     public bool Delete(long id) => Repository.Delete(id);
 

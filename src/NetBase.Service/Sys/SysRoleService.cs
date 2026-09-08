@@ -208,9 +208,8 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
         return relations.Select(x => x.DeptId).ToList();
     }
 
-    private async Task<SysRole> GetRequiredAsync(long id) =>
-        await Repository.GetByIdAsync(id)
-        ?? throw new BusinessException($"角色不存在（Id={id}）", ApiResultCode.NotFound);
+    private Task<SysRole> GetRequiredAsync(long id) =>
+        GetRequiredAsync(id, $"角色不存在（Id={id}）");
 
     private static void Validate(RoleSaveDto dto)
     {

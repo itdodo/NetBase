@@ -338,9 +338,8 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             x => new SysUser { Avatar = avatarUrl, UpdateTime = DateTime.Now });
     }
 
-    private async Task<SysUser> GetRequiredAsync(long id) =>
-        await Repository.GetByIdAsync(id)
-        ?? throw new BusinessException($"用户不存在（Id={id}）", ApiResultCode.NotFound, "SYS_USER_NOT_FOUND");
+    private Task<SysUser> GetRequiredAsync(long id) =>
+        GetRequiredAsync(id, $"用户不存在（Id={id}）", "SYS_USER_NOT_FOUND");
 
     private async Task<Expression<Func<SysUser, bool>>> BuildPredicateAsync(UserQueryDto query)
     {

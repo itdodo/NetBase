@@ -140,9 +140,8 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
         _permissionService.InvalidateAll();
     }
 
-    private async Task<SysMenu> GetRequiredAsync(long id) =>
-        await Repository.GetByIdAsync(id)
-        ?? throw new BusinessException($"菜单不存在（Id={id}）", ApiResultCode.NotFound);
+    private Task<SysMenu> GetRequiredAsync(long id) =>
+        GetRequiredAsync(id, $"菜单不存在（Id={id}）");
 
     /// <summary>判断 candidateId 是否为 ancestorId 的子孙节点（菜单量级小，内存遍历即可）</summary>
     private async Task<bool> IsDescendantAsync(long ancestorId, long candidateId)

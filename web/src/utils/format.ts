@@ -9,3 +9,9 @@ export function formatDateTime(_row: unknown, _column: unknown, cellValue?: stri
     `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
   )
 }
+
+
+/** 标量时间格式化（非 el-table 场景直接调用） */
+export function formatTime(value?: string | null): string {
+  return formatDateTime(null, null, value)
+}

@@ -50,6 +50,7 @@ public class SysDeptService(
             DeptName = dto.DeptName,
             DeptCode = dto.DeptCode,
             Leader = dto.Leader,
+            LeaderUserId = dto.LeaderUserId,
             Sort = dto.Sort,
             Status = dto.Status,
             CreateBy = operatorName
@@ -84,6 +85,7 @@ public class SysDeptService(
         dept.DeptName = dto.DeptName;
         dept.DeptCode = dto.DeptCode;
         dept.Leader = dto.Leader;
+        dept.LeaderUserId = dto.LeaderUserId;
         dept.Sort = dto.Sort;
         dept.Status = dto.Status;
         dept.UpdateTime = DateTime.Now;

@@ -20,9 +20,14 @@ public class SysDept : BaseEntity
     [SugarColumn(Length = 50, ColumnDescription = "部门编码")]
     public string DeptCode { get; set; } = string.Empty;
 
-    /// <summary>负责人</summary>
+    /// <summary>负责人（展示用姓名）</summary>
     [SugarColumn(IsNullable = true, Length = 50, ColumnDescription = "负责人")]
     public string? Leader { get; set; }
+
+    /// <summary>负责人用户ID（审批流"部门主管"审批人解析用；0/空视为未设置）</summary>
+    [SugarColumn(ColumnDescription = "负责人用户ID", DefaultValue = "0")]
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
+    public long LeaderUserId { get; set; }
 
     /// <summary>排序号，越小越靠前</summary>
     [SugarColumn(ColumnDescription = "排序号")]

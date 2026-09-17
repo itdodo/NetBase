@@ -9,6 +9,8 @@ import TagsView from './components/TagsView.vue'
 import { changePassword } from '@/api/log'
 import { getLatestNotices } from '@/api/notice'
 import { getMyMessages, getUnreadCount, markAllMessagesRead, markMessageRead } from '@/api/notice'
+import { getFlowTodoCount } from '@/api/flow'
+import { Checked } from '@element-plus/icons-vue'
 import type { NoticeInfo, MessageInfo } from '@/api/notice'
 import { onForceLogout, onNotice, startRealtime, stopRealtime } from '@/composables/useRealtime'
 import { useUserStore } from '@/stores/user'
@@ -45,6 +47,17 @@ const notices = ref<NoticeInfo[]>([])
 const noticeVisible = ref(false)
 const viewingNotice = ref<NoticeInfo | null>(null)
 const noticeDetailVisible = ref(false)
+
+// ---------- 我的待办角标（审批任务数） ----------
+const flowTodoCount = ref(0)
+
+async function loadFlowTodoCount(): Promise<void> {
+  try {
+    flowTodoCount.value = await getFlowTodoCount()
+  } catch {
+    flowTodoCount.value = 0
+  }
+}
 
 // ---------- 站内信（收件箱，与公告同抽屉 Tab 化） ----------
 const messages = ref<MessageInfo[]>([])
@@ -96,6 +109,7 @@ async function loadNotices(): Promise<void> {
 
 loadNotices()
 loadMessages()
+loadFlowTodoCount()
 
 // ---------- SignalR 实时通道 ----------
 // 新通知实时弹 toast（站内信同时刷新未读数）
@@ -237,6 +251,12 @@ async function handleChangePassword(): Promise<void> {
             <Sunny v-if="isDark" />
             <Moon v-else />
           </el-icon>
+
+          <el-badge :value="flowTodoCount" :hidden="flowTodoCount === 0" :max="9">
+            <el-icon class="header-action" title="我的待办" @click="router.push('/personal/todo')">
+              <Checked />
+            </el-icon>
+          </el-badge>
 
           <el-badge :value="messageUnread" :hidden="messageUnread === 0" :max="9">
             <el-icon class="header-action" title="通知公告" @click="openNoticeDrawer">

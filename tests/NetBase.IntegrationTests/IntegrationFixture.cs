@@ -37,7 +37,7 @@ public sealed class IntegrationFixture
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddMemoryCache();
-        services.AddSingleton<IOperatorProvider>(new TestOperatorProvider("it-test"));
+        services.AddSingleton<IOperatorProvider>(new TestOperatorProvider());
 
         var options = new SqlSugarOptions
         {
@@ -64,6 +64,16 @@ public sealed class IntegrationFixture
         services.AddScoped<ISysMessageService, SysMessageService>();
         services.AddScoped<ISysNoticeService, SysNoticeService>();
 
+        // 审批流引擎（通知用测试替身收集，业务回调用测试 Handler）
+        var notifications = new FlowTestNotifications();
+        services.AddSingleton(notifications);
+        services.AddSingleton<NetBase.Common.Realtime.INotifyService>(notifications);
+        services.AddScoped<NetBase.Service.Sys.Flow.ApproverResolver>();
+        services.AddScoped<NetBase.Service.Sys.Flow.IFlowEngine, NetBase.Service.Sys.Flow.FlowEngine>();
+        services.AddScoped<NetBase.Service.Sys.Flow.ISysFlowDefinitionService, NetBase.Service.Sys.Flow.SysFlowDefinitionService>();
+        services.AddScoped<NetBase.Service.Sys.Flow.IFlowQueryService, NetBase.Service.Sys.Flow.SysFlowQueryService>();
+        services.AddScoped<NetBase.Service.Sys.Flow.IFlowBusinessHandler, FlowTestHandler>();
+
         Services = services.BuildServiceProvider();
 
         // 先连 master 确保测试库存在（应用连接指向测试库本身，库不存在时无法自建），再 CodeFirst 建表
@@ -78,6 +88,23 @@ public sealed class IntegrationFixture
 
         var context = Services.GetRequiredService<SqlSugarContext>();
         context.InitDatabase();
+
+        // 过滤唯一索引：RoleCode 唯一性约束（跨运行的陈旧行不占用编码，与生产 DbSeeder 一致）
+        using (var conn = new Microsoft.Data.SqlClient.SqlConnection(ConnectionString))
+        {
+            conn.Open();
+            foreach (var (table, index, column) in new[]
+                     {
+                         ("sys_role", "uk_sys_role_rolecode", "RoleCode"),
+                         ("sys_user", "uk_sys_user_username", "UserName")
+                     })
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = $"IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = '{index}' AND object_id = OBJECT_ID('{table}')) " +
+                                  $"CREATE UNIQUE INDEX [{index}] ON [{table}] ([{column}]) WHERE [IsDeleted] = 0";
+                cmd.ExecuteNonQuery();
+            }
+        }
     }
 
     /// <summary>创建仓储</summary>
@@ -93,9 +120,25 @@ public sealed class IntegrationFixture
     /// <summary>唯一编码（避免并行用例互相污染）</summary>
     public static string Uid(string prefix) => $"{prefix}{Random.Shared.Next(100000, 999999)}";
 
-    private sealed class TestOperatorProvider(string name) : IOperatorProvider
+    /// <summary>切换当前操作人（审批流等多用户场景测试用）</summary>
+    public static void SetOperator(string name, long id) => TestOperatorProvider.SetOperator(name, id);
+
+    private sealed class TestOperatorProvider : IOperatorProvider
     {
-        public string? OperatorName => name;
+        /// <summary>多用户场景（审批流等）切换当前操作人</summary>
+        public static void SetOperator(string name, long id)
+        {
+            Name = name;
+            UserId = id;
+        }
+
+        public static string Name { get; private set; } = "it-test";
+
+        public static long UserId { get; private set; } = 63;
+
+        public string? OperatorName => Name;
+
+        public long? OperatorUserId => UserId;
     }
 }
 

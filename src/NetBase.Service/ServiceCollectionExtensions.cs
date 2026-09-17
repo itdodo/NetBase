@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NetBase.Service.Base;
 using NetBase.Service.Sys;
+using NetBase.Service.Sys.Flow;
 
 namespace NetBase.Service;
 
@@ -28,6 +29,14 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<IDashboardService, DashboardService>();
         services.TryAddScoped<ISystemMonitorService, SystemMonitorService>();
         services.TryAddScoped<ISysFileService, SysFileService>();
+
+        // 审批流引擎（业务单据经 IFlowBusinessHandler + FlowEngine.SubmitAsync 接入）
+        services.TryAddScoped<ApproverResolver>();
+        services.TryAddScoped<IFlowEngine, FlowEngine>();
+        services.TryAddScoped<ISysFlowDefinitionService, SysFlowDefinitionService>();
+        services.TryAddScoped<ISysFlowBindingService, SysFlowBindingService>();
+        services.TryAddScoped<IFlowQueryService, SysFlowQueryService>();
+        // 业务模块的 IFlowBusinessHandler 实现由业务侧扩展方法注册（见 Biz/AddNetBaseBiz）
         // Lazy.Captcha.Core：验证码生成（内存存储默认；分布式部署可换其 Redis 存储）
         services.AddCaptcha(options =>
         {

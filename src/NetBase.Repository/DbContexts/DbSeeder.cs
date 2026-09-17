@@ -86,9 +86,19 @@ public class DbSeeder
         EnsureMonitorMenu(db, adminRoleId, now);
         // 系统监控目录下的"定时任务"页（Hangfire 作业管理）
         EnsureJobMenu(db, adminRoleId, now);
+        // 系统管理目录下的"流程管理"页（审批流定义，含 CRUD 按钮权限码）
+        EnsureFlowMenu(db, adminRoleId, now);
+        EnsureCrudButtons(db, "sys:flow:list", adminRoleId, now);
+        // 个人办公目录 + 我的待办/已办（个人页面，无权限码，登录可见）
+        EnsurePersonalFlowMenus(db, adminRoleId, now);
+        // 业务样板菜单（业务办公：报销/采购申请，接入审批流的活样例）
+        EnsureBizSampleMenus(db, adminRoleId, now);
         SeedConfigs(db, now);
         SeedSampleDicts(db, now);
         SeedSampleNotice(db, now);
+
+        // 审批流单据绑定初始值（可运行时在流程管理-单据绑定中调整）
+        EnsureFlowBindings(db, now);
 
         // 存量用户数据归属人回填（幂等）
         db.Ado.ExecuteCommand("UPDATE sys_user SET OwnerUserId = Id WHERE OwnerUserId = 0");
@@ -120,7 +130,8 @@ public class DbSeeder
         (string Name, string Path, string Component, string Permission, int Sort)[] menus =
         [
             ("操作日志", "/monitor/operlog", "monitor/operlog/index", "monitor:operlog:list", 2),
-            ("登录日志", "/monitor/loginlog", "monitor/loginlog/index", "monitor:loginlog:list", 3)
+            ("登录日志", "/monitor/loginlog", "monitor/loginlog/index", "monitor:loginlog:list", 3),
+            ("变更日志", "/monitor/changelog", "monitor/changelog/index", "monitor:changelog:list", 4)
         ];
 
         foreach (var spec in menus)
@@ -463,6 +474,201 @@ public class DbSeeder
             new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = triggerMenu.Id, CreateTime = now }
         }).ExecuteCommand();
         _logger?.LogInformation("种子数据：增量菜单「定时任务」已写入");
+    }
+
+    /// <summary>增量补充「业务办公」目录与报销/采购申请页（审批流业务样板，幂等）</summary>
+    private void EnsureBizSampleMenus(ISqlSugarClient db, long adminRoleId, DateTime now)
+    {
+        const string expensePermission = "biz:expense:list";
+        if (db.Queryable<SysMenu>().Any(x => x.Permission == expensePermission))
+        {
+            EnsureCrudButtons(db, "biz:expense:list", adminRoleId, now);
+            EnsureCrudButtons(db, "biz:purchase:list", adminRoleId, now);
+            return;
+        }
+
+        var bizDir = db.Queryable<SysMenu>().First(x => x.MenuName == "业务办公" && x.MenuType == (int)MenuTypeEnum.Directory);
+        if (bizDir == null)
+        {
+            bizDir = db.Insertable(new SysMenu
+            {
+                ParentId = 0,
+                MenuName = "业务办公",
+                MenuType = (int)MenuTypeEnum.Directory,
+                Path = "/biz",
+                Icon = "Files",
+                Sort = 6,
+                CreateTime = now,
+                CreateBy = "system"
+            }).ExecuteReturnEntity();
+        }
+
+        (string Name, string Path, string Component, string Permission, int Sort)[] pages =
+        [
+            ("报销管理", "/biz/expense", "biz/expense/index", expensePermission, 1),
+            ("采购申请", "/biz/purchase", "biz/purchase/index", "biz:purchase:list", 2)
+        ];
+
+        foreach (var spec in pages)
+        {
+            if (db.Queryable<SysMenu>().Any(x => x.Permission == spec.Permission))
+            {
+                continue;
+            }
+
+            var menu = db.Insertable(new SysMenu
+            {
+                ParentId = bizDir.Id,
+                MenuName = spec.Name,
+                MenuType = (int)MenuTypeEnum.Menu,
+                Path = spec.Path,
+                Component = spec.Component,
+                Permission = spec.Permission,
+                Sort = spec.Sort,
+                CreateTime = now,
+                CreateBy = "system"
+            }).ExecuteReturnEntity();
+
+            if (!db.Queryable<SysRoleMenu>().Any(x => x.RoleId == adminRoleId && x.MenuId == menu.Id))
+            {
+                db.Insertable(new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
+            }
+        }
+        EnsureCrudButtons(db, "biz:expense:list", adminRoleId, now);
+        EnsureCrudButtons(db, "biz:purchase:list", adminRoleId, now);
+        _logger?.LogInformation("种子数据：增量菜单「业务办公/报销管理/采购申请」已写入");
+    }
+
+    /// <summary>
+    /// <summary>审批流单据绑定初始值（幂等：按业务表名判断）</summary>
+    private static void EnsureFlowBindings(ISqlSugarClient db, DateTime now)
+    {
+        (string Table, string Code, string Remark)[] bindings =
+        [
+            ("biz_expense", "expense", "报销单"),
+            ("biz_purchase_request", "purchase_request", "采购申请单")
+        ];
+        foreach (var (table, code, remark) in bindings)
+        {
+            if (db.Queryable<SysFlowBinding>().Any(x => x.BusinessTable == table))
+            {
+                continue;
+            }
+            // 种子直连路径 AOP 雪花不可靠，必须显式填 Id（其余种子同此约定）
+            db.Insertable(new SysFlowBinding
+            {
+                Id = NewId(),
+                BusinessTable = table,
+                FlowCode = code,
+                Remark = remark,
+                CreateTime = now,
+                CreateBy = "system"
+            }).ExecuteCommand();
+        }
+    }
+
+    /// 增量补充「个人办公」目录与我的待办/已办/我的申请页（幂等，个人菜单无权限码）。
+    /// 注意：目录哨兵码不得与任何页面的权限码相同——曾因目录与待办页共用哨兵导致查重误跳过待办页。
+    /// </summary>
+    private void EnsurePersonalFlowMenus(ISqlSugarClient db, long adminRoleId, DateTime now)
+    {
+        // 目录哨兵（独立值，仅用于幂等判断，不作为功能权限）
+        const string dirSentinel = "menu:personal:dir";
+
+        var personalDir = db.Queryable<SysMenu>().First(x => x.MenuName == "个人办公" && x.MenuType == (int)MenuTypeEnum.Directory);
+        if (personalDir == null)
+        {
+            personalDir = db.Insertable(new SysMenu
+            {
+                ParentId = 0,
+                MenuName = "个人办公",
+                MenuType = (int)MenuTypeEnum.Directory,
+                Path = "/personal",
+                Icon = "Checked",
+                Sort = 5,
+                Permission = dirSentinel,
+                CreateTime = now,
+                CreateBy = "system"
+            }).ExecuteReturnEntity();
+        }
+        else if (personalDir.Permission == "menu:flow:todo")
+        {
+            // 历史版本目录哨兵与待办页权限码相同（导致待办页被查重跳过），迁移哨兵值
+            db.Updateable<SysMenu>()
+                .SetColumns("Permission", dirSentinel)
+                .Where(x => x.Id == personalDir.Id)
+                .ExecuteCommand();
+        }
+
+        (string Name, string Path, string Component, string Permission, int Sort)[] pages =
+        [
+            ("我的待办", "/personal/todo", "flow/todo/index", "menu:flow:todo", 1),
+            ("我的已办", "/personal/done", "flow/done/index", "menu:flow:done", 2),
+            ("我的申请", "/personal/mine", "flow/mine/index", "menu:flow:mine", 3)
+        ];
+
+        foreach (var spec in pages)
+        {
+            if (db.Queryable<SysMenu>().Any(x => x.Permission == spec.Permission))
+            {
+                continue;
+            }
+
+            var menu = db.Insertable(new SysMenu
+            {
+                ParentId = personalDir.Id,
+                MenuName = spec.Name,
+                MenuType = (int)MenuTypeEnum.Menu,
+                Path = spec.Path,
+                Component = spec.Component,
+                Permission = spec.Permission,
+                Sort = spec.Sort,
+                CreateTime = now,
+                CreateBy = "system"
+            }).ExecuteReturnEntity();
+
+            // 授予 admin 角色（存在性幂等）；普通角色由管理员按需分配菜单
+            if (!db.Queryable<SysRoleMenu>().Any(x => x.RoleId == adminRoleId && x.MenuId == menu.Id))
+            {
+                db.Insertable(new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
+            }
+        }
+        _logger?.LogInformation("种子数据：增量菜单「个人办公/我的待办/我的已办」已写入");
+    }
+
+    /// <summary>增量补充「流程管理」菜单（按权限码幂等，审批流定义管理页）</summary>
+    private void EnsureFlowMenu(ISqlSugarClient db, long adminRoleId, DateTime now)
+    {
+        var systemDir = db.Queryable<SysMenu>().First(x => x.MenuName == "系统管理" && x.MenuType == (int)MenuTypeEnum.Directory);
+        if (systemDir == null)
+        {
+            return;
+        }
+
+        const string permission = "sys:flow:list";
+        if (db.Queryable<SysMenu>().Any(x => x.Permission == permission))
+        {
+            return;
+        }
+
+        var menu = db.Insertable(new SysMenu
+        {
+            ParentId = systemDir.Id,
+            MenuName = "流程管理",
+            MenuType = (int)MenuTypeEnum.Menu,
+            Path = "/system/flow",
+            Component = "system/flow/index",
+            Permission = permission,
+            Sort = 7,
+            CreateTime = now,
+            CreateBy = "system"
+        }).ExecuteReturnEntity();
+
+        if (!db.Queryable<SysRoleMenu>().Any(x => x.RoleId == adminRoleId && x.MenuId == menu.Id))
+        {
+            db.Insertable(new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
+        }
+        _logger?.LogInformation("种子数据：增量菜单「流程管理」已写入");
     }
 
     /// <summary>增量补充「服务监控」菜单（按权限码幂等）</summary>

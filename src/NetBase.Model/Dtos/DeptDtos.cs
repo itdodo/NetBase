@@ -52,6 +52,9 @@ public class DeptSaveDto
     [StringLength(50)]
     public string? Leader { get; set; }
 
+    /// <summary>负责人用户ID（审批流"部门主管"解析用；0=未设置）</summary>
+    public long LeaderUserId { get; set; }
+
     /// <summary>排序号</summary>
     [Range(0, int.MaxValue)]
     public int Sort { get; set; }

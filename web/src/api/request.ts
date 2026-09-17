@@ -37,13 +37,20 @@ async function doRefresh(): Promise<boolean> {
   }
 }
 
-/** 刷新失败统一登出跳转 */
-function forceLogout(): void {
+/** 刷新失败统一登出：友好提示 + 2000ms 自动跳登录页（并发 401 仅提示一次） */
+let forceLogoutTimer: ReturnType<typeof setTimeout> | null = null
+
+function forceLogout(reason?: string): void {
   clearToken()
-  if (location.pathname !== '/login') {
+  if (forceLogoutTimer !== null || location.pathname === '/login') {
+    return
+  }
+  ElMessage.warning(reason || '您的登录已失效，即将返回登录页')
+  forceLogoutTimer = setTimeout(() => {
+    forceLogoutTimer = null
     const redirect = encodeURIComponent(location.pathname + location.search)
     location.href = `/login?redirect=${redirect}`
-  }
+  }, 2000)
 }
 
 request.interceptors.response.use(

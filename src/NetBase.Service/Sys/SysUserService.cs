@@ -18,6 +18,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
 {
     private readonly IRepository<SysRole> _roleRepository;
     private readonly IRepository<SysUserRole> _userRoleRepository;
+    private readonly NetBase.Common.Realtime.INotifyService _notifyService;
 
     /// <summary>内置管理员账号，不允许停用/删除</summary>
     public const string AdminUserName = "admin";
@@ -27,12 +28,14 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         IRepository<SysRole> roleRepository,
         IRepository<SysUserRole> userRoleRepository,
         IRepository<SysUserSession> userSessionRepository,
+        NetBase.Common.Realtime.INotifyService notifyService,
         IPermissionService permissionService,
         ISysConfigService configService,
         ISysDeptService deptService,
         ICacheService cacheService) : base(repository)
     {
         _roleRepository = roleRepository;
+        _notifyService = notifyService;
         _userRoleRepository = userRoleRepository;
         _userSessionRepository = userSessionRepository;
         _permissionService = permissionService;
@@ -242,10 +245,11 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         user.DeptId = dto.DeptId;
         user.UpdateTime = DateTime.Now;
         user.UpdateBy = operatorName;
-        // 停用用户立即踢下线
+        // 停用用户立即踢下线并通知
         if (dto.Status != (int)StatusEnum.Enabled)
         {
             await _userSessionRepository.DeleteWhereAsync(x => x.UserId == id);
+            await _notifyService.PushForceLogoutAsync(id, "账号已被停用，如有疑问请联系管理员");
         }
         await Repository.TransactionAsync(async () =>
         {
@@ -271,8 +275,9 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
 
         user.UpdateBy = operatorName;
         user.UpdateTime = DateTime.Now;
-        // 停用/删除用户立即踢下线：清除其全部会话
+        // 停用/删除用户立即踢下线并通知
         await _userSessionRepository.DeleteWhereAsync(x => x.UserId == id);
+        await _notifyService.PushForceLogoutAsync(id, "账号已被删除，如有疑问请联系管理员");
         await Repository.TransactionAsync(async () =>
         {
             await Repository.DeleteAsync(user);

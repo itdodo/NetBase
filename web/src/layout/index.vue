@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
+import { ElMessage, ElNotification } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { Fold, Expand, ArrowDown, Bell, Moon, Sunny } from '@element-plus/icons-vue'
 import Sidebar from './components/Sidebar.vue'
@@ -127,19 +127,20 @@ onNotice(function (notice) {
   loadMessages()
 })
 
-// 强制下线：服务端已删会话，本地清理并跳登录
+// 强制下线（互踢/管理端踢人/停用）：友好提示后 2000ms 自动回登录页
+let forceLogoutHandled = false
 onForceLogout(function (reason) {
-  ElMessageBox.alert(reason || '您的会话已失效', '已强制下线', {
-    confirmButtonText: '重新登录',
-    type: 'warning',
-    callback: function () {
-      stopRealtime()
-      userStore.logout()
-      permissionStore.reset()
-      tabsStore.closeAll()
-      router.push('/login')
-    }
-  })
+  if (forceLogoutHandled) return
+  forceLogoutHandled = true
+  stopRealtime()
+  userStore.logout()
+  permissionStore.reset()
+  tabsStore.closeAll()
+  ElMessage.warning(reason || '您的账号已在其他设备登录')
+  setTimeout(() => {
+    forceLogoutHandled = false
+    router.push('/login')
+  }, 2000)
 })
 
 startRealtime()

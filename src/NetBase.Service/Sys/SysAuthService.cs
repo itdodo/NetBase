@@ -25,6 +25,7 @@ public class SysAuthService(
     ICacheService cacheService,
     ISysConfigService configService,
     ICaptchaService captchaService,
+    NetBase.Common.Realtime.INotifyService notifyService,
     IOptions<JwtOptions> jwtOptions) : ISysAuthService
 {
     private readonly JwtOptions _jwt = jwtOptions.Value;
@@ -181,8 +182,15 @@ public class SysAuthService(
         return PageResult<SessionDto>.Of(items, page.Total, page.PageIndex, page.PageSize);
     }
 
-    public async Task KickSessionAsync(long sessionId) =>
+    public async Task KickSessionAsync(long sessionId)
+    {
+        var session = await sessionRepository.GetByIdAsync(sessionId);
         await sessionRepository.DeletePhysicalWhereAsync(x => x.Id == sessionId);
+        if (session != null)
+        {
+            await notifyService.PushForceLogoutAsync(session.UserId, "管理员已将您强制下线");
+        }
+    }
 
     public async Task<UserDto?> GetUserProfileAsync(long userId) => await userService.GetDetailAsync(userId);
 
@@ -225,9 +233,11 @@ public class SysAuthService(
         var tokenId = Guid.NewGuid().ToString("N");
         var refreshToken = GenerateRefreshToken();
 
-        // 同账号互踢（sys.login.kickSameUser=1）：删除该用户全部旧会话，旧端下个请求即 401 下线
+        // 同账号互踢（sys.login.kickSameUser=1）：通知旧端友好提示后删除全部旧会话，
+        // 旧端收到 SignalR 强下线事件或下个请求 401，统一走前端 2 秒自动回登录页
         if (await configService.GetIntConfigAsync("sys.login.kickSameUser", 0) == 1)
         {
+            await notifyService.PushForceLogoutAsync(user.Id, "您的账号已在其他设备登录，如非本人操作请及时修改密码");
             await sessionRepository.DeletePhysicalWhereAsync(x => x.UserId == user.Id);
         }
 

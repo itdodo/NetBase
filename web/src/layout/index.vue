@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, provide } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElNotification } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
@@ -18,6 +18,15 @@ import { usePermissionStore } from '@/stores/permission'
 import { useTabsStore } from '@/stores/tabs'
 
 const route = useRoute()
+
+/** 页签刷新：按路径递增渲染 key，强制当前页组件重建（其他页签缓存不受影响） */
+const viewKeys = reactive<Record<string, number>>({})
+
+function refreshView(path: string): void {
+  viewKeys[path] = (viewKeys[path] ?? 0) + 1
+}
+
+provide('refreshView', refreshView)
 const router = useRouter()
 const userStore = useUserStore()
 const permissionStore = usePermissionStore()
@@ -290,7 +299,7 @@ async function handleChangePassword(): Promise<void> {
       <el-main class="main">
         <router-view v-slot="{ Component }">
           <keep-alive :include="cachedNames">
-            <component :is="Component" />
+            <component :is="Component" :key="viewKeys[route.path] ?? 0" />
           </keep-alive>
         </router-view>
       </el-main>

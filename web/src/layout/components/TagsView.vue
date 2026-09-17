@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, inject, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowDown, Close } from '@element-plus/icons-vue'
 import { useTabsStore } from '@/stores/tabs'
@@ -7,6 +7,9 @@ import { useTabsStore } from '@/stores/tabs'
 const route = useRoute()
 const router = useRouter()
 const tabsStore = useTabsStore()
+
+/** 刷新当前页签：由布局层递增渲染 key 强制页面重建（注入自 layout） */
+const refreshView = inject<(path: string) => void>('refreshView')!
 
 // 路由变化时自动登记页签
 watch(
@@ -35,6 +38,10 @@ function handleClose(path: string): void {
 }
 
 function handleCommand(command: string): void {
+  if (command === 'refresh') {
+    refreshView(route.path)
+    return
+  }
   if (command === 'closeOthers') {
     tabsStore.closeOthers(route.path)
   } else if (command === 'closeAll') {
@@ -65,7 +72,8 @@ function handleCommand(command: string): void {
       <el-icon class="tags-action" title="页签操作"><ArrowDown /></el-icon>
       <template #dropdown>
         <el-dropdown-menu>
-          <el-dropdown-item command="closeOthers">关闭其他</el-dropdown-item>
+          <el-dropdown-item command="refresh">刷新当前页签</el-dropdown-item>
+          <el-dropdown-item divided command="closeOthers">关闭其他</el-dropdown-item>
           <el-dropdown-item command="closeAll">关闭所有</el-dropdown-item>
         </el-dropdown-menu>
       </template>

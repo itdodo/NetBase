@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using NetBase.Common.Validation;
 
 namespace NetBase.Model.Dtos;
 
@@ -10,12 +11,12 @@ public class UpdateProfileDto
     public string? NickName { get; set; }
 
     /// <summary>手机号</summary>
-    [Phone(ErrorMessage = "手机号格式不正确")]
+    [OptionalPhone]
     [StringLength(20)]
     public string? Phone { get; set; }
 
     /// <summary>邮箱</summary>
-    [EmailAddress(ErrorMessage = "邮箱格式不正确")]
+    [OptionalEmail]
     [StringLength(100)]
     public string? Email { get; set; }
 }

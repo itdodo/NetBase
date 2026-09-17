@@ -114,8 +114,8 @@ async function handleSave() {
     await createUser({
       userName: form.userName,
       nickName: form.nickName,
-      phone: form.phone,
-      email: form.email,
+      phone: form.phone || undefined,
+      email: form.email || undefined,
       password: form.password || undefined,
       status: form.status,
       deptId: form.deptId!,
@@ -125,8 +125,8 @@ async function handleSave() {
   } else {
     await updateUser(editingId.value, {
       nickName: form.nickName,
-      phone: form.phone,
-      email: form.email,
+      phone: form.phone || undefined,
+      email: form.email || undefined,
       status: form.status,
       deptId: form.deptId!,
       roleIds: form.roleIds,

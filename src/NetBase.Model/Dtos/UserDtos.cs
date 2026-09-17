@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using NetBase.Common.Validation;
 using MiniExcelLibs.Attributes;
 using NetBase.Common.Results;
 
@@ -73,12 +74,12 @@ public class UserCreateDto
     public string? NickName { get; set; }
 
     /// <summary>手机号</summary>
-    [Phone(ErrorMessage = "手机号格式不正确")]
+    [OptionalPhone]
     [StringLength(20, ErrorMessage = "手机号长度不能超过 20")]
     public string? Phone { get; set; }
 
     /// <summary>邮箱</summary>
-    [EmailAddress(ErrorMessage = "邮箱格式不正确")]
+    [OptionalEmail]
     [StringLength(100, ErrorMessage = "邮箱长度不能超过 100")]
     public string? Email { get; set; }
 
@@ -106,12 +107,12 @@ public class UserUpdateDto
     public string? NickName { get; set; }
 
     /// <summary>手机号</summary>
-    [Phone(ErrorMessage = "手机号格式不正确")]
+    [OptionalPhone]
     [StringLength(20, ErrorMessage = "手机号长度不能超过 20")]
     public string? Phone { get; set; }
 
     /// <summary>邮箱</summary>
-    [EmailAddress(ErrorMessage = "邮箱格式不正确")]
+    [OptionalEmail]
     [StringLength(100, ErrorMessage = "邮箱长度不能超过 100")]
     public string? Email { get; set; }
 

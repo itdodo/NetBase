@@ -63,7 +63,8 @@ const form = reactive({
   password: '',
   status: 1,
   deptId: undefined as number | undefined,
-  roleIds: [] as number[]
+  roleIds: [] as number[],
+  version: 0
 })
 
 const rules: FormRules = {
@@ -72,7 +73,16 @@ const rules: FormRules = {
 
 function openCreate() {
   editingId.value = null
-  Object.assign(form, { userName: '', nickName: '', phone: '', email: '', password: '', status: 1, roleIds: [] })
+  Object.assign(form, {
+    userName: '',
+    nickName: '',
+    phone: '',
+    email: '',
+    password: '',
+    status: 1,
+    roleIds: [],
+    version: 0
+  })
   dialogVisible.value = true
 }
 
@@ -85,7 +95,8 @@ function openEdit(row: User) {
     email: row.email ?? '',
     password: '',
     status: row.status,
-    roleIds: row.roles.map((r) => r.id)
+    roleIds: row.roles.map((r) => r.id),
+    version: row.version
   })
   dialogVisible.value = true
 }
@@ -113,7 +124,8 @@ async function handleSave() {
       email: form.email,
       status: form.status,
       deptId: form.deptId!,
-      roleIds: form.roleIds
+      roleIds: form.roleIds,
+      version: form.version
     })
     ElMessage.success('更新成功')
   }

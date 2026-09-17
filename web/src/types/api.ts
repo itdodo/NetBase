@@ -51,6 +51,8 @@ export interface User {
   lastLoginTime?: string
   createTime: string
   roles: RoleSimple[]
+  /** 并发版本（编辑时读取、保存时回传，陈旧则后端拒绝） */
+  version: number
 }
 
 export interface UserCreate {
@@ -71,6 +73,8 @@ export interface UserUpdate {
   email?: string
   status: number
   roleIds?: number[]
+  /** 编辑时读取的并发版本（回传校验，不传则跳过） */
+  version?: number
 }
 
 export interface Role {
@@ -81,6 +85,8 @@ export interface Role {
   sort: number
   dataScope: number
   createTime: string
+  /** 并发版本（编辑时读取、保存时回传，陈旧则后端拒绝） */
+  version: number
 }
 
 export interface RoleQuery extends PageQuery {
@@ -95,6 +101,8 @@ export interface RoleSave {
   sort: number
   dataScope: number
   deptIds?: number[]
+  /** 编辑时读取的并发版本（回传校验，不传则跳过；创建时无需传） */
+  version?: number
 }
 
 /** 菜单类型：1-目录 2-菜单 3-按钮 */
@@ -113,6 +121,8 @@ export interface MenuTree {
   visible: boolean
   status: number
   createTime: string
+  /** 并发版本（编辑时读取、保存时回传，陈旧则后端拒绝） */
+  version: number
   children: MenuTree[]
 }
 
@@ -127,4 +137,6 @@ export interface MenuSave {
   sort: number
   visible: boolean
   status: number
+  /** 编辑时读取的并发版本（回传校验，不传则跳过；创建时无需传） */
+  version?: number
 }

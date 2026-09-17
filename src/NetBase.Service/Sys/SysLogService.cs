@@ -14,6 +14,7 @@ namespace NetBase.Service.Sys;
 public class SysLogService(
     IRepository<SysOperationLog> operationLogRepository,
     IRepository<SysLoginLog> loginLogRepository,
+    IRepository<SysChangeLog> changeLogRepository,
     ILogger<SysLogService> logger) : ISysLogService
 {
     /// <summary>清理指定日期前的日志（物理删除）</summary>
@@ -23,6 +24,10 @@ public class SysLogService(
     /// <summary>清理指定日期前的登录日志（物理删除）</summary>
     public Task<int> CleanupLoginLogsAsync(DateTime before) =>
         loginLogRepository.DeletePhysicalWhereAsync(x => x.CreateTime < before);
+
+    /// <summary>清理指定日期前的变更日志（物理删除）</summary>
+    public Task<int> CleanupChangeLogsAsync(DateTime before) =>
+        changeLogRepository.DeletePhysicalWhereAsync(x => x.CreateTime < before);
 
     public async Task RecordOperationAsync(SysOperationLog log)
     {
@@ -107,4 +112,25 @@ public class SysLogService(
     }
 
     private static LoginLogDto ToLoginDto(SysLoginLog x) => x.Adapt<LoginLogDto>();
+
+    public async Task<PageResult<ChangeLogDto>> GetChangeLogPageAsync(ChangeLogQueryDto query)
+    {
+        var page = await changeLogRepository.GetPageListAsync(BuildChangePredicate(query), query);
+        var items = page.Items.Select(ToChangeDto).ToList();
+        return PageResult<ChangeLogDto>.Of(items, page.Total, page.PageIndex, page.PageSize);
+    }
+
+    private static Expression<Func<SysChangeLog, bool>>? BuildChangePredicate(ChangeLogQueryDto query)
+    {
+        var tableName = query.TableName?.Trim();
+        var userName = query.UserName?.Trim();
+        return Expressionable.Create<SysChangeLog>()
+            .AndIF(tableName.IsNotNullOrEmpty(), x => x.TableName.Contains(tableName!))
+            .AndIF(userName.IsNotNullOrEmpty(), x => x.UserName != null && x.UserName.Contains(userName!))
+            .AndIF(query.BeginTime.HasValue, x => x.CreateTime >= query.BeginTime!.Value)
+            .AndIF(query.EndTime.HasValue, x => x.CreateTime <= query.EndTime!.Value)
+            .ToExpression();
+    }
+
+    private static ChangeLogDto ToChangeDto(SysChangeLog x) => x.Adapt<ChangeLogDto>();
 }

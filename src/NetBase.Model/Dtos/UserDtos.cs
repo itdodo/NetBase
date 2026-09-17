@@ -54,6 +54,9 @@ public class UserDto
 
     /// <summary>所属部门名称</summary>
     public string? DeptName { get; set; }
+
+    /// <summary>并发版本（编辑保存时原样回传，服务端比对拦截陈旧提交）</summary>
+    public long Version { get; set; }
 }
 
 /// <summary>创建用户请求</summary>
@@ -124,6 +127,9 @@ public class UserUpdateDto
     [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     [Range(1, long.MaxValue, ErrorMessage = "请选择所属部门")]
     public long DeptId { get; set; }
+
+    /// <summary>并发版本（编辑时读取、保存时回传；与他人先提交的版本不一致则拒绝，不传则跳过校验）</summary>
+    public long? Version { get; set; }
 }
 
 /// <summary>重置密码请求</summary>

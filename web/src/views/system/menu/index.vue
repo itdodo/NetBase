@@ -53,7 +53,8 @@ const form = reactive<MenuSave>({
   icon: '',
   sort: 0,
   visible: true,
-  status: 1
+  status: 1,
+  version: 0
 })
 
 const rules: FormRules = {
@@ -82,7 +83,8 @@ function openCreate(parentId = 0) {
     icon: '',
     sort: 0,
     visible: true,
-    status: 1
+    status: 1,
+    version: 0
   })
   dialogVisible.value = true
 }
@@ -99,7 +101,8 @@ function openEdit(row: MenuTree) {
     icon: row.icon ?? '',
     sort: row.sort,
     visible: row.visible,
-    status: row.status
+    status: row.status,
+    version: row.version
   })
   dialogVisible.value = true
 }

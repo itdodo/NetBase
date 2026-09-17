@@ -1,6 +1,8 @@
 using System.Linq.Expressions;
 using NetBase.Common.Results;
+using NetBase.Common.Auditing;
 using NetBase.Model.Entities;
+using NetBase.Repository.Auditing;
 using NetBase.Repository.DbContexts;
 using SqlSugar;
 
@@ -12,11 +14,16 @@ namespace NetBase.Repository.Repositories;
 public class Repository<T> : IRepository<T> where T : BaseEntity, new()
 {
     protected readonly SqlSugarContext Context;
+    private readonly IOperatorProvider? _operatorProvider;
 
-    public Repository(SqlSugarContext context)
+    public Repository(SqlSugarContext context, IOperatorProvider? operatorProvider = null)
     {
         Context = context;
+        _operatorProvider = operatorProvider;
+        _auditEnabled = context.Options.EnableChangeAudit;
     }
+
+    private readonly bool _auditEnabled;
 
     public ISqlSugarClient Db => Context.Client;
 
@@ -100,14 +107,27 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
 
     public T Insert(T entity)
     {
+        // ExecuteReturnEntity/ExecuteCommand 路径的 AOP 雪花触发不一致——所有路径显式填充
+        FillSnowflakeId(entity);
         Db.Insertable(entity).ExecuteReturnEntity();
         return entity;
     }
 
     public async Task<T> InsertAsync(T entity)
     {
+        FillSnowflakeId(entity);
         await Db.Insertable(entity).ExecuteReturnEntityAsync();
         return entity;
+    }
+
+    private static void FillSnowflakeId(T entity) => FillSnowflakeId((BaseEntity)entity);
+
+    private static void FillSnowflakeId(BaseEntity entity)
+    {
+        if (entity.Id == 0)
+        {
+            entity.Id = Yitter.IdGenerator.YitIdHelper.NextId();
+        }
     }
 
     public int InsertRange(IEnumerable<T> entities)
@@ -132,17 +152,73 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
         var list = entities.ToList();
         foreach (var entity in list)
         {
-            if (entity.Id == 0)
-            {
-                entity.Id = Yitter.IdGenerator.YitIdHelper.NextId();
-            }
+            FillSnowflakeId(entity);
         }
         return list;
     }
 
     public bool Update(T entity) => Db.Updateable(entity).ExecuteCommand() > 0;
 
-    public async Task<bool> UpdateAsync(T entity) => await Db.Updateable(entity).ExecuteCommandAsync() > 0;
+    public async Task<bool> UpdateAsync(T entity) =>
+        await Db.Updateable(entity).ExecuteCommandAsync() > 0;
+
+    /// <summary>
+    /// 乐观锁更新：单条 SQL 原子完成——SET 业务列 + Version=旧值+1，WHERE 主键 + Version=旧值，
+    /// 版本不匹配（他人已先修改）影响 0 行返回 false。
+    /// 禁止改回 WhereColumns(Version)：它会以 Version 替换主键条件，相同版本的多行
+    /// 会被同一份实体值覆盖（唯一索引冲突，无索引时批量数据损坏）——集成测试实证。
+    /// </summary>
+    public async Task<bool> UpdateWithVersionCheckAsync(T entity)
+    {
+        var expected = entity.Version;
+
+        entity.Version = expected + 1;
+        var rows = await Db.Updateable(entity)
+            .Where(x => x.Id == entity.Id && x.Version == expected)
+            .ExecuteCommandAsync();
+
+        if (rows == 0)
+        {
+            entity.Version = expected; // 冲突：回滚内存版本
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// 乐观锁更新 + 字段级变更审计：冲突（他人已先修改）返回 false 且不落审计；
+    /// 成功且有字段差异时写 sys_change_log（操作人取 IOperatorProvider，无差异不记录）。
+    /// Db:EnableChangeAudit=false 时退化为纯乐观锁更新（零额外查询开销）。
+    /// </summary>
+    public async Task<bool> UpdateWithAuditAsync(T entity)
+    {
+        string? diff = null;
+        if (_auditEnabled)
+        {
+            var before = await Db.Queryable<T>().InSingleAsync(entity.Id);
+            diff = before == null ? null : AuditDiff.Diff(before, entity);
+        }
+
+        if (!await UpdateWithVersionCheckAsync(entity))
+        {
+            return false;
+        }
+
+        if (diff != null)
+        {
+            var log = new SysChangeLog
+            {
+                TableName = typeof(T).Name,
+                RecordId = entity.Id.ToString(),
+                Changes = diff,
+                UserId = _operatorProvider?.OperatorUserId ?? 0,
+                UserName = _operatorProvider?.OperatorName ?? "system"
+            };
+            FillSnowflakeId(log); // ExecuteCommand 路径 AOP 雪花不触发
+            await Db.Insertable(log).ExecuteCommandAsync();
+        }
+        return true;
+    }
 
     public int UpdateWhere(Expression<Func<T, bool>> predicate, Expression<Func<T, T>> updateExpression) =>
         Db.Updateable<T>().SetColumns(updateExpression).Where(predicate).ExecuteCommand();

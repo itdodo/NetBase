@@ -8,4 +8,13 @@ namespace NetBase.Api.Auditing;
 public class OperatorProvider(IHttpContextAccessor httpContextAccessor) : IOperatorProvider
 {
     public string? OperatorName => httpContextAccessor.HttpContext?.User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+
+    public long? OperatorUserId
+    {
+        get
+        {
+            var uid = httpContextAccessor.HttpContext?.User.FindFirst("uid")?.Value;
+            return long.TryParse(uid, out var id) ? id : null;
+        }
+    }
 }

@@ -1,5 +1,7 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Unicode;
 
 namespace NetBase.Common.Security;
 
@@ -15,7 +17,8 @@ public static class SensitiveData
     private static readonly JsonSerializerOptions Options = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Encoder = JavaScriptEncoder.Create(UnicodeRanges.All) // 中文不转义（与 API 输出约定一致，日志可读）
     };
 
     private const string Mask = "***";
@@ -40,6 +43,13 @@ public static class SensitiveData
         }
 
         return json.Length <= maxLength ? json : json[..maxLength] + "...(truncated)";
+    }
+
+    /// <summary>按词根判断字段是否敏感并返回掩码值（字段级审计用）</summary>
+    public static object? MaskValue(string fieldName, object? value)
+    {
+        if (value == null) return null;
+        return IsSensitive(fieldName) ? Mask : value;
     }
 
     private static bool IsSensitive(string fieldName)

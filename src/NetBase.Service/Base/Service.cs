@@ -42,6 +42,18 @@ public class BaseService<T> : IBaseService<T> where T : BaseEntity, new()
 
     public bool Update(T entity) => Repository.Update(entity);
 
+    /// <summary>
+    /// 编辑统一入口：乐观锁并发校验（版本不匹配抛业务异常）+ 字段级变更审计
+    /// （sys_change_log，Db:EnableChangeAudit=false 时自动退化为纯并发校验）。
+    /// </summary>
+    protected async Task UpdateWithConcurrencyCheckAsync(T entity)
+    {
+        if (!await Repository.UpdateWithAuditAsync(entity))
+        {
+            throw new NetBase.Common.Exceptions.BusinessException("数据已被他人修改，请刷新后重试");
+        }
+    }
+
     public Task<bool> UpdateAsync(T entity) => Repository.UpdateAsync(entity);
 
     /// <summary>

@@ -118,7 +118,9 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
         menu.Status = dto.Status;
         menu.UpdateTime = DateTime.Now;
         menu.UpdateBy = operatorName;
-        await Repository.UpdateAsync(menu);
+        // 跨会话陈旧检测：客户端回传读取时的版本参与比对（未传则用现读版本，兼容旧客户端）
+        menu.Version = dto.Version ?? menu.Version;
+        await UpdateWithConcurrencyCheckAsync(menu);
         _permissionService.InvalidateAll();
     }
 

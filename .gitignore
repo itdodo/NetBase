@@ -20,3 +20,6 @@ Logs/
 ## OS
 .DS_Store
 Thumbs.db
+
+# 运行时备份输出（Backup:Directory 相对路径默认落在 Api 目录下）
+src/NetBase.Api/backup/

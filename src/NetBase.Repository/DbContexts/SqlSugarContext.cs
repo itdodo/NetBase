@@ -28,6 +28,9 @@ public class SqlSugarOptions
 
     /// <summary>雪花ID机器码（多实例部署须各不相同，0-63）</summary>
     public ushort SnowflakeWorkerId { get; set; } = 1;
+
+    /// <summary>字段级变更审计：实体更新时自动记录字段前后值到 sys_change_log</summary>
+    public bool EnableChangeAudit { get; set; } = true;
 }
 
 /// <summary>

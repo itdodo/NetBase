@@ -66,6 +66,14 @@ public interface IRepository<T> where T : BaseEntity, new()
     /// <summary>更新整条实体（按主键）</summary>
     bool Update(T entity);
 
+    /// <summary>
+    /// 乐观锁更新：实体 Version 必须为当前库中版本，冲突（他人已先修改）返回 false。
+    /// </summary>
+    Task<bool> UpdateWithVersionCheckAsync(T entity);
+
+    /// <summary>乐观锁更新 + 字段级变更审计（sys_change_log）：冲突返回 false 不落审计；操作人自动取当前登录态</summary>
+    Task<bool> UpdateWithAuditAsync(T entity);
+
     Task<bool> UpdateAsync(T entity);
 
     /// <summary>按条件批量更新列</summary>

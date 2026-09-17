@@ -248,7 +248,9 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         }
         await Repository.TransactionAsync(async () =>
         {
-            await Repository.UpdateAsync(user);
+            // 跨会话陈旧检测：客户端回传读取时的版本参与比对（未传则用现读版本，兼容旧客户端）
+            user.Version = dto.Version ?? user.Version;
+            await UpdateWithConcurrencyCheckAsync(user);
             if (dto.RoleIds != null)
             {
                 await SaveUserRolesAsync(id, dto.RoleIds);

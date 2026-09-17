@@ -74,7 +74,8 @@ const form = reactive({
   status: 1,
   sort: 0,
   dataScope: 1,
-  deptIds: [] as number[]
+  deptIds: [] as number[],
+  version: 0
 })
 
 const rules: FormRules = {
@@ -84,7 +85,7 @@ const rules: FormRules = {
 
 function openCreate() {
   editingId.value = null
-  Object.assign(form, { roleName: '', roleCode: '', status: 1, sort: 0, dataScope: 1, deptIds: [] })
+  Object.assign(form, { roleName: '', roleCode: '', status: 1, sort: 0, dataScope: 1, deptIds: [], version: 0 })
   dialogVisible.value = true
 }
 
@@ -96,7 +97,8 @@ function openEdit(row: Role) {
     status: row.status,
     sort: row.sort,
     dataScope: row.dataScope,
-    deptIds: []
+    deptIds: [],
+    version: row.version
   })
   dialogVisible.value = true
   // 自定义范围时加载已勾选部门

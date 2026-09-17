@@ -34,6 +34,9 @@ public class RoleDto
     /// <summary>数据范围：1-全部 2-自定义 3-本部门 4-本部门及以下 5-仅本人</summary>
     public int DataScope { get; set; }
 
+    /// <summary>并发版本（编辑保存时原样回传，服务端比对拦截陈旧提交）</summary>
+    public long Version { get; set; }
+
     public DateTime CreateTime { get; set; }
 }
 
@@ -76,6 +79,9 @@ public class RoleSaveDto
 
     /// <summary>自定义数据权限的部门ID列表（DataScope=2 时生效）</summary>
     public List<long>? DeptIds { get; set; }
+
+    /// <summary>并发版本（编辑时读取、保存时回传；与他人先提交的版本不一致则拒绝，不传则跳过校验）</summary>
+    public long? Version { get; set; }
 }
 
 /// <summary>分配菜单请求</summary>

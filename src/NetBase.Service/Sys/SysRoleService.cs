@@ -115,7 +115,9 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
         role.DataScope = dto.DataScope;
         role.UpdateTime = DateTime.Now;
         role.UpdateBy = operatorName;
-        await Repository.UpdateAsync(role);
+        // 跨会话陈旧检测：客户端回传读取时的版本参与比对（未传则用现读版本，兼容旧客户端）
+        role.Version = dto.Version ?? role.Version;
+        await UpdateWithConcurrencyCheckAsync(role);
 
         // 数据权限=自定义时重设部门勾选；其他档清空勾选
         if (dto.DataScope == (int)DataScopeEnum.Custom && dto.DeptIds != null)

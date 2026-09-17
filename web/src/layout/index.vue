@@ -19,11 +19,15 @@ import { useTabsStore } from '@/stores/tabs'
 
 const route = useRoute()
 
-/** 页签刷新：按路径递增渲染 key，强制当前页组件重建（其他页签缓存不受影响） */
-const viewKeys = reactive<Record<string, number>>({})
+/**
+ * 页签刷新：按路径递增渲染版本号，刷新 = 强制当前页组件重建。
+ * key 必须含路径本身（路径#版本）——纯数字 key 在 keep-alive 缓存中会
+ * 跨组件撞 key（都是 0），导航时命中别的页签的缓存实例，页面显示成别的模块。
+ */
+const viewVersions = reactive<Record<string, number>>({})
 
 function refreshView(path: string): void {
-  viewKeys[path] = (viewKeys[path] ?? 0) + 1
+  viewVersions[path] = (viewVersions[path] ?? 0) + 1
 }
 
 provide('refreshView', refreshView)
@@ -299,7 +303,7 @@ async function handleChangePassword(): Promise<void> {
       <el-main class="main">
         <router-view v-slot="{ Component }">
           <keep-alive :include="cachedNames">
-            <component :is="Component" :key="viewKeys[route.path] ?? 0" />
+            <component :is="Component" :key="`${route.path}#${viewVersions[route.path] ?? 0}`" />
           </keep-alive>
         </router-view>
       </el-main>

@@ -106,7 +106,7 @@ public class FlowEngine(
         ValidateGraph(graph);
 
         var submitter = await userRepository.GetByIdAsync(operatorId);
-        var handler = ResolveHandler(request.FlowCode);
+        var handler = ResolveHandler(request.BusinessTable);
         var summary = handler == null
             ? $"流程{request.FlowCode} 单据{request.BusinessId}"
             : await handler.GetSummaryAsync(request.BusinessId);
@@ -648,7 +648,7 @@ public class FlowEngine(
             _ => "void"
         }, null, 0, "system", comment ?? status.ToString());
 
-        var handler = ResolveHandler(instance.FlowCode);
+        var handler = ResolveHandler(instance.BusinessTable);
         if (handler != null)
         {
             await handler.OnFinishedAsync(long.Parse(instance.BusinessId), status);
@@ -740,10 +740,10 @@ public class FlowEngine(
         }
     }
 
-    /// <summary>按流程编码解析业务回调（"*" 为通配 Handler，测试/日志类通用回调用）</summary>
-    private IFlowBusinessHandler? ResolveHandler(string flowCode) =>
-        handlers.FirstOrDefault(h => h.FlowCode == flowCode)
-        ?? handlers.FirstOrDefault(h => h.FlowCode == "*");
+    /// <summary>按业务表名解析业务回调（"*" 为通配 Handler，测试/日志类通用回调用）</summary>
+    private IFlowBusinessHandler? ResolveHandler(string businessTable) =>
+        handlers.FirstOrDefault(h => h.BusinessTable == businessTable)
+        ?? handlers.FirstOrDefault(h => h.BusinessTable == "*");
 
     private static string ToJson(object o) => JsonSerializer.Serialize(o, FlowGraph.JsonOpts);
 }

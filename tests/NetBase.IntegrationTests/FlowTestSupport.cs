@@ -29,7 +29,7 @@ public sealed class FlowTestHandler : IFlowBusinessHandler
 {
     public static readonly List<(long BusinessId, FlowInstanceStatus Status)> Finished = [];
 
-    public string FlowCode => "*"; // 通配：任意测试流程均回调
+    public string BusinessTable => "*"; // 通配：任意测试流程均回调
 
     public Task<string> GetSummaryAsync(long businessId) => Task.FromResult($"测试单据#{businessId}");
 

@@ -78,7 +78,7 @@ public interface IBizExpenseService
 /// </summary>
 public class ExpenseFlowHandler(IRepository<BizExpense> repository) : IFlowBusinessHandler
 {
-    public string FlowCode => "expense";
+    public string BusinessTable => "biz_expense";
 
     public async Task<string> GetSummaryAsync(long businessId)
     {
@@ -265,7 +265,7 @@ public class PurchaseRequestDetail : PurchaseRequestDto
 /// <summary>采购单审批回调（FlowCode=purchase_request）</summary>
 public class PurchaseRequestFlowHandler(IRepository<BizPurchaseRequest> repository) : IFlowBusinessHandler
 {
-    public string FlowCode => "purchase_request";
+    public string BusinessTable => "biz_purchase_request";
 
     public async Task<string> GetSummaryAsync(long businessId)
     {

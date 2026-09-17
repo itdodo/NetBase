@@ -15,13 +15,13 @@
 4. **事务**：多表操作必须 `Repository.TransactionAsync` 包裹
 5. **权限**：每个接口 `[HasPermission("biz:{模块}:{动作}")]`；创建类接口加 `[NoRepeatSubmit]`
 6. **验证**：DTO 必须带 DataAnnotations 特性；密码强度走 `PasswordPolicy.Validate`
-7. **交付自检**：`dotnet build` 0 错误 → `dotnet test`（单元 31 + 集成 22）全过 → `npm run type-check` 零错误 → 关键路径实测 → 同步更新 docs
+7. **交付自检**：`dotnet build` 0 错误 → `dotnet test`（单元 37 + 集成 43）全过 → `npm run type-check` 零错误 → 关键路径实测 → 同步更新 docs
 
 ## 常用命令
 
 ```bash
 dotnet build                                # 后端构建（0 警告 0 错误基线）
-dotnet test                                 # 全部测试（31 单元 + 22 集成）
+dotnet test                                 # 全部测试（37 单元 + 43 集成）
 cd web && npm run type-check                # 前端类型检查
 cd web && npm run dev                       # 启动前端（5173，代理 5026）
 cd src/NetBase.Api && dotnet run            # 启动后端（5026）

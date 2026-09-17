@@ -196,7 +196,8 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         {
             throw new BusinessException(policyError, ApiResultCode.BadRequest);
         }
-        if (!await DeptExistsAsync(dto.DeptId))
+        // 部门选填：传了才校验存在性；未分配落 0（数据权限按"未分配"处理）
+        if (dto.DeptId.HasValue && !await DeptExistsAsync(dto.DeptId.Value))
         {
             throw new BusinessException("所属部门不存在", ApiResultCode.BadRequest);
         }
@@ -205,11 +206,12 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         {
             UserName = dto.UserName,
             Password = PasswordHelper.Encrypt(password),
+            PwdUpdateTime = DateTime.Now,
             NickName = dto.NickName,
             Phone = dto.Phone,
             Email = dto.Email,
             Status = dto.Status,
-            DeptId = dto.DeptId,
+            DeptId = dto.DeptId ?? 0,
             CreateBy = operatorName
         };
         // 用户与角色关联整体事务，避免中途失败产生孤儿数据
@@ -233,7 +235,8 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             throw new BusinessException("不允许停用内置管理员账号");
         }
 
-        if (!await DeptExistsAsync(dto.DeptId))
+        // 部门选填：传了才校验存在性；清空部门 = 未分配（0）
+        if (dto.DeptId.HasValue && !await DeptExistsAsync(dto.DeptId.Value))
         {
             throw new BusinessException("所属部门不存在", ApiResultCode.BadRequest);
         }
@@ -242,7 +245,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         user.Phone = dto.Phone;
         user.Email = dto.Email;
         user.Status = dto.Status;
-        user.DeptId = dto.DeptId;
+        user.DeptId = dto.DeptId ?? 0;
         user.UpdateTime = DateTime.Now;
         user.UpdateBy = operatorName;
         // 停用用户立即踢下线并通知

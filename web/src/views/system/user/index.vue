@@ -13,6 +13,8 @@ import {
   updateUser
 } from '@/api/user'
 import { getRoleList } from '@/api/role'
+import { getDeptTree } from '@/api/dept'
+import type { DeptTree } from '@/api/dept'
 import { formatDateTime } from '@/utils/format'
 import { download } from '@/utils/download'
 import type { RoleSimple, User } from '@/types/api'
@@ -22,6 +24,7 @@ const loading = ref(false)
 const list = ref<User[]>([])
 const total = ref(0)
 const roleOptions = ref<RoleSimple[]>([])
+const deptTree = ref<DeptTree[]>([])
 
 const query = reactive({ pageIndex: 1, pageSize: 10, keyword: '', status: undefined as number | undefined })
 
@@ -68,7 +71,8 @@ const form = reactive({
 })
 
 const rules: FormRules = {
-  userName: [{ required: true, message: '请输入用户名', trigger: 'blur' }]
+  userName: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  deptId: [{ required: true, message: '请选择所属部门', trigger: 'change' }]
 }
 
 function openCreate() {
@@ -96,6 +100,7 @@ function openEdit(row: User) {
     password: '',
     status: row.status,
     roleIds: row.roles.map((r) => r.id),
+    deptId: row.deptId,
     version: row.version
   })
   dialogVisible.value = true
@@ -179,6 +184,7 @@ async function handleResetPassword(row: User) {
 }
 
 onMounted(() => {
+  getDeptTree().then((tree) => (deptTree.value = tree))
   loadData()
   getRoleList().then((roles) => (roleOptions.value = roles))
 })
@@ -312,6 +318,19 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="昵称">
           <el-input v-model="form.nickName" />
+        </el-form-item>
+        <el-form-item label="所属部门" prop="deptId">
+          <el-tree-select
+            v-model="form.deptId"
+            :data="deptTree"
+            :props="{ label: 'deptName', children: 'children' }"
+            node-key="id"
+            check-strictly
+            filterable
+            clearable
+            placeholder="请选择所属部门"
+            style="width: 100%"
+          />
         </el-form-item>
         <el-form-item label="手机号">
           <el-input v-model="form.phone" />

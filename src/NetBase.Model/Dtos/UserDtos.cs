@@ -93,10 +93,9 @@ public class UserCreateDto
     /// <summary>角色ID列表</summary>
     public List<long> RoleIds { get; set; } = [];
 
-    /// <summary>所属部门ID</summary>
+    /// <summary>所属部门ID（可选，留空 = 未分配部门）</summary>
     [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
-    [Range(1, long.MaxValue, ErrorMessage = "请选择所属部门")]
-    public long DeptId { get; set; }
+    public long? DeptId { get; set; }
 }
 
 /// <summary>更新用户请求</summary>
@@ -123,10 +122,9 @@ public class UserUpdateDto
     /// <summary>角色ID列表（传入则全量重设）</summary>
     public List<long>? RoleIds { get; set; }
 
-    /// <summary>所属部门ID</summary>
+    /// <summary>所属部门ID（可选，留空 = 未分配部门）</summary>
     [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
-    [Range(1, long.MaxValue, ErrorMessage = "请选择所属部门")]
-    public long DeptId { get; set; }
+    public long? DeptId { get; set; }
 
     /// <summary>并发版本（编辑时读取、保存时回传；与他人先提交的版本不一致则拒绝，不传则跳过校验）</summary>
     public long? Version { get; set; }

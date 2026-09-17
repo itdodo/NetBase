@@ -20,7 +20,7 @@ public class SysMessage : BaseEntity
     public string? SenderName { get; set; }
 
     /// <summary>消息类型：1-系统 2-站内信 3-业务（审批/工单等，配合 BizType/BizId 跳转）</summary>
-    [SugarColumn(ColumnDescription = "消息类型")]
+    [SugarColumn(ColumnDescription = "消息类型", DefaultValue = "1")]
     public int MsgType { get; set; } = 1;
 
     /// <summary>业务类型（如 approval/order，业务事件通知用）</summary>

@@ -24,6 +24,10 @@ export function setupRouterGuard(router: Router): void {
     if (!permissionStore.loaded) {
       try {
         const routes = await permissionStore.generateRoutes()
+        // 无任何功能权限（未分配角色）：友好引导，而非降级报错
+        if (routes.length === 0 && to.path !== '/403') {
+          return '/403'
+        }
         routes.forEach((route) => router.addRoute(route))
         return { path: to.path, query: to.query, replace: true }
       } catch (error) {

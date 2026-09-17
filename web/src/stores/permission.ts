@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import type { RouteRecordRaw } from 'vue-router'
 import Layout from '@/layout/index.vue'
-import { getMenuTree } from '@/api/menu'
+import { getMyMenuTree } from '@/api/menu'
 import type { MenuTree } from '@/types/api'
 
 /** views 目录映射：菜单的 component 字段（如 system/user/index）到页面组件 */
@@ -36,7 +36,7 @@ export const usePermissionStore = defineStore('permission', () => {
   /** 拉取菜单并生成动态路由；菜单接口失败时降级（仅保留静态路由），不阻断进入系统 */
   async function generateRoutes(): Promise<RouteRecordRaw[]> {
     try {
-      menus.value = await getMenuTree()
+      menus.value = await getMyMenuTree()
     } finally {
       loaded.value = true
     }

@@ -11,6 +11,9 @@ public interface ISysMenuService
     /// <summary>查询角色已分配的菜单树</summary>
     Task<List<MenuTreeDto>> GetTreeByRoleAsync(long roleId);
 
+    /// <summary>查询指定用户可见菜单树：内置管理员全量；普通用户取其全部角色的菜单并集；无角色返回空树</summary>
+    Task<List<MenuTreeDto>> GetTreeByUserAsync(long userId);
+
     /// <summary>查询菜单详情</summary>
     Task<MenuTreeDto?> GetDetailAsync(long id);
 

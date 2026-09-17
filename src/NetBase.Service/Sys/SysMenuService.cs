@@ -14,16 +14,19 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
 {
     private readonly IRepository<SysRoleMenu> _roleMenuRepository;
     private readonly IRepository<SysRole> _roleRepository;
+    private readonly IRepository<SysUserRole> _userRoleRepository;
     private readonly IPermissionService _permissionService;
 
     public SysMenuService(
         IRepository<SysMenu> repository,
         IRepository<SysRoleMenu> roleMenuRepository,
         IRepository<SysRole> roleRepository,
+        IRepository<SysUserRole> userRoleRepository,
         IPermissionService permissionService) : base(repository)
     {
         _roleMenuRepository = roleMenuRepository;
         _roleRepository = roleRepository;
+        _userRoleRepository = userRoleRepository;
         _permissionService = permissionService;
     }
 
@@ -36,26 +39,65 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
             _ = await _roleRepository.GetByIdAsync(roleId.Value)
                 ?? throw new BusinessException($"角色不存在（Id={roleId}）", ApiResultCode.NotFound);
 
-            var relations = await _roleMenuRepository.GetListAsync(x => x.RoleId == roleId.Value);
-            // 补全父级链：角色授权可能只勾选了子节点，父目录需一并展示
-            var menuById = menus.ToDictionary(x => x.Id);
-            var visibleIds = new HashSet<long>();
-            foreach (var menuId in relations.Select(x => x.MenuId).Distinct())
-            {
-                var current = menuId;
-                while (current != 0 && !visibleIds.Contains(current) && menuById.TryGetValue(current, out var menu))
-                {
-                    visibleIds.Add(current);
-                    current = menu.ParentId;
-                }
-            }
-            menus = menus.Where(x => visibleIds.Contains(x.Id)).ToList();
+            menus = FilterByVisibleIds(menus, [await CollectRoleVisibleIdsAsync(roleId.Value)]);
         }
 
         return BuildTree(menus, 0);
     }
 
     public async Task<List<MenuTreeDto>> GetTreeByRoleAsync(long roleId) => await GetTreeAsync(roleId);
+
+    /// <inheritdoc />
+    public async Task<List<MenuTreeDto>> GetTreeByUserAsync(long userId)
+    {
+        var roleIds = (await _userRoleRepository.GetListAsync(x => x.UserId == userId))
+            .Select(x => x.RoleId).Distinct().ToList();
+        if (roleIds.Count == 0)
+        {
+            return []; // 无角色：空树（登录成功但暂无任何功能权限）
+        }
+
+        // 内置管理员 → 全量
+        var admin = await _roleRepository.GetFirstAsync(x => x.RoleCode == SysRoleService.AdminRoleCode);
+        if (admin != null && roleIds.Contains(admin.Id))
+        {
+            return await GetTreeAsync();
+        }
+
+        var menus = await Repository.GetListAsync();
+        var visibleIdSets = new List<HashSet<long>>();
+        foreach (var roleId in roleIds)
+        {
+            visibleIdSets.Add(await CollectRoleVisibleIdsAsync(roleId));
+        }
+        var allVisible = visibleIdSets.SelectMany(x => x).ToHashSet();
+        return BuildTree(menus.Where(x => allVisible.Contains(x.Id)).ToList(), 0);
+    }
+
+    /// <summary>收集角色可见菜单（含父级链补全：授权可能只勾子节点，父目录一并展示）</summary>
+    private async Task<HashSet<long>> CollectRoleVisibleIdsAsync(long roleId)
+    {
+        var relations = await _roleMenuRepository.GetListAsync(x => x.RoleId == roleId);
+        var menus = await Repository.GetListAsync();
+        var menuById = menus.ToDictionary(x => x.Id);
+        var visibleIds = new HashSet<long>();
+        foreach (var menuId in relations.Select(x => x.MenuId).Distinct())
+        {
+            var current = menuId;
+            while (current != 0 && !visibleIds.Contains(current) && menuById.TryGetValue(current, out var menu))
+            {
+                visibleIds.Add(current);
+                current = menu.ParentId;
+            }
+        }
+        return visibleIds;
+    }
+
+    private static List<SysMenu> FilterByVisibleIds(List<SysMenu> menus, IReadOnlyCollection<HashSet<long>> visibleIdSets)
+    {
+        var allVisible = visibleIdSets.SelectMany(x => x).ToHashSet();
+        return menus.Where(x => allVisible.Contains(x.Id)).ToList();
+    }
 
     public async Task<MenuTreeDto?> GetDetailAsync(long id)
     {

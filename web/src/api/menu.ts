@@ -4,6 +4,9 @@ import type { MenuSave, MenuTree } from '@/types/api'
 /** 查询全量菜单树 */
 export const getMenuTree = () => request.get<never, MenuTree[]>('/sys/menu/tree')
 
+/** 当前用户可见菜单树（登录即可调用；无角色用户返回空数组） */
+export const getMyMenuTree = () => request.get<never, MenuTree[]>('/sys/menu/tree/my')
+
 /** 查询指定角色的菜单树（仅包含已授权节点及其父链） */
 export const getMenuTreeByRole = (roleId: number) =>
   request.get<never, MenuTree[]>(`/sys/menu/tree/role/${roleId}`)

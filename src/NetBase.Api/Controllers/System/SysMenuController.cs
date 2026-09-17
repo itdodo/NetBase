@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using NetBase.Common.Users;
 using Microsoft.AspNetCore.Mvc;
 using NetBase.Api.Auth;
@@ -19,6 +20,14 @@ public class SysMenuController(
     public async Task<ApiResult<List<MenuTreeDto>>> GetTree()
     {
         return Success(await menuService.GetTreeAsync());
+    }
+
+    /// <summary>查询当前用户可见菜单树（登录即可调用；无角色用户返回空树）</summary>
+    [Authorize]
+    [HttpGet("tree/my")]
+    public async Task<ApiResult<List<MenuTreeDto>>> MyTree()
+    {
+        return Success(await menuService.GetTreeByUserAsync(currentUserService.UserId ?? 0));
     }
 
     /// <summary>查询指定角色的菜单树</summary>

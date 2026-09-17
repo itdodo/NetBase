@@ -24,6 +24,9 @@ public class DbSeeder
     public void Run()
     {
         _context.InitDatabase();
+
+        // 版本化迁移：结构性/数据性变更走 db/migrations 顺序脚本（幂等、已应用不重复执行）
+        new DbMigrationRunner(_context, _logger).Run();
         _logger?.LogInformation("CodeFirst 建表完成");
 
         var db = _context.Client;

@@ -88,6 +88,7 @@ public sealed class IntegrationFixture
 
         var context = Services.GetRequiredService<SqlSugarContext>();
         context.InitDatabase();
+        new NetBase.Repository.DbContexts.DbMigrationRunner(context).Run();
 
         // 过滤唯一索引：RoleCode 唯一性约束（跨运行的陈旧行不占用编码，与生产 DbSeeder 一致）
         using (var conn = new Microsoft.Data.SqlClient.SqlConnection(ConnectionString))

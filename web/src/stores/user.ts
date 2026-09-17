@@ -10,11 +10,14 @@ import { clearToken, getToken, getUserName, setRefreshToken, setToken, setUserNa
 export const useUserStore = defineStore('user', () => {
   const token = ref<string>(getToken() || '')
   const userName = ref<string>(getUserName())
+  /** 密码超期需强制修改（登录响应标记；改密成功后清除） */
+  const mustChangePassword = ref(false)
 
   async function login(form: { userName: string; password: string }): Promise<void> {
     const res = await apiLogin(form)
     token.value = res.accessToken
     userName.value = res.user.userName
+    mustChangePassword.value = res.mustChangePassword === true
     setToken(res.accessToken)
     setRefreshToken(res.refreshToken)
     setUserName(res.user.userName)
@@ -28,9 +31,10 @@ export const useUserStore = defineStore('user', () => {
     } finally {
       token.value = ''
       userName.value = ''
+      mustChangePassword.value = false
       clearToken()
     }
   }
 
-  return { token, userName, login, logout }
+  return { token, userName, mustChangePassword, login, logout }
 })

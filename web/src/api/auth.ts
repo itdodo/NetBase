@@ -7,6 +7,8 @@ export interface LoginResponse {
   expiresIn: number
   user: User
   permissions: string[]
+  /** 密码已超期（sys.pwd.expireDays 启用时），登录后须强制修改 */
+  mustChangePassword?: boolean
 }
 
 export interface SessionInfo {

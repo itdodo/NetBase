@@ -17,6 +17,9 @@ public class LoginResult
     public UserDto User { get; set; } = new();
 
     public HashSet<string> Permissions { get; set; } = [];
+
+    /// <summary>密码已超期，登录后须强制修改（sys.pwd.expireDays 启用时）</summary>
+    public bool MustChangePassword { get; set; }
 }
 
 /// <summary>在线会话条目</summary>

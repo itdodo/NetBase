@@ -208,7 +208,7 @@ public class SysAuthService(
         var hashed = PasswordHelper.Encrypt(newPassword);
         await userRepository.UpdateWhereAsync(
             x => x.Id == userId,
-            x => new SysUser { Password = hashed, UpdateTime = DateTime.Now, UpdateBy = operatorName });
+            x => new SysUser { Password = hashed, PwdUpdateTime = DateTime.Now, UpdateTime = DateTime.Now, UpdateBy = operatorName });
 
         // 改密后清除全部会话（含当前），强制重新登录
         await sessionRepository.DeletePhysicalWhereAsync(x => x.UserId == userId);
@@ -224,6 +224,12 @@ public class SysAuthService(
 
         var tokenId = Guid.NewGuid().ToString("N");
         var refreshToken = GenerateRefreshToken();
+
+        // 同账号互踢（sys.login.kickSameUser=1）：删除该用户全部旧会话，旧端下个请求即 401 下线
+        if (await configService.GetIntConfigAsync("sys.login.kickSameUser", 0) == 1)
+        {
+            await sessionRepository.DeletePhysicalWhereAsync(x => x.UserId == user.Id);
+        }
 
         var session = new SysUserSession
         {
@@ -243,13 +249,19 @@ public class SysAuthService(
         var accessToken = GenerateAccessToken(user, tokenId);
         var userDto = await userService.GetDetailAsync(user.Id) ?? new UserDto { Id = user.Id, UserName = user.UserName };
 
+        // 密码有效期（sys.pwd.expireDays，0=不启用）：超期则登录后强制修改
+        var expireDays = await configService.GetIntConfigAsync("sys.pwd.expireDays", 0);
+        var mustChange = expireDays > 0
+            && (user.PwdUpdateTime == null || now.AddDays(-expireDays) > user.PwdUpdateTime.Value);
+
         return new LoginResult
         {
             AccessToken = accessToken,
             RefreshToken = refreshToken,
             ExpiresIn = _jwt.AccessTokenExpireMinutes * 60,
             User = userDto,
-            Permissions = permissions
+            Permissions = permissions,
+            MustChangePassword = mustChange
         };
     }
 

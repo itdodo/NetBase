@@ -47,6 +47,10 @@ public class SysUser : BaseEntity, IDataScope
 
     /// <summary>数据归属人（"仅本人"数据范围使用；创建时填充为自身ID，存量数据由种子回填）</summary>
     [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
+    /// <summary>密码更新时间（密码有效期校验依据；空=从未记录，视同需修改）</summary>
+    [SugarColumn(IsNullable = true, ColumnDescription = "密码更新时间")]
+    public DateTime? PwdUpdateTime { get; set; }
+
     [SugarColumn(ColumnDescription = "数据归属人", DefaultValue = "0")]
     public long OwnerUserId { get; set; }
 }

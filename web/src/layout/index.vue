@@ -110,6 +110,10 @@ async function loadNotices(): Promise<void> {
 loadNotices()
 loadMessages()
 loadFlowTodoCount()
+if (userStore.mustChangePassword) {
+  ElMessage.warning('当前密码已超期，请尽快修改')
+  openChangePassword()
+}
 
 // ---------- SignalR 实时通道 ----------
 // 新通知实时弹 toast（站内信同时刷新未读数）

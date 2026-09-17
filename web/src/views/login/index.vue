@@ -44,6 +44,11 @@ async function handleLogin() {
   loading.value = true
   try {
     await userStore.login(form)
+    if (userStore.mustChangePassword) {
+      ElMessage.warning('密码已超期，请先修改密码')
+      await router.push((route.query.redirect as string) || '/?mustChangePwd=1')
+      return
+    }
     ElMessage.success('登录成功')
     await router.push((route.query.redirect as string) || '/')
   } catch {

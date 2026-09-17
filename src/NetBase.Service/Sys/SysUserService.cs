@@ -120,6 +120,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             {
                 UserName = userName,
                 Password = PasswordHelper.Encrypt(password),
+                PwdUpdateTime = DateTime.Now,
                 NickName = row.NickName,
                 Phone = row.Phone,
                 Email = row.Email,
@@ -295,7 +296,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         var hashed = PasswordHelper.Encrypt(password);
         await Repository.UpdateWhereAsync(
             x => x.Id == id,
-            x => new SysUser { Password = hashed, UpdateTime = DateTime.Now, UpdateBy = operatorName });
+            x => new SysUser { Password = hashed, PwdUpdateTime = DateTime.Now, UpdateTime = DateTime.Now, UpdateBy = operatorName });
         // 重置密码后清除该用户全部会话与登录失败计数，强制重新登录
         await _userSessionRepository.DeletePhysicalWhereAsync(x => x.UserId == id);
         var failKey = $"netbase:login:fail:{user.UserName.ToLowerInvariant()}";

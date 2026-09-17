@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NetBase.Common.Exceptions;
+using NetBase.Common.Security;
 using NetBase.Model.Entities;
 using NetBase.Repository.Repositories;
 
@@ -57,6 +58,12 @@ public class SysFileService(
         else if (!_options.AllowedExtensions.Contains(extension))
         {
             throw new BusinessException($"不支持的文件类型：{extension}", NetBase.Common.Results.ApiResultCode.BadRequest);
+        }
+
+        // 内容嗅探：文件头与扩展名比对，拦截改后缀伪装（txt 等无签名类型跳过）
+        if (!FileSignatureValidator.IsValid(extension, content))
+        {
+            throw new BusinessException("文件内容与扩展名不符，已拒绝上传", NetBase.Common.Results.ApiResultCode.BadRequest);
         }
 
         // 大小限制

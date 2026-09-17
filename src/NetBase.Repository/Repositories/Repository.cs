@@ -77,18 +77,24 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
             : queryable.OrderBy($"{sortField} asc");
     }
 
-    /// <summary>校验排序列是否为实体公开属性，无效值回退主键</summary>
+    /// <summary>
+    /// 校验排序列是否为实体公开属性，无效值回退 CreateTime。
+    /// 不回退主键：雪花 Id 只在生成器位宽配置一致时才与时间同序，
+    /// 历史数据跨配置时按 Id 排序会把新记录排到末尾（审计日志曾踩坑）。
+    /// </summary>
     private static string ResolveSortField(string? sortField)
     {
+        const string fallback = nameof(BaseEntity.CreateTime);
+
         if (string.IsNullOrWhiteSpace(sortField))
         {
-            return nameof(BaseEntity.Id);
+            return fallback;
         }
 
         var name = sortField.Trim();
         var exists = typeof(T).GetProperties()
             .Any(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-        return exists ? name : nameof(BaseEntity.Id);
+        return exists ? name : fallback;
     }
 
     public long Count(Expression<Func<T, bool>>? predicate = null) =>

@@ -12,6 +12,9 @@ public abstract class BaseController(ICurrentUserService currentUserService) : C
     /// <summary>当前登录用户名（认证接入前回退为 system，保证审计字段始终有值）</summary>
     protected string OperatorName => currentUserService.UserName ?? "system";
 
+    /// <summary>当前登录用户ID（未认证为 null）</summary>
+    protected long? OperatorUserId => currentUserService.UserId;
+
     /// <summary>成功返回（无数据）</summary>
     protected static ApiResult Success(string message = "操作成功") => ApiResult.Ok(message);
 

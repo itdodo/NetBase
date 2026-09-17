@@ -23,7 +23,7 @@ public class FileController(ISysFileService fileService, ICurrentUserService cur
         }
 
         await using var stream = file.OpenReadStream();
-        var result = await fileService.UploadAsync(stream, file.FileName, file.ContentType, bizType, currentUserService.UserId ?? 0);
+        var result = await fileService.UploadAsync(stream, file.FileName, file.ContentType, bizType, OperatorUserId ?? 0);
         return Success(result, "上传成功");
     }
 

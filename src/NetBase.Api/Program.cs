@@ -16,16 +16,12 @@ using NetBase.Model.Entities;
 using NetBase.Service.Sys;
 using Hangfire;
 using NetBase.Api.Services;
-using NetBase.Service.Sys;
-using Hangfire;
 using NetBase.Common.Realtime;
 using NetBase.Common.Users;
 using NetBase.Middleware;
 using NetBase.Repository;
 using NetBase.Repository.DbContexts;
 using NetBase.Service;
-using NetBase.Service.Sys;
-using Hangfire;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -37,6 +33,8 @@ builder.Host.UseSerilog((context, configuration) => configuration.ReadFrom.Confi
 builder.Services.AddNetBaseRepository(builder.Configuration);
 builder.Services.AddNetBaseService(builder.Configuration);
 builder.Services.AddNetBaseMiddleware(builder.Configuration);
+// 业务模块注册（业务代码只进 Biz 目录）
+builder.Services.AddNetBaseBiz();
 
 // 当前用户（认证接入后自动从 Claims 解析，业务代码已按此取审计操作人）
 builder.Services.AddHttpContextAccessor();
@@ -51,6 +49,7 @@ builder.Services
         options.Filters.Add<GlobalExceptionFilter>();
         options.Filters.Add<OperationLogFilter>();
         options.Filters.Add<NoRepeatSubmitFilter>();
+        options.Filters.Add<UnitOfWorkFilter>();
     })
     .AddJsonOptions(options =>
     {
@@ -69,6 +68,7 @@ builder.Services
 // 操作日志：自动记录全部写操作（参数脱敏）；防重复提交过滤器
 builder.Services.AddScoped<OperationLogFilter>();
 builder.Services.AddScoped<NoRepeatSubmitFilter>();
+builder.Services.AddScoped<UnitOfWorkFilter>();
 builder.Services.Configure<FileStorageOptions>(builder.Configuration.GetSection(FileStorageOptions.SectionName));
 
 // 登录限流：每 IP 每分钟最多 10 次登录尝试（防暴力破解，与失败锁定互为补充）
@@ -81,6 +81,15 @@ builder.Services.AddRateLimiter(options =>
             _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
             {
                 PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1)
+            }));
+    // 验证码获取：每 IP 每分钟 20 次（防刷缓存空间）
+    options.AddPolicy("captcha", context =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            $"captcha:{context.Connection.RemoteIpAddress}",
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
                 Window = TimeSpan.FromMinutes(1)
             }));
 });
@@ -107,11 +116,17 @@ builder.Services.AddHangfire(config => config
     }));
 builder.Services.AddHangfireServer();
 builder.Services.AddScoped<NetBase.Api.Jobs.ISystemJobService, NetBase.Api.Jobs.SystemJobService>();
+// 数据备份：SqlServer 全量 + 上传文件镜像（Backup 节点配置，失败经站内信通知管理员）
+builder.Services.Configure<NetBase.Api.Jobs.BackupOptions>(builder.Configuration.GetSection(NetBase.Api.Jobs.BackupOptions.SectionName));
+builder.Services.AddScoped<NetBase.Api.Jobs.IBackupService, NetBase.Api.Jobs.BackupService>();
 
 // 实时通知：SignalR（用户连接映射 + 落库推送双写）
 builder.Services.AddSingleton<NetBase.Api.Hubs.IUserConnectionMapping, NetBase.Api.Hubs.UserConnectionMapping>();
 builder.Services.AddScoped<NetBase.Common.Realtime.INotifyService, NetBase.Api.Realtime.NotifyService>();
 builder.Services.AddSignalR();
+// 多实例部署时启用 Redis backplane（SignalR:UseRedisBackplane=true 且需 Redis 可用）：
+// if (builder.Configuration.GetValue<bool>("SignalR:UseRedisBackplane"))
+//     builder.Services.AddSignalR().AddStackExchangeRedis(cacheRedisConnectionString);
 
 // 认证授权：JWT Bearer + 动态权限码策略
 var jwtSection = builder.Configuration.GetSection(JwtOptions.SectionName);

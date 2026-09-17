@@ -17,7 +17,7 @@ interface OperationLogQuery {
   endTime?: string
 }
 
-defineOptions({ name: 'MonitorOperlogView' })
+defineOptions({ name: 'AuditOperLogTab' })
 
 // 列表样板复用 usePageList（加载/分页/查询），本页仅保留时间范围与清理等页面级逻辑
 const dateRange = ref<[string, string] | null>(null)
@@ -68,7 +68,6 @@ onMounted(loadData)
 </script>
 
 <template>
-  <el-card>
     <div class="toolbar">
       <el-input
         v-model="query.keyword"
@@ -126,7 +125,6 @@ onMounted(loadData)
       :total="total"
       @current-change="loadData"
     />
-  </el-card>
 </template>
 
 <style scoped>

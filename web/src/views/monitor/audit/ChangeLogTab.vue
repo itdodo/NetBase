@@ -7,7 +7,7 @@ import { cleanupChangeLogs } from '@/api/changelog'
 import { formatDateTime } from '@/utils/format'
 import { usePageList } from '@/composables/usePageList'
 
-defineOptions({ name: 'MonitorChangelogView' })
+defineOptions({ name: 'AuditChangeLogTab' })
 
 interface ChangeLogQueryLocal {
   pageIndex: number
@@ -81,7 +81,6 @@ onMounted(loadData)
 </script>
 
 <template>
-  <el-card>
     <div class="toolbar">
       <el-input
         v-model="query.tableName"
@@ -147,7 +146,6 @@ onMounted(loadData)
       </div>
       <pre v-if="detailRow" class="detail-json">{{ prettyChanges(detailRow.changes) }}</pre>
     </el-dialog>
-  </el-card>
 </template>
 
 <style scoped>

@@ -43,10 +43,12 @@ public class SqlSugarContext
     public const string ConfigId = "netbase";
 
     private readonly SqlSugarScope? _client;
+    private readonly ILogger<SqlSugarContext>? _logger;
 
     public SqlSugarContext(SqlSugarOptions options, IOperatorProvider? operatorProvider, ILogger<SqlSugarContext>? logger = null)
     {
         Options = options;
+        _logger = logger;
 
         // 雪花ID初始化（Yitter.IdGenerator）：多实例部署须保证 WorkerId 唯一
         Yitter.IdGenerator.YitIdHelper.SetIdGenerator(
@@ -103,7 +105,7 @@ public class SqlSugarContext
             {
                 if (options.LogSql)
                 {
-                    logger?.LogDebug("执行SQL: {Sql} 参数: {Params}", sql,
+                    _logger?.LogDebug("执行SQL: {Sql} 参数: {Params}", sql,
                         parameters.ToDictionary(p => p.ParameterName, p => p.Value).ToJson());
                 }
             };
@@ -112,10 +114,10 @@ public class SqlSugarContext
                 var elapsed = db.Ado.SqlExecutionTime.TotalMilliseconds;
                 if (elapsed > options.SlowSqlThresholdMs)
                 {
-                    logger?.LogWarning("慢SQL({Elapsed:F0}ms): {Sql}", elapsed, sql);
+                    _logger?.LogWarning("慢SQL({Elapsed:F0}ms): {Sql}", elapsed, sql);
                 }
             };
-            db.Aop.OnError = ex => logger?.LogError(ex, "SQL执行出错: {Sql}", ex.Sql);
+            db.Aop.OnError = ex => _logger?.LogError(ex, "SQL执行出错: {Sql}", ex.Sql);
         });
     }
 
@@ -136,6 +138,18 @@ public class SqlSugarContext
             .Where(t => t is { IsClass: true, IsAbstract: false } && typeof(BaseEntity).IsAssignableFrom(t))
             .ToArray();
 
-        Client.CodeFirst.InitTables(entityTypes);
+        // 逐表初始化：失败时日志直接点名问题实体
+        foreach (var entityType in entityTypes)
+        {
+            try
+            {
+                Client.CodeFirst.InitTables(entityType);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "CodeFirst 初始化失败: {Table}", entityType.Name);
+                throw;
+            }
+        }
     }
 }

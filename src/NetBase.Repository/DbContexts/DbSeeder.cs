@@ -78,6 +78,8 @@ public class DbSeeder
 
         // 增量种子：为升级库补充新版本菜单（按权限码幂等判断），并授予 admin 角色
         EnsureLogMenus(db, adminRoleId, now);
+        // 三日志合并为「审计日志」单菜单（三旧菜单转为按钮型权限载体挂在其下）
+        EnsureAuditLogMenu(db, adminRoleId, now);
         EnsureSystemMenus(db, adminRoleId, now);
         EnsureNoticeMenu(db, adminRoleId, now);
         SeedDepts(db, adminRoleId, now);
@@ -543,6 +545,72 @@ public class DbSeeder
     }
 
     /// <summary>
+    /// <summary>
+    /// 三日志合并为「审计日志」：新建聚合菜单（monitor/audit/index），
+    /// 旧 操作/登录/变更 三菜单转为按钮型子节点——菜单不进侧边栏、路由，
+    /// 但权限码继续随树下发（页签按权限显隐）；已绑定角色无需重新授权。幂等。
+    /// </summary>
+    private void EnsureAuditLogMenu(ISqlSugarClient db, long adminRoleId, DateTime now)
+    {
+        const string auditPermission = "monitor:audit:list";
+        var auditMenu = db.Queryable<SysMenu>().First(x => x.Permission == auditPermission);
+        if (auditMenu == null)
+        {
+            var monitorDir = db.Queryable<SysMenu>().First(x => x.MenuName == "系统监控" && x.MenuType == (int)MenuTypeEnum.Directory);
+            if (monitorDir == null)
+            {
+                return;
+            }
+
+            auditMenu = db.Insertable(new SysMenu
+            {
+                ParentId = monitorDir.Id,
+                MenuName = "审计日志",
+                MenuType = (int)MenuTypeEnum.Menu,
+                Path = "/monitor/audit",
+                Component = "monitor/audit/index",
+                Permission = auditPermission,
+                Sort = 2,
+                CreateTime = now,
+                CreateBy = "system"
+            }).ExecuteReturnEntity();
+
+            if (!db.Queryable<SysRoleMenu>().Any(x => x.RoleId == adminRoleId && x.MenuId == auditMenu.Id))
+            {
+                db.Insertable(new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = auditMenu.Id, CreateTime = now }).ExecuteCommand();
+            }
+            _logger?.LogInformation("种子数据：增量菜单「审计日志」已写入");
+        }
+
+        // 旧三菜单降级为按钮型子节点（权限码载体，Path/Component 清空）
+        (string Permission, int Sort)[] legacy =
+        [
+            ("monitor:operlog:list", 1),
+            ("monitor:loginlog:list", 2),
+            ("monitor:changelog:list", 3)
+        ];
+        foreach (var (permission, sort) in legacy)
+        {
+            var legacyMenu = db.Queryable<SysMenu>().First(x => x.Permission == permission);
+            if (legacyMenu == null || legacyMenu.ParentId == auditMenu.Id)
+            {
+                continue;
+            }
+            db.Updateable<SysMenu>()
+                .SetColumns(x => new SysMenu
+                {
+                    MenuType = (int)MenuTypeEnum.Button,
+                    ParentId = auditMenu.Id,
+                    Path = string.Empty,
+                    Component = string.Empty,
+                    Sort = sort
+                })
+                .Where(x => x.Id == legacyMenu.Id)
+                .ExecuteCommand();
+            _logger?.LogInformation("种子数据：菜单「{Name}」已并入审计日志（按钮型）", legacyMenu.MenuName);
+        }
+    }
+
     /// <summary>审批流单据绑定初始值（幂等：按业务表名判断）</summary>
     private static void EnsureFlowBindings(ISqlSugarClient db, DateTime now)
     {

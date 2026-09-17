@@ -8,7 +8,7 @@ import { formatDateTime } from '@/utils/format'
 import { download } from '@/utils/download'
 import { usePageList } from '@/composables/usePageList'
 
-defineOptions({ name: 'MonitorLoginlogView' })
+defineOptions({ name: 'AuditLoginLogTab' })
 
 interface LoginLogQuery {
   pageIndex: number
@@ -67,7 +67,6 @@ onMounted(loadData)
 </script>
 
 <template>
-  <el-card>
     <div class="toolbar">
       <el-input
         v-model="query.keyword"
@@ -120,7 +119,6 @@ onMounted(loadData)
       :total="total"
       @current-change="loadData"
     />
-  </el-card>
 </template>
 
 <style scoped>

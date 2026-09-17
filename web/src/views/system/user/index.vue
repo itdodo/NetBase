@@ -219,6 +219,12 @@ onMounted(() => {
     <el-table v-loading="loading" :data="list" border stripe>
       <el-table-column prop="userName" label="用户名" min-width="100" />
       <el-table-column prop="nickName" label="昵称" min-width="100" />
+      <el-table-column prop="deptName" label="所属部门" min-width="110">
+        <template #default="{ row }">
+          <span v-if="(row as User).deptName">{{ (row as User).deptName }}</span>
+          <el-tag v-else size="small" type="info">未分配</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="phone" label="手机号" min-width="110" />
       <el-table-column prop="email" label="邮箱" min-width="130" show-overflow-tooltip />
       <el-table-column label="角色" min-width="130">

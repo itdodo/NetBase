@@ -100,6 +100,7 @@ public class DbSeeder
         EnsureBizSampleMenus(db, adminRoleId, now);
         SeedConfigs(db, now);
         SeedSampleDicts(db, now);
+        SeedCommonDicts(db, now);
         SeedSampleNotice(db, now);
 
         // 审批流单据绑定初始值（可运行时在流程管理-单据绑定中调整）
@@ -856,6 +857,56 @@ public class DbSeeder
     }
 
     /// <summary>示例字典（幂等：按字典编码判断）</summary>
+    /// <summary>系统常用字典数据（幂等按 DictCode）：通用+业务两大类，业务字典照此维护</summary>
+    private void SeedCommonDicts(ISqlSugarClient db, DateTime now)
+    {
+        (string Code, string Name, string Remark, (string Label, string Value)[] Items)[] dicts =
+        [
+            ("sys_sex", "性别", "通用", [("男", "1"), ("女", "2"), ("未知", "0")]),
+            ("sys_yes_no", "是否", "通用", [("是", "1"), ("否", "0")]),
+            ("sys_priority", "优先级", "通用", [("低", "1"), ("中", "2"), ("高", "3"), ("紧急", "4")]),
+            ("sys_id_card_type", "证件类型", "人员信息", [("居民身份证", "01"), ("护照", "02"), ("港澳通行证", "03"), ("台胞证", "04"), ("其他", "99")]),
+            ("sys_education", "学历", "人员信息", [("初中及以下", "01"), ("高中", "02"), ("中专", "03"), ("大专", "04"), ("本科", "05"), ("硕士研究生", "06"), ("博士研究生", "07")]),
+            ("sys_marital_status", "婚姻状况", "人员信息", [("未婚", "1"), ("已婚", "2"), ("离异", "3"), ("丧偶", "4")]),
+            ("sys_currency", "币种", "财务", [("人民币（CNY）", "CNY"), ("美元（USD）", "USD"), ("欧元（EUR）", "EUR"), ("港元（HKD）", "HKD"), ("日元（JPY）", "JPY")]),
+            ("sys_pay_method", "支付方式", "财务", [("现金", "01"), ("银行转账", "02"), ("支付宝", "03"), ("微信支付", "04"), ("支票", "05")]),
+            ("sys_invoice_type", "发票类型", "财务", [("增值税专用发票", "01"), ("增值税普通发票", "02"), ("电子发票", "03"), ("收据", "04")]),
+            ("sys_bill_status", "单据状态", "业务单据", [("草稿", "0"), ("审批中", "1"), ("已通过", "2"), ("已拒绝", "3"), ("已撤回", "4")])
+        ];
+
+        foreach (var dict in dicts)
+        {
+            if (db.Queryable<SysDictType>().Any(x => x.DictCode == dict.Code))
+            {
+                continue;
+            }
+
+            var type = db.Insertable(new SysDictType
+            {
+                DictCode = dict.Code,
+                DictName = dict.Name,
+                Status = 1,
+                Remark = dict.Remark,
+                CreateTime = now,
+                CreateBy = "system"
+            }).ExecuteReturnEntity();
+
+            db.Insertable(dict.Items.Select((item, idx) => new SysDictData
+            {
+                Id = Yitter.IdGenerator.YitIdHelper.NextId(),
+                DictTypeId = type.Id,
+                Label = item.Label,
+                Value = item.Value,
+                Sort = idx + 1,
+                Status = 1,
+                CreateTime = now,
+                CreateBy = "system"
+            }).ToList()).ExecuteCommand();
+
+            _logger?.LogInformation("种子数据：系统字典 {Code}（{Name}）已写入", dict.Code, dict.Name);
+        }
+    }
+
     private void SeedSampleDicts(ISqlSugarClient db, DateTime now)
     {
         if (db.Queryable<SysDictType>().Any(x => x.DictCode == "demo_priority"))

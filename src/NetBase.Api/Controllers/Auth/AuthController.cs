@@ -64,8 +64,9 @@ public class AuthController(
         return Success("已退出登录");
     }
 
-    /// <summary>获取图形验证码（sys.captcha.enabled=true 时登录必填）</summary>
+    /// <summary>获取图形验证码（限流：每 IP 每分钟 20 次）</summary>
     [AllowAnonymous]
+    [EnableRateLimiting("captcha")]
     [HttpGet("captcha")]
     public async Task<ApiResult<CaptchaResult>> Captcha()
     {
@@ -77,7 +78,7 @@ public class AuthController(
     [HttpPut("profile")]
     public async Task<ApiResult> UpdateProfile([FromBody] UpdateProfileDto dto)
     {
-        await userService.UpdateProfileAsync(currentUserService.UserId ?? 0, dto);
+        await userService.UpdateProfileAsync(OperatorUserId ?? 0, dto);
         return Success("资料已更新");
     }
 
@@ -92,8 +93,8 @@ public class AuthController(
         }
 
         await using var stream = file.OpenReadStream();
-        var upload = await fileService.UploadAsync(stream, file.FileName, file.ContentType, "avatar", currentUserService.UserId ?? 0);
-        await userService.SetAvatarAsync(currentUserService.UserId ?? 0, upload.Url);
+        var upload = await fileService.UploadAsync(stream, file.FileName, file.ContentType, "avatar", OperatorUserId ?? 0);
+        await userService.SetAvatarAsync(OperatorUserId ?? 0, upload.Url);
         return Success(upload.Url, "头像已更新");
     }
 
@@ -102,7 +103,7 @@ public class AuthController(
     [HttpGet("profile")]
     public async Task<ApiResult<object>> Profile()
     {
-        var userId = currentUserService.UserId ?? 0;
+        var userId = OperatorUserId ?? 0;
         var user = userId > 0 ? await authService.GetUserProfileAsync(userId) : null;
         var permissions = userId > 0 ? await permissionService.GetUserPermissionsAsync(userId) : [];
         return Success(new { user, permissions } as object);
@@ -131,7 +132,7 @@ public class AuthController(
     public async Task<ApiResult> ChangePassword([FromBody] ChangePasswordDto dto)
     {
         await authService.ChangePasswordAsync(
-            currentUserService.UserId ?? 0,
+            OperatorUserId ?? 0,
             dto.OldPassword,
             dto.NewPassword,
             OperatorName);

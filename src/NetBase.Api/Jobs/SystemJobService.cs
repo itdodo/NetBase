@@ -1,9 +1,12 @@
+using System.Linq.Expressions;
 using Hangfire;
 using Hangfire.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NetBase.Common.Cache;
 using NetBase.Common.Realtime;
+using NetBase.Model.Entities;
+using NetBase.Repository.Repositories;
 using NetBase.Service.Sys;
 
 namespace NetBase.Api.Jobs;
@@ -72,26 +75,43 @@ public class SystemJobService(
     ISysLogService logService,
     ISysConfigService configService,
     INotifyService notifyService,
-    NetBase.Api.Hubs.IUserConnectionMapping notifyMapping,
+    IRepository<SysRole> roleRepository,
+    IRepository<SysUserRole> userRoleRepository,
+    IRepository<SysUserSession> userSessionRepository,
+    IBackupService backupService,
+    IOptions<BackupOptions> backupOptions,
     IBackgroundJobClient backgroundJobClient,
     ILogger<SystemJobService> logger) : ISystemJobService
 {
-    /// <summary>内置作业定义：Id / 名称 / 默认 Cron / 执行方法</summary>
-    private static readonly (string JobId, string DisplayName, string Cron)[] BuiltInJobs =
+    /// <summary>数据备份作业标识（Backup:Enabled=false 时不注册并移除既有调度）</summary>
+    public const string BackupJobId = "sys.backup.daily";
+
+    /// <summary>内置作业定义：Id / 名称 / 默认 Cron / 执行入口（按 Id 分发，新增作业只加一行）</summary>
+    private static readonly (string JobId, string DisplayName, string Cron, Expression<Action<SystemJobService>> Run)[] BuiltInJobs =
     [
-        ("sys.log.cleanup", "日志清理（保留期见参数 sys.log.retentionDays）", "0 2 * * *")
+        ("sys.log.cleanup", "日志与过期会话清理（日志保留期 sys.log.retentionDays）", "0 2 * * *",
+            svc => svc.RunLogCleanupAsync(null)),
+        (BackupJobId, "数据备份（SqlServer 全量 + 上传文件镜像）", "0 3 * * *",
+            svc => svc.RunBackupAsync())
     ];
 
     public void RegisterJobs()
     {
-        RecurringJob.AddOrUpdate<SystemJobService>(
-            "sys.log.cleanup",
-            svc => svc.RunLogCleanupAsync(null),
-            BuiltInJobs[0].Cron);
-        logger.LogInformation("定时任务已注册: {Count} 个内置作业", BuiltInJobs.Length);
+        var registered = 0;
+        foreach (var def in BuiltInJobs)
+        {
+            if (def.JobId == BackupJobId && !backupOptions.Value.Enabled)
+            {
+                RecurringJob.RemoveIfExists(def.JobId);
+                continue;
+            }
+            RecurringJob.AddOrUpdate(def.JobId, def.Run, def.Cron);
+            registered++;
+        }
+        logger.LogInformation("定时任务已注册: {Count} 个内置作业", registered);
     }
 
-    /// <summary>日志清理作业：保留天数读系统参数 sys.log.retentionDays</summary>
+    /// <summary>日志与过期会话清理作业：日志保留天数读系统参数 sys.log.retentionDays，过期会话（关浏览器未登出的残留行）物理删除</summary>
     [DisableConcurrentExecution(timeoutInSeconds: 600)]
     public async Task RunLogCleanupAsync(int? retentionDaysOverride)
     {
@@ -99,10 +119,68 @@ public class SystemJobService(
                         ?? await configService.GetIntConfigAsync("sys.log.retentionDays", 30);
         var before = DateTime.Now.AddDays(-keepDays);
 
-        var opCount = await logService.CleanupOperationLogsAsync(before);
-        var loginCount = await logService.CleanupLoginLogsAsync(before);
-        logger.LogInformation("日志清理完成: 操作日志 {Op} 条, 登录日志 {Login} 条（保留 {Days} 天）",
-            opCount, loginCount, keepDays);
+        try
+        {
+            var opCount = await logService.CleanupOperationLogsAsync(before);
+            var loginCount = await logService.CleanupLoginLogsAsync(before);
+            var changeCount = await logService.CleanupChangeLogsAsync(before);
+            var sessionCount = await userSessionRepository.DeletePhysicalWhereAsync(x => x.ExpireTime <= DateTime.Now);
+            logger.LogInformation("清理完成: 操作日志 {Op} 条, 登录日志 {Login} 条, 变更日志 {Change} 条, 过期会话 {Session} 条（日志保留 {Days} 天）",
+                opCount, loginCount, changeCount, sessionCount, keepDays);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "日志清理作业执行失败");
+            await NotifyAdminsAsync("定时任务失败通知",
+                $"日志清理作业（sys.log.cleanup）执行失败：{ex.Message}。Hangfire 将按策略自动重试。");
+            throw; // 上抛让 Hangfire 标记失败并自动重试
+        }
+    }
+
+    /// <summary>数据备份作业：SqlServer 全量备份 + 上传文件增量镜像（见 BackupService），保留期外 .bak 自动清理</summary>
+    [DisableConcurrentExecution(timeoutInSeconds: 1800)]
+    public async Task RunBackupAsync()
+    {
+        try
+        {
+            var result = await backupService.RunAsync();
+            logger.LogInformation("数据备份完成: {File}（{Size:F1}MB）, 文件镜像 {Files} 个",
+                result.BakFile, result.BakSizeBytes / 1024.0 / 1024, result.MirroredFiles);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "数据备份作业执行失败");
+            await NotifyAdminsAsync("定时任务失败通知",
+                $"数据备份作业（{BackupJobId}）执行失败：{ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>作业异常通知：站内信（落库+在线实时推）告知全部管理员，通知失败不影响主流程</summary>
+    private async Task NotifyAdminsAsync(string title, string content)
+    {
+        try
+        {
+            var adminRoleId = roleRepository.GetFirst(x => x.RoleCode == SysRoleService.AdminRoleCode)?.Id;
+            if (adminRoleId == null)
+            {
+                return;
+            }
+
+            var adminUserIds = (await userRoleRepository.GetListAsync(x => x.RoleId == adminRoleId))
+                .Select(x => x.UserId).Distinct().ToList();
+            if (adminUserIds.Count > 0)
+            {
+                await notifyService.PushToUsersAsync(adminUserIds, new NoticePayload
+                {
+                    MsgType = 1, Title = title, Content = content, SenderName = "system"
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "管理员失败通知发送失败");
+        }
     }
 
     public Task<List<JobInstanceDto>> GetJobsAsync()
@@ -131,16 +209,15 @@ public class SystemJobService(
 
     public void UpdateCron(string jobId, string cron)
     {
-        EnsureBuiltIn(jobId);
+        var def = EnsureBuiltIn(jobId);
         // RecurringJob 更新 Cron 即恢复调度（暂停态通过重新添加解除）
-        RecurringJob.AddOrUpdate<SystemJobService>(
-            jobId, svc => svc.RunLogCleanupAsync(null), cron);
+        RecurringJob.AddOrUpdate(jobId, def.Run, cron);
     }
 
     public void Trigger(string jobId)
     {
-        EnsureBuiltIn(jobId);
-        backgroundJobClient.Enqueue<SystemJobService>(svc => svc.RunLogCleanupAsync(null));
+        var def = EnsureBuiltIn(jobId);
+        backgroundJobClient.Enqueue(def.Run);
     }
 
     public void Pause(string jobId)
@@ -152,16 +229,17 @@ public class SystemJobService(
 
     public void Resume(string jobId)
     {
-        EnsureBuiltIn(jobId);
-        RecurringJob.AddOrUpdate<SystemJobService>(
-            jobId, svc => svc.RunLogCleanupAsync(null), BuiltInJobs[0].Cron);
+        var def = EnsureBuiltIn(jobId);
+        RecurringJob.AddOrUpdate(jobId, def.Run, def.Cron);
     }
 
-    private static void EnsureBuiltIn(string jobId)
+    private static (string JobId, string DisplayName, string Cron, Expression<Action<SystemJobService>> Run) EnsureBuiltIn(string jobId)
     {
-        if (!BuiltInJobs.Any(j => j.JobId == jobId))
+        var def = BuiltInJobs.FirstOrDefault(j => j.JobId == jobId);
+        if (def.JobId == null)
         {
             throw new ArgumentException($"未知作业: {jobId}");
         }
+        return def;
     }
 }

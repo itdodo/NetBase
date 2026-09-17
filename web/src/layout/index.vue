@@ -409,16 +409,21 @@ async function handleChangePassword(): Promise<void> {
 
 .header-right {
   margin-left: auto;
-  /* 图标/徽章/下拉混排，改用 flex 垂直居中（默认基线对齐会被 badge 角标撑偏） */
+  /* 图标/徽章/下拉混排，改用 flex 垂直居中（默认基线对齐会被 badge 角标撑偏）；
+     间距统一由容器 gap 控制——badge 角标锚定内容右缘，图标自带边距会把角标推离图标 */
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 16px;
 }
 
 .header-right :deep(.el-badge) {
   display: inline-flex;
   align-items: center;
   vertical-align: middle;
+}
+
+.header-right :deep(.el-badge .header-action) {
+  margin-right: 0;
 }
 
 .user-info {
@@ -433,7 +438,6 @@ async function handleChangePassword(): Promise<void> {
   font-size: 18px;
   cursor: pointer;
   color: var(--el-text-color-regular);
-  margin-right: 14px;
 }
 
 .header-action:hover {

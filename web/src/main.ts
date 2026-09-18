@@ -10,6 +10,8 @@ import 'element-plus/theme-chalk/dark/css-vars.css'
 import 'element-plus/es/components/message/style/css'
 import 'element-plus/es/components/message-box/style/css'
 import 'element-plus/es/components/notification/style/css'
+// 全局通用微调（工具栏按钮间距等）
+import './styles/index.css'
 
 const app = createApp(App)
 

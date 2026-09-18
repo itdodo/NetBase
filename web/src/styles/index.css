@@ -1,0 +1,7 @@
+/* 全局通用微调（Element Plus 之上） */
+
+/* 工具栏按钮间距：EP 相邻按钮默认 12px 边距会与 .toolbar 容器的 flex gap 叠加
+   （合计 20px，视觉过宽），统一清零由 gap 控制 */
+.toolbar .el-button + .el-button {
+  margin-left: 0;
+}

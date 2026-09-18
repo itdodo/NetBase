@@ -5,6 +5,7 @@ defineOptions({ name: 'SystemMenuView' })
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { Plus, Refresh } from '@element-plus/icons-vue'
+import { resolveMenuIcon, MENU_ICON_OPTIONS } from '@/utils/menuIcon'
 import { createMenu, deleteMenu, getMenuTree, updateMenu } from '@/api/menu'
 import type { MenuSave, MenuTree } from '@/types/api'
 import { MENU_TYPE } from '@/types/api'
@@ -165,7 +166,15 @@ onMounted(loadData)
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="icon" label="图标" width="90" align="center" />
+      <el-table-column prop="icon" label="图标" width="90" align="center">
+        <template #default="{ row }">
+          <span v-if="(row as MenuTree).icon" class="icon-cell">
+            <el-icon><component :is="resolveMenuIcon((row as MenuTree).icon)" /></el-icon>
+            {{ (row as MenuTree).icon }}
+          </span>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="path" label="路由地址" min-width="150" show-overflow-tooltip />
       <el-table-column prop="component" label="组件路径" min-width="170" show-overflow-tooltip />
       <el-table-column prop="permission" label="权限标识" min-width="150" show-overflow-tooltip />
@@ -244,7 +253,22 @@ onMounted(loadData)
           <el-input v-model="form.permission" placeholder="如：sys:user:add" />
         </el-form-item>
         <el-form-item v-if="form.menuType !== 3" label="图标">
-          <el-input v-model="form.icon" placeholder="如：setting" />
+          <el-select
+            v-model="form.icon"
+            filterable
+            clearable
+            allow-create
+            default-first-option
+            placeholder="选择图标（可输入 Element Plus 图标名）"
+            style="width: 100%"
+          >
+            <el-option v-for="name in MENU_ICON_OPTIONS" :key="name" :label="name" :value="name">
+              <span class="icon-option">
+                <el-icon><component :is="resolveMenuIcon(name)" /></el-icon>
+                {{ name }}
+              </span>
+            </el-option>
+          </el-select>
         </el-form-item>
         <el-form-item label="排序">
           <el-input-number v-model="form.sort" :min="0" />
@@ -268,6 +292,17 @@ onMounted(loadData)
 </template>
 
 <style scoped>
+.icon-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 .toolbar {
   display: flex;
   gap: 8px;

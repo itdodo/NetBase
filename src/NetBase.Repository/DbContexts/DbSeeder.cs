@@ -80,6 +80,8 @@ public class DbSeeder
         EnsureLogMenus(db, adminRoleId, now);
         // 三日志合并为「审计日志」单菜单（三旧菜单转为按钮型权限载体挂在其下）
         EnsureAuditLogMenu(db, adminRoleId, now);
+        // 二级菜单图标（仅补空值，管理员自定义不覆盖）
+        SeedCommonMenuIcons(db, now);
         EnsureSystemMenus(db, adminRoleId, now);
         EnsureNoticeMenu(db, adminRoleId, now);
         SeedDepts(db, adminRoleId, now);
@@ -609,6 +611,45 @@ public class DbSeeder
                 .Where(x => x.Id == legacyMenu.Id)
                 .ExecuteCommand();
             _logger?.LogInformation("种子数据：菜单「{Name}」已并入审计日志（按钮型）", legacyMenu.MenuName);
+        }
+    }
+
+    /// <summary>二级菜单图标：按权限码补默认图标（仅当未设置时；管理员自定义不覆盖）。幂等。</summary>
+    private static void SeedCommonMenuIcons(ISqlSugarClient db, DateTime now)
+    {
+        (string Permission, string Icon)[] icons =
+        [
+            ("sys:user:list", "User"),
+            ("sys:role:list", "Avatar"),
+            ("sys:menu:list", "Menu"),
+            ("sys:dict:list", "Collection"),
+            ("sys:config:list", "Setting"),
+            ("sys:notice:list", "Bell"),
+            ("sys:dept:list", "OfficeBuilding"),
+            ("sys:flow:list", "Share"),
+            ("monitor:online:list", "Monitor"),
+            ("monitor:audit:list", "Document"),
+            ("monitor:system:list", "Cpu"),
+            ("monitor:job:list", "Timer"),
+            ("menu:flow:todo", "AlarmClock"),
+            ("menu:flow:done", "Finished"),
+            ("menu:flow:mine", "DocumentAdd"),
+            ("biz:expense:list", "Money"),
+            ("biz:purchase:list", "ShoppingCart")
+        ];
+
+        foreach (var (permission, icon) in icons)
+        {
+            var menu = db.Queryable<SysMenu>().First(x => x.Permission == permission);
+            if (menu == null || !string.IsNullOrWhiteSpace(menu.Icon))
+            {
+                continue; // 菜单未种或已有图标（管理员自定义），不覆盖
+            }
+
+            db.Updateable<SysMenu>()
+                .SetColumns(x => new SysMenu { Icon = icon })
+                .Where(x => x.Id == menu.Id)
+                .ExecuteCommand();
         }
     }
 

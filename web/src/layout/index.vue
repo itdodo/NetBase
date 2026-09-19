@@ -10,6 +10,7 @@ import { changePassword } from '@/api/log'
 import { getLatestNotices } from '@/api/notice'
 import { getMyMessages, getUnreadCount, markAllMessagesRead, markMessageRead } from '@/api/notice'
 import { getFlowTodoCount } from '@/api/flow'
+import { sanitizeHtml } from '@/utils/sanitize'
 import { Checked } from '@element-plus/icons-vue'
 import type { NoticeInfo, MessageInfo } from '@/api/notice'
 import { onForceLogout, onNotice, startRealtime, stopRealtime } from '@/composables/useRealtime'
@@ -351,7 +352,7 @@ async function handleChangePassword(): Promise<void> {
 
     <el-dialog v-model="noticeDetailVisible" :title="viewingNotice?.title" width="560px" @closed="viewingNotice = null">
       <div class="notice-time">{{ viewingNotice?.createTime }}</div>
-      <div class="view-content">{{ viewingNotice?.content }}</div>
+      <div class="view-content" v-html="sanitizeHtml(viewingNotice?.content ?? '')" />
     </el-dialog>
 
     <!-- 修改自己密码 -->

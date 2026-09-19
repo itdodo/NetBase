@@ -25,12 +25,14 @@ public class SysNoticeService(IRepository<SysNotice> repository) : ISysNoticeSer
 
     public async Task<long> CreateAsync(NoticeSaveDto dto, string? operatorName = null)
     {
+        ValidatePublishTime(dto);
         var notice = new SysNotice
         {
             Title = dto.Title,
             NoticeType = dto.NoticeType,
             Content = dto.Content,
             Status = dto.Status,
+            PublishTime = dto.PublishTime,
             CreateBy = operatorName
         };
         await repository.InsertAsync(notice);
@@ -41,10 +43,12 @@ public class SysNoticeService(IRepository<SysNotice> repository) : ISysNoticeSer
     {
         var notice = await repository.GetByIdAsync(id)
             ?? throw new BusinessException($"公告不存在（Id={id}）", ApiResultCode.NotFound);
+        ValidatePublishTime(dto);
         notice.Title = dto.Title;
         notice.NoticeType = dto.NoticeType;
         notice.Content = dto.Content;
         notice.Status = dto.Status;
+        notice.PublishTime = dto.PublishTime;
         notice.UpdateTime = DateTime.Now;
         notice.UpdateBy = operatorName;
         await repository.UpdateAsync(notice);
@@ -58,4 +62,21 @@ public class SysNoticeService(IRepository<SysNotice> repository) : ISysNoticeSer
             .OrderByDescending(x => x.CreateTime)
             .Take(top)
             .ToListAsync();
+
+    /// <summary>到期公告自动发布（分钟级作业调用）：定时状态翻转为发布，返回翻转条数</summary>
+    public Task<int> PublishDueNoticesAsync()
+    {
+        return repository.UpdateWhereAsync(
+            x => x.Status == 2 && x.PublishTime != null && x.PublishTime <= DateTime.Now,
+            x => new SysNotice { Status = 1 });
+    }
+
+    /// <summary>定时发布校验：状态=2 必须带发布时间且在未来</summary>
+    private static void ValidatePublishTime(NoticeSaveDto dto)
+    {
+        if (dto.Status == 2 && (!dto.PublishTime.HasValue || dto.PublishTime.Value <= DateTime.Now))
+        {
+            throw new BusinessException("定时发布时间必须为当前时间之后", ApiResultCode.BadRequest);
+        }
+    }
 }

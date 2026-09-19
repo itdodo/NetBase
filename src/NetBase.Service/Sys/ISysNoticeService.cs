@@ -16,6 +16,9 @@ public interface ISysNoticeService
 
     Task UpdateAsync(long id, NoticeSaveDto dto, string? operatorName = null);
 
+    /// <summary>到期公告自动发布（分钟级作业调用）：返回翻转条数</summary>
+    Task<int> PublishDueNoticesAsync();
+
     Task DeleteAsync(long id);
 
     /// <summary>登录用户取最新启用公告（顶栏铃铛，限 10 条）</summary>

@@ -68,6 +68,7 @@ declare module 'vue' {
     ElUpload: typeof import('element-plus/es')['ElUpload']
     FlowDesigner: typeof import('./components/flow/FlowDesigner.vue')['default']
     FlowTimeline: typeof import('./components/flow/FlowTimeline.vue')['default']
+    RichTextEditor: typeof import('./components/RichTextEditor.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }

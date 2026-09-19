@@ -2,6 +2,8 @@
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Search } from '@element-plus/icons-vue'
+import RichTextEditor from '@/components/RichTextEditor.vue'
+import { sanitizeHtml } from '@/utils/sanitize'
 import type { NoticeInfo } from '@/api/notice'
 import { createNotice, deleteNotice, updateNotice } from '@/api/notice'
 import { formatDateTime } from '@/utils/format'
@@ -34,7 +36,13 @@ const dialogVisible = ref(false)
 const saving = ref(false)
 const editingId = ref<number | null>(null)
 const formRef = ref()
-const form = ref({ title: '', noticeType: 1, content: '', status: 1 })
+const form = ref({
+  title: '',
+  noticeType: 1,
+  content: '',
+  status: 1,
+  publishTime: ''
+})
 const rules = {
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
   content: [{ required: true, message: '请输入内容', trigger: 'blur' }]
@@ -42,19 +50,29 @@ const rules = {
 
 function openCreate(): void {
   editingId.value = null
-  form.value = { title: '', noticeType: 1, content: '', status: 1 }
+  form.value = { title: '', noticeType: 1, content: '', status: 1, publishTime: '' }
   dialogVisible.value = true
 }
 
 function openEdit(row: NoticeInfo): void {
   editingId.value = row.id
-  form.value = { title: row.title, noticeType: row.noticeType, content: row.content, status: row.status }
+  form.value = {
+    title: row.title,
+    noticeType: row.noticeType,
+    content: row.content,
+    status: row.status,
+    publishTime: row.publishTime ?? ''
+  }
   dialogVisible.value = true
 }
 
 async function handleSave(): Promise<void> {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
+  if (form.value.status === 2 && !form.value.publishTime) {
+    ElMessage.warning('定时发布请选择发布时间')
+    return
+  }
   saving.value = true
   try {
     if (editingId.value == null) {
@@ -125,8 +143,8 @@ onMounted(loadData)
       </el-table-column>
       <el-table-column label="状态" width="80" align="center">
         <template #default="{ row }">
-          <el-tag :type="(row as NoticeInfo).status === 1 ? 'success' : 'info'" size="small">
-            {{ (row as NoticeInfo).status === 1 ? '发布' : '停用' }}
+          <el-tag :type="(row as NoticeInfo).status === 1 ? 'success' : (row as NoticeInfo).status === 2 ? 'warning' : 'info'" size="small">
+            {{ (row as NoticeInfo).status === 1 ? '发布' : (row as NoticeInfo).status === 2 ? '定时中' : '停用' }}
           </el-tag>
         </template>
       </el-table-column>
@@ -162,13 +180,23 @@ onMounted(loadData)
           </el-radio-group>
         </el-form-item>
         <el-form-item label="内容" prop="content">
-          <el-input v-model="form.content" type="textarea" :rows="6" maxlength="2000" show-word-limit />
+          <RichTextEditor v-if="dialogVisible" v-model="form.content" />
         </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="form.status">
             <el-radio :value="1">发布</el-radio>
+            <el-radio :value="2">定时发布</el-radio>
             <el-radio :value="0">停用</el-radio>
           </el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="form.status === 2" label="发布时间">
+          <el-date-picker
+            v-model="form.publishTime"
+            type="datetime"
+            placeholder="到达时间自动发布"
+            value-format="YYYY-MM-DDTHH:mm:ss"
+            style="width: 100%"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -186,7 +214,7 @@ onMounted(loadData)
           <span>{{ current.createBy }}</span>
           <span>{{ formatDateTime(null, null, current.createTime) }}</span>
         </div>
-        <div class="detail-content">{{ current.content }}</div>
+        <div class="detail-content rich" v-html="sanitizeHtml(current.content)" />
       </template>
     </el-dialog>
   </el-card>
@@ -215,8 +243,11 @@ onMounted(loadData)
 }
 
 .detail-content {
-  white-space: pre-wrap;
   line-height: 1.7;
   color: var(--el-text-color-regular);
+}
+
+.detail-content.rich :deep(img) {
+  max-width: 100%;
 }
 </style>

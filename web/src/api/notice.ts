@@ -5,8 +5,12 @@ export interface NoticeInfo {
   id: number
   title: string
   noticeType: number
+  /** 富文本 HTML（渲染前经 sanitizeHtml 净化） */
   content: string
+  /** 状态：0-停用 1-发布 2-定时发布 */
   status: number
+  /** 定时发布时间（状态=2 时有值） */
+  publishTime?: string
   createBy?: string
   createTime: string
 }
@@ -16,6 +20,8 @@ export interface NoticeSave {
   noticeType: number
   content: string
   status: number
+  /** 定时发布时间（状态=2 时必填） */
+  publishTime?: string
 }
 
 /** 公告分页（管理端） */

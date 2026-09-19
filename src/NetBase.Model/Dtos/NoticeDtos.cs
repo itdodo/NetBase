@@ -31,7 +31,10 @@ public class NoticeSaveDto
     [Required(ErrorMessage = "内容不能为空")]
     public string Content { get; set; } = string.Empty;
 
-    /// <summary>状态：0-停用 1-启用</summary>
-    [Range(0, 1)]
+    /// <summary>状态：0-停用 1-发布 2-定时发布</summary>
+    [Range(0, 2, ErrorMessage = "状态取值无效")]
     public int Status { get; set; } = 1;
+
+    /// <summary>定时发布时间（状态=2 时必填）</summary>
+    public DateTime? PublishTime { get; set; }
 }

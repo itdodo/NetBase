@@ -74,6 +74,7 @@ public interface ISystemJobService
 public class SystemJobService(
     ISysLogService logService,
     ISysConfigService configService,
+    ISysNoticeService noticeService,
     INotifyService notifyService,
     IRepository<SysRole> roleRepository,
     IRepository<SysUserRole> userRoleRepository,
@@ -92,7 +93,9 @@ public class SystemJobService(
         ("sys.log.cleanup", "日志与过期会话清理（日志保留期 sys.log.retentionDays）", "0 2 * * *",
             svc => svc.RunLogCleanupAsync(null)),
         (BackupJobId, "数据备份（SqlServer 全量 + 上传文件镜像）", "0 3 * * *",
-            svc => svc.RunBackupAsync())
+            svc => svc.RunBackupAsync()),
+        ("sys.notice.publish", "公告定时发布（每分钟检查到期定时公告）", "* * * * *",
+            svc => svc.RunNoticePublishAsync())
     ];
 
     public void RegisterJobs()
@@ -134,6 +137,17 @@ public class SystemJobService(
             await NotifyAdminsAsync("定时任务失败通知",
                 $"日志清理作业（sys.log.cleanup）执行失败：{ex.Message}。Hangfire 将按策略自动重试。");
             throw; // 上抛让 Hangfire 标记失败并自动重试
+        }
+    }
+
+    /// <summary>公告定时发布：将到期的定时公告（Status=2）翻转为发布（Status=1）</summary>
+    [DisableConcurrentExecution(timeoutInSeconds: 60)]
+    public async Task RunNoticePublishAsync()
+    {
+        var count = await noticeService.PublishDueNoticesAsync();
+        if (count > 0)
+        {
+            logger.LogInformation("公告定时发布: {Count} 条已发布", count);
         }
     }
 

@@ -25,11 +25,17 @@ services:
       ASPNETCORE_ENVIRONMENT: "Production"
       Db__ConnectionString: "Server=db;Database=NetBase;User Id=sa;Password=YourStrong@Password1;TrustServerCertificate=True;"
       Jwt__SecretKey: "CHANGE_ME_Please-Use-A-Random-Key-At-Least-32-Chars-Long!"
+      # 备份目录指向挂载卷（注意：BACKUP DATABASE 在 DB 容器内执行，
+      # 生产建议把备份目录同时挂到 db 容器或改用共享存储）
+      Backup__Directory: "/app/backup"
     ports:
       - "8080:8080"
+    volumes:
+      - netbase-backup:/app/backup
     depends_on:
       db:
         condition: service_healthy
 
 volumes:
   netbase-db:
+  netbase-backup:

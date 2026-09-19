@@ -5,3 +5,18 @@
 .toolbar .el-button + .el-button {
   margin-left: 0;
 }
+
+/* 长内容弹窗：弹窗限高、内容区内部滚动、底部按钮固定
+   （el-dialog 加 class="dialog-scroll" 即启用） */
+.el-dialog.dialog-scroll {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 90px);
+  margin-top: 45px !important;
+  margin-bottom: 45px !important;
+}
+
+.el-dialog.dialog-scroll .el-dialog__body {
+  flex: 1;
+  overflow: auto;
+}

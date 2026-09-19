@@ -309,7 +309,7 @@ onMounted(() => {
     </el-dialog>
 
     <!-- 分配菜单弹窗 -->
-    <el-dialog v-model="menuDialogVisible" :title="`分配菜单：${menuRoleName}`" width="480px">
+    <el-dialog v-model="menuDialogVisible" :title="`分配菜单：${menuRoleName}`" width="480px" class="dialog-scroll">
       <el-tree
         ref="menuTreeRef"
         :data="menuTree"

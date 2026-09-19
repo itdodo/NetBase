@@ -70,8 +70,20 @@ public class ApproverResolver(
                         .Select(p => p.Id).ToList();
                     if (posIds.Count > 0)
                     {
-                        Add((await userPositionRepository.GetListAsync(up => posIds.Contains(up.PositionId)))
-                            .Select(up => up.UserId));
+                        var holderIds = (await userPositionRepository.GetListAsync(up => posIds.Contains(up.PositionId)))
+                            .Select(up => up.UserId).ToList();
+                        if (rule.Scope == "submitterDept")
+                        {
+                            // 发起人所在部门范围：岗位持有者且主属部门 == 发起人部门
+                            var inDept = userRepository
+                                .GetList(u => holderIds.Contains(u.Id) && u.DeptId == submitterDeptId && u.Status == 1)
+                                .Select(u => u.Id).ToList();
+                            Add(inDept);
+                        }
+                        else
+                        {
+                            Add(holderIds);
+                        }
                     }
                     break;
 

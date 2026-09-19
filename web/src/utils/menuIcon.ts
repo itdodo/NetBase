@@ -18,7 +18,7 @@ export const MENU_ICON_OPTIONS = [
   // 人员/组织
   'User', 'Avatar', 'UserFilled', 'OfficeBuilding',
   // 系统/配置
-  'Menu', 'Collection', 'Setting', 'Tools', 'Key', 'Lock',
+  'Menu', 'Collection', 'Setting', 'Tools', 'Key', 'Lock', 'Suitcase',
   // 通知/消息
   'Bell', 'Message', 'ChatDotRound',
   // 流程/文档

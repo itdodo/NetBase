@@ -104,6 +104,12 @@ public class ApproverRule
     /// <summary>岗位编码（Type=Position）</summary>
     public List<string>? PositionCodes { get; set; }
 
+    /// <summary>
+    /// 岗位审批范围（Type=Position 生效）：company-全公司（默认）/
+    /// submitterDept-发起人所在部门（岗位+用户主属部门双重过滤）
+    /// </summary>
+    public string? Scope { get; set; }
+
     /// <summary>部门ID（Type=DeptLeader；0/null=发起人所在部门）</summary>
     public long? DeptId { get; set; }
 }

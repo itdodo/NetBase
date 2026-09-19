@@ -358,6 +358,63 @@ public class FlowEngineTests
     }
 
     [Fact]
+    public async Task PositionApprover_SubmitterDeptScope_ShouldFilterByDept()
+    {
+        // 岗位+发起人所在部门范围：同岗位、不同部门的人不应被解析
+        var deptRepo = _fixture.GetRepository<SysDept>();
+        var posRepo = _fixture.GetRepository<SysPosition>();
+        var upRepo = _fixture.GetRepository<SysUserPosition>();
+        var userRepo = _fixture.GetRepository<SysUser>();
+
+        var deptA = deptRepo.InsertAsync(new SysDept
+        {
+            DeptName = IntegrationFixture.Uid("部门A"), DeptCode = IntegrationFixture.Uid("da"), Status = 1
+        }).GetAwaiter().GetResult();
+        var deptB = deptRepo.InsertAsync(new SysDept
+        {
+            DeptName = IntegrationFixture.Uid("部门B"), DeptCode = IntegrationFixture.Uid("db"), Status = 1
+        }).GetAwaiter().GetResult();
+
+        var (submitter, holderA, holderB) = (
+            await CreateUserAsync("范围提交人"), await CreateUserAsync("A部经理"), await CreateUserAsync("B部经理"));
+
+        // 两人主属部门不同，但担任同一岗位
+        await userRepo.UpdateWhereAsync(x => x.Id == holderA, x => new SysUser { DeptId = deptA.Id });
+        await userRepo.UpdateWhereAsync(x => x.Id == holderB, x => new SysUser { DeptId = deptB.Id });
+        var position = posRepo.InsertAsync(new SysPosition
+        {
+            PositionCode = IntegrationFixture.Uid("scope"), PositionName = "部门经理", Status = 1
+        }).GetAwaiter().GetResult();
+        await upRepo.InsertAsync(new SysUserPosition { UserId = holderA, PositionId = position.Id });
+        await upRepo.InsertAsync(new SysUserPosition { UserId = holderB, PositionId = position.Id });
+
+        var n1 = new FlowNode
+        {
+            Code = "n1", Type = FlowNodeType.Approval, Name = "本部门经理审批", Mode = FlowNodeMode.OrSign,
+            Approvers = [new ApproverRule
+            {
+                Type = FlowApproverType.Position,
+                PositionCodes = [position.PositionCode],
+                Scope = "submitterDept"
+            }]
+        };
+        var graph = new FlowGraph
+        {
+            Nodes = [new FlowNode { Code = "start", Type = FlowNodeType.Start, Next = "n1" }, n1,
+                     new FlowNode { Code = "end", Type = FlowNodeType.End }]
+        };
+        n1.Next = "end";
+        await CreateEnabledFlowAsync("pos_scope_flow", graph);
+
+        // 提交人属于部门 A → 只有 A 部经理拿到待办
+        IntegrationFixture.SetOperator($"user-{submitter}", submitter);
+        await userRepo.UpdateWhereAsync(x => x.Id == submitter, x => new SysUser { DeptId = deptA.Id });
+        var instanceId = await SubmitAsync("pos_scope_flow", 9300);
+        await PendingTaskOfAsync(instanceId, holderA);
+        Assert.Empty(await _taskRepo.GetListAsync(t => t.InstanceId == instanceId && t.ApproverUserId == holderB));
+    }
+
+    [Fact]
     public async Task PositionApprover_ShouldResolveUsers()
     {
         // 岗位管审批：节点审批人按岗位解析

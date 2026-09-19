@@ -24,7 +24,7 @@ interface DesignerNode {
   name: string
   mode: 'counterSign' | 'orSign' | 'sequential'
   /** 审批人规则（提交给后端的规范结构） */
-  approvers: Array<{ type: 'user' | 'role' | 'position' | 'deptLeader'; userIds: number[]; roleCodes: string[]; positionCodes: string[]; deptId: number }>
+  approvers: Array<{ type: 'user' | 'role' | 'position' | 'deptLeader'; userIds: number[]; roleCodes: string[]; positionCodes: string[]; scope: string; deptId: number }>
   branches: Array<{ name: string; variable: string; op: string; value: string; next: string }>
   defaultNext: string
   ccUserIds: number[]
@@ -87,6 +87,7 @@ function toDesigner(raw: any): DesignerNode {
       userIds: r.userIds ?? [],
       roleCodes: r.roleCodes ?? [],
       positionCodes: r.positionCodes ?? [],
+      scope: r.scope ?? 'company',
       deptId: r.deptId ?? 0
     })),
     branches: (raw.branches ?? []).map((b: any) => ({
@@ -114,7 +115,9 @@ function exportModel(): string {
           type: r.type,
           ...(r.type === 'user' ? { userIds: r.userIds } : {}),
           ...(r.type === 'role' ? { roleCodes: r.roleCodes } : {}),
-          ...(r.type === 'position' ? { positionCodes: r.positionCodes } : {}),
+          ...(r.type === 'position'
+            ? { positionCodes: r.positionCodes, scope: r.scope || 'company' }
+            : {}),
           ...(r.type === 'deptLeader' ? { deptId: r.deptId } : {})
         }))
       })
@@ -154,7 +157,7 @@ function newNode(type: DesignerNode['type']): DesignerNode {
     type,
     name: type === 'approval' ? '审批' : type === 'condition' ? '条件分支' : '抄送',
     mode: 'orSign',
-    approvers: type === 'approval' ? [{ type: 'user', userIds: [], roleCodes: [], positionCodes: [], deptId: 0 }] : [],
+    approvers: type === 'approval' ? [{ type: 'user', userIds: [], roleCodes: [], positionCodes: [], scope: 'company', deptId: 0 }] : [],
     branches: type === 'condition'
       ? [{ name: '', variable: 'amount', op: 'lt', value: '', next: '' }]
       : [],
@@ -236,7 +239,7 @@ function cancelEdit(): void {
 }
 
 function addRule(node: DesignerNode): void {
-  node.approvers.push({ type: 'user', userIds: [], roleCodes: [], positionCodes: [], deptId: 0 })
+  node.approvers.push({ type: 'user', userIds: [], roleCodes: [], positionCodes: [], scope: 'company', deptId: 0 })
 }
 
 function addBranch(node: DesignerNode): void {
@@ -387,8 +390,17 @@ defineExpose({
                 <el-select v-if="rule.type === 'role'" v-model="rule.roleCodes" multiple filterable placeholder="选择角色" style="flex: 1">
                   <el-option v-for="r in roles" :key="r.roleCode" :label="r.roleName" :value="r.roleCode" />
                 </el-select>
-                <el-select v-if="rule.type === 'position'" v-model="rule.positionCodes" multiple filterable placeholder="选择岗位" style="flex: 1">
+                <el-select v-if="rule.type === 'position'" v-model="rule.positionCodes" multiple filterable placeholder="选择岗位" style="width: 150px">
                   <el-option v-for="p in positions" :key="p.positionCode" :label="p.positionName" :value="p.positionCode" />
+                </el-select>
+                <el-select
+                  v-if="rule.type === 'position'"
+                  v-model="rule.scope"
+                  style="width: 150px"
+                  title="岗位审批范围"
+                >
+                  <el-option label="全公司" value="company" />
+                  <el-option label="发起人所在部门" value="submitterDept" />
                 </el-select>
                 <template v-if="rule.type === 'deptLeader'">
                   <el-tree-select

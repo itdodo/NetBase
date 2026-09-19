@@ -629,6 +629,7 @@ public class DbSeeder
             ("sys:notice:list", "Bell"),
             ("sys:dept:list", "OfficeBuilding"),
             ("sys:flow:list", "Share"),
+            ("sys:position:list", "Suitcase"),
             ("monitor:online:list", "Monitor"),
             ("monitor:audit:list", "Document"),
             ("monitor:system:list", "Cpu"),

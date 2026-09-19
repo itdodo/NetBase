@@ -104,6 +104,12 @@ request.interceptors.response.use(
       return Promise.reject(error)
     }
 
+    // 5xx/网络层失败（后端不可达、代理断连）：与业务错误区分提示
+    if (!error.response || status >= 500) {
+      ElMessage.error('服务暂时不可用，请稍后重试；若持续失败请联系管理员')
+      return Promise.reject(error)
+    }
+
     ElMessage.error(message || error.message || '网络异常，请稍后重试')
     return Promise.reject(error)
   }

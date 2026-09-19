@@ -168,35 +168,42 @@ onMounted(loadData)
       @current-change="loadData"
     />
 
-    <el-dialog v-model="dialogVisible" :title="editingId == null ? '新建公告' : '编辑公告'" width="560px">
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="70px">
-        <el-form-item label="标题" prop="title">
-          <el-input v-model="form.title" maxlength="100" />
+    <el-dialog
+      v-model="dialogVisible"
+      :title="editingId == null ? '新建公告' : '编辑公告'"
+      width="860px"
+      class="dialog-scroll"
+    >
+      <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
+        <el-form-item prop="title">
+          <el-input v-model="form.title" maxlength="100" placeholder="请输入公告标题" size="large" />
         </el-form-item>
-        <el-form-item label="类型">
-          <el-radio-group v-model="form.noticeType">
-            <el-radio :value="1">通知</el-radio>
-            <el-radio :value="2">公告</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="内容" prop="content">
-          <RichTextEditor v-if="dialogVisible" v-model="form.content" />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-radio-group v-model="form.status">
-            <el-radio :value="1">发布</el-radio>
-            <el-radio :value="2">定时发布</el-radio>
-            <el-radio :value="0">停用</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item v-if="form.status === 2" label="发布时间">
-          <el-date-picker
-            v-model="form.publishTime"
-            type="datetime"
-            placeholder="到达时间自动发布"
-            value-format="YYYY-MM-DDTHH:mm:ss"
-            style="width: 100%"
-          />
+        <div class="meta-row">
+          <el-form-item label="类型">
+            <el-radio-group v-model="form.noticeType">
+              <el-radio :value="1">通知</el-radio>
+              <el-radio :value="2">公告</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="状态">
+            <el-radio-group v-model="form.status">
+              <el-radio :value="1">立即发布</el-radio>
+              <el-radio :value="2">定时发布</el-radio>
+              <el-radio :value="0">存为停用</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item v-if="form.status === 2" label="发布时间">
+            <el-date-picker
+              v-model="form.publishTime"
+              type="datetime"
+              placeholder="到达时间自动发布"
+              value-format="YYYY-MM-DDTHH:mm:ss"
+              style="width: 200px"
+            />
+          </el-form-item>
+        </div>
+        <el-form-item prop="content">
+          <RichTextEditor v-if="dialogVisible" v-model="form.content" :height="380" placeholder="请输入公告正文…" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -231,6 +238,16 @@ onMounted(loadData)
 .pagination {
   margin-top: 12px;
   justify-content: flex-end;
+}
+
+.meta-row {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.meta-row :deep(.el-form-item) {
+  margin-bottom: 10px;
 }
 
 .detail-meta {

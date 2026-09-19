@@ -7,10 +7,11 @@ import '@wangeditor/editor/dist/css/style.css'
  * 富文本编辑器（wangEditor v5 封装）：v-model 双向绑定 HTML。
  * 注意：编辑器须在可见容器内初始化，父级用 v-if 控制创建时机（如弹窗打开后）。
  */
-const props = defineProps<{ modelValue: string; placeholder?: string }>()
+const props = defineProps<{ modelValue: string; placeholder?: string; height?: number }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
 const editorRef = shallowRef()
+const editorHeight = (props.height ?? 280) + 'px'
 const htmlValue = ref(props.modelValue)
 
 watch(
@@ -75,7 +76,7 @@ onBeforeUnmount(() => {
 }
 
 .editor-content {
-  height: 280px;
+  height: v-bind("editorHeight");
   overflow-y: auto;
 }
 </style>

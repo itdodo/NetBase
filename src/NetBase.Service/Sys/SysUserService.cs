@@ -458,6 +458,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             DeptName = deptMap.TryGetValue(x.DeptId, out var deptName) ? deptName : null,
             LastLoginTime = x.LastLoginTime,
             CreateTime = x.CreateTime,
+            Version = x.Version,
             Roles = userRoles.Where(ur => ur.UserId == x.Id && roleMap.ContainsKey(ur.RoleId))
                 .Select(ur => roleMap[ur.RoleId])
                 .ToList(),

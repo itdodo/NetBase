@@ -17,6 +17,8 @@ export interface DeptSave {
   deptName: string
   deptCode: string
   leader?: string
+  /** 负责人用户ID（审批流部门主管解析用；0=未设置） */
+  leaderUserId?: number
   sort: number
   status: number
 }

@@ -96,6 +96,8 @@ public class DbSeeder
         // 系统管理目录下的"流程管理"页（审批流定义，含 CRUD 按钮权限码）
         EnsureFlowMenu(db, adminRoleId, now);
         EnsureCrudButtons(db, "sys:flow:list", adminRoleId, now);
+        // 岗位管理（审批权限载体）
+        EnsurePositionMenu(db, adminRoleId, now);
         // 个人办公目录 + 我的待办/已办（个人页面，无权限码，登录可见）
         EnsurePersonalFlowMenus(db, adminRoleId, now);
         // 业务样板菜单（业务办公：报销/采购申请，接入审批流的活样例）
@@ -653,6 +655,38 @@ public class DbSeeder
         }
     }
 
+    /// <summary>增量补充「岗位管理」菜单（按权限码幂等，含 CRUD 按钮权限码）</summary>
+    private void EnsurePositionMenu(ISqlSugarClient db, long adminRoleId, DateTime now)
+    {
+        const string permission = "sys:position:list";
+        var systemDir = db.Queryable<SysMenu>().First(x => x.MenuName == "系统管理" && x.MenuType == (int)MenuTypeEnum.Directory);
+        if (systemDir == null || db.Queryable<SysMenu>().Any(x => x.Permission == permission))
+        {
+            EnsureCrudButtons(db, permission, adminRoleId, now);
+            return;
+        }
+
+        var menu = db.Insertable(new SysMenu
+        {
+            ParentId = systemDir.Id,
+            MenuName = "岗位管理",
+            MenuType = (int)MenuTypeEnum.Menu,
+            Path = "/system/position",
+            Component = "system/position/index",
+            Permission = permission,
+            Sort = 3,
+            CreateTime = now,
+            CreateBy = "system"
+        }).ExecuteReturnEntity();
+
+        if (!db.Queryable<SysRoleMenu>().Any(x => x.RoleId == adminRoleId && x.MenuId == menu.Id))
+        {
+            db.Insertable(new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
+        }
+        _logger?.LogInformation("种子数据：增量菜单「岗位管理」已写入");
+        EnsureCrudButtons(db, permission, adminRoleId, now);
+    }
+
     /// <summary>审批流单据绑定初始值（幂等：按业务表名判断）</summary>
     private static void EnsureFlowBindings(ISqlSugarClient db, DateTime now)
     {
@@ -717,7 +751,8 @@ public class DbSeeder
         [
             ("我的待办", "/personal/todo", "flow/todo/index", "menu:flow:todo", 1),
             ("我的已办", "/personal/done", "flow/done/index", "menu:flow:done", 2),
-            ("我的申请", "/personal/mine", "flow/mine/index", "menu:flow:mine", 3)
+            ("我的申请", "/personal/mine", "flow/mine/index", "menu:flow:mine", 3),
+            ("抄送我的", "/personal/cc", "flow/cc/index", "menu:flow:cc", 4)
         ];
 
         foreach (var spec in pages)

@@ -358,6 +358,98 @@ public class FlowEngineTests
     }
 
     [Fact]
+    public async Task PositionApprover_ShouldResolveUsers()
+    {
+        // 岗位管审批：节点审批人按岗位解析
+        var (submitter, holder) = (await CreateUserAsync("岗位提交人"), await CreateUserAsync("岗位持有者"));
+        var posRepo = _fixture.GetRepository<SysPosition>();
+        var upRepo = _fixture.GetRepository<SysUserPosition>();
+        var position = posRepo.InsertAsync(new SysPosition
+        {
+            PositionCode = IntegrationFixture.Uid("pos"), PositionName = "财务经理", Status = 1
+        }).GetAwaiter().GetResult();
+        await upRepo.InsertAsync(new SysUserPosition { UserId = holder, PositionId = position.Id });
+
+        var n1 = new FlowNode
+        {
+            Code = "n1", Type = FlowNodeType.Approval, Name = "岗位审批", Mode = FlowNodeMode.OrSign,
+            Approvers = [new ApproverRule { Type = FlowApproverType.Position, PositionCodes = [position.PositionCode] }]
+        };
+        var graph = new FlowGraph
+        {
+            Nodes = [new FlowNode { Code = "start", Type = FlowNodeType.Start, Next = "n1" }, n1,
+                     new FlowNode { Code = "end", Type = FlowNodeType.End }]
+        };
+        n1.Next = "end";
+        await CreateEnabledFlowAsync("pos_flow", graph);
+
+        IntegrationFixture.SetOperator($"user-{submitter}", submitter);
+        var instanceId = await SubmitAsync("pos_flow", 9001);
+        await PendingTaskOfAsync(instanceId, holder); // 岗位持有者拿到待办
+    }
+
+    [Fact]
+    public async Task ReturnToNode_ShouldReReview_AndGateRepeatAutoPass()
+    {
+        var (submitter, a, b) = (await CreateUserAsync("退回提交人"), await CreateUserAsync("一审A"), await CreateUserAsync("复审B"));
+        var n1 = Approval("n1", "初审", FlowNodeMode.OrSign, a);
+        var n2 = Approval("n2", "复审", FlowNodeMode.OrSign, b);
+        var graph = new FlowGraph
+        {
+            Nodes = [new FlowNode { Code = "start", Type = FlowNodeType.Start, Next = "n1" }, n1, n2,
+                     new FlowNode { Code = "end", Type = FlowNodeType.End }]
+        };
+        n1.Next = "n2";
+        n2.Next = "end";
+        await CreateEnabledFlowAsync("return_flow", graph);
+
+        IntegrationFixture.SetOperator($"user-{submitter}", submitter);
+        var instanceId = await SubmitAsync("return_flow", 9100);
+
+        // A 同意初审 → B 复审；B 用「驳回至节点」退回 n1 → A 重审
+        var tA = await PendingTaskOfAsync(instanceId, a);
+        IntegrationFixture.SetOperator($"user-{a}", a);
+        await _engine.ActAsync(tA.Id, FlowAction.Approve, "初审通过");
+        var tB = await PendingTaskOfAsync(instanceId, b);
+        IntegrationFixture.SetOperator($"user-{b}", b);
+        await _engine.ActAsync(tB.Id, FlowAction.Return, "材料有问题，退回初审", "n1");
+
+        Assert.Equal(FlowInstanceStatus.Running, (await InstanceOfAsync(instanceId)).Status);
+
+        // A 重新审 → 通过后 B 重新拿到复审待办（退回后关闭重复审批人自动通过）
+        var tA2 = await PendingTaskOfAsync(instanceId, a);
+        IntegrationFixture.SetOperator($"user-{a}", a);
+        await _engine.ActAsync(tA2.Id, FlowAction.Approve, "已修改，初审通过");
+        var tB2 = await PendingTaskOfAsync(instanceId, b);
+        IntegrationFixture.SetOperator($"user-{b}", b);
+        await _engine.ActAsync(tB2.Id, FlowAction.Approve, "复审通过");
+
+        Assert.Equal(FlowInstanceStatus.Approved, (await InstanceOfAsync(instanceId)).Status);
+    }
+
+    [Fact]
+    public async Task ReturnToStart_SubmitterResubmits_ShouldRewalkFromEntry()
+    {
+        var (submitter, a) = (await CreateUserAsync("重提发起人"), await CreateUserAsync("重提审批"));
+        await CreateEnabledFlowAsync("return_start_flow", Chain(Approval("n1", "唯一审批", FlowNodeMode.OrSign, a)));
+
+        IntegrationFixture.SetOperator($"user-{submitter}", submitter);
+        var instanceId = await SubmitAsync("return_start_flow", 9200);
+        var tA = await PendingTaskOfAsync(instanceId, a);
+        IntegrationFixture.SetOperator($"user-{a}", a);
+        await _engine.ActAsync(tA.Id, FlowAction.Return, "退回发起人", "start");
+
+        // 发起人收到「重新提交」待办，其同意后流程从入口重走（同一实例）
+        var taskRepo = _fixture.GetRepository<SysFlowTask>();
+        var resubmit = await taskRepo.GetFirstAsync(t => t.InstanceId == instanceId && t.NodeCode == "start");
+        Assert.NotNull(resubmit);
+        IntegrationFixture.SetOperator($"user-{submitter}", submitter);
+        await _engine.ActAsync(resubmit!.Id, FlowAction.Approve, "修改后重新提交");
+        await PendingTaskOfAsync(instanceId, a);
+        Assert.Equal(FlowInstanceStatus.Running, (await InstanceOfAsync(instanceId)).Status);
+    }
+
+    [Fact]
     public async Task Definition_CreateWithoutCode_ShouldAutoGenerateNumericCode()
     {
         // 未传编码 → 系统生成数字编号（≥100）；传编码 → 兼容沿用

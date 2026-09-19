@@ -13,9 +13,12 @@ namespace NetBase.Api.Controllers.Workflow;
 /// <summary>审批操作请求</summary>
 public class FlowActDto
 {
-    /// <summary>动作：approve-同意 reject-拒绝</summary>
-    [RegularExpression("^(approve|reject)$", ErrorMessage = "动作仅支持 approve/reject")]
+    /// <summary>动作：approve-同意 reject-拒绝 return-驳回至节点</summary>
+    [RegularExpression("^(approve|reject|return)$", ErrorMessage = "动作仅支持 approve/reject/return")]
     public string Action { get; set; } = "approve";
+
+    /// <summary>驳回目标节点编码（action=return 时必填；start=退回发起人）</summary>
+    public string? ReturnNodeCode { get; set; }
 
     /// <summary>审批意见</summary>
     [StringLength(500)]
@@ -165,13 +168,18 @@ public class FlowTaskController(IFlowEngine engine, IFlowQueryService queryServi
     public async Task<ApiResult<PageResult<FlowTaskViewDto>>> Done([FromQuery] PageQuery query) =>
         Success(await queryService.GetDonePageAsync(query));
 
-    /// <summary>审批（同意/拒绝，仅任务归属人）</summary>
+    /// <summary>审批（同意/拒绝/驳回，仅任务归属人）</summary>
     [NoRepeatSubmit]
     [HttpPost("{taskId:long}/act")]
     public async Task<ApiResult> Act(long taskId, [FromBody] FlowActDto dto)
     {
-        await engine.ActAsync(taskId,
-            dto.Action == "approve" ? FlowAction.Approve : FlowAction.Reject, dto.Comment);
+        var action = dto.Action switch
+        {
+            "approve" => FlowAction.Approve,
+            "return" => FlowAction.Return,
+            _ => FlowAction.Reject
+        };
+        await engine.ActAsync(taskId, action, dto.Comment, dto.ReturnNodeCode);
         return Success();
     }
 
@@ -222,6 +230,12 @@ public class FlowInstanceController(IFlowEngine engine, IFlowQueryService queryS
     [HttpGet("by-business")]
     public async Task<ApiResult<FlowInstanceDto?>> ByBusiness([FromQuery] string businessTable, [FromQuery] long businessId) =>
         Success(await queryService.GetByBusinessAsync(businessTable, businessId));
+
+    /// <summary>抄送我的分页</summary>
+    [Authorize]
+    [HttpGet("cc-me")]
+    public async Task<ApiResult<PageResult<FlowCcViewDto>>> CcMe([FromQuery] PageQuery query) =>
+        Success(await queryService.GetCcMePageAsync(query));
 
     /// <summary>撤回（仅发起人、审批尚未开始处理）</summary>
     [NoRepeatSubmit]

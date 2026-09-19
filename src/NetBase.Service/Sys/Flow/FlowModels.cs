@@ -101,6 +101,9 @@ public class ApproverRule
     /// <summary>角色编码（Type=Role）</summary>
     public List<string>? RoleCodes { get; set; }
 
+    /// <summary>岗位编码（Type=Position）</summary>
+    public List<string>? PositionCodes { get; set; }
+
     /// <summary>部门ID（Type=DeptLeader；0/null=发起人所在部门）</summary>
     public long? DeptId { get; set; }
 }

@@ -35,6 +35,7 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<IFlowEngine, FlowEngine>();
         services.TryAddScoped<ISysFlowDefinitionService, SysFlowDefinitionService>();
         services.TryAddScoped<ISysFlowBindingService, SysFlowBindingService>();
+        services.TryAddScoped<ISysPositionService, SysPositionService>();
         services.TryAddScoped<IFlowQueryService, SysFlowQueryService>();
         // 业务模块的 IFlowBusinessHandler 实现由业务侧扩展方法注册（见 Biz/AddNetBaseBiz）
         // Lazy.Captcha.Core：验证码生成（内存存储默认；分布式部署可换其 Redis 存储）

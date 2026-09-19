@@ -33,8 +33,11 @@ public enum FlowAction
     /// <summary>同意</summary>
     Approve,
 
-    /// <summary>拒绝</summary>
-    Reject
+    /// <summary>拒绝（终态）</summary>
+    Reject,
+
+    /// <summary>驳回至指定节点重审（实例保持运行中）</summary>
+    Return
 }
 
 /// <summary>
@@ -49,8 +52,8 @@ public interface IFlowEngine
     /// <summary>提交审批（创建实例并驱动至首个需人工审批的节点）</summary>
     Task<long> SubmitAsync(FlowSubmitRequest request);
 
-    /// <summary>审批（同意/拒绝，仅任务归属人）</summary>
-    Task ActAsync(long taskId, FlowAction action, string? comment);
+    /// <summary>审批（同意/拒绝/驳回，仅任务归属人；驳回时 returnNodeCode 指定退回目标）</summary>
+    Task ActAsync(long taskId, FlowAction action, string? comment, string? returnNodeCode = null);
 
     /// <summary>转办：当前任务作废，转给目标人</summary>
     Task TransferAsync(long taskId, List<long> targetUserIds, string? comment);
@@ -71,6 +74,9 @@ public class FlowEngine(
     IRepository<SysUser> userRepository,
     IRepository<SysRole> roleRepository,
     IRepository<SysUserRole> userRoleRepository,
+    IRepository<SysPosition> positionRepository,
+    IRepository<SysUserPosition> userPositionRepository,
+    IRepository<SysFlowCc> ccRepository,
     ApproverResolver approverResolver,
     INotifyService notifyService,
     IOperatorProvider operatorProvider,
@@ -138,7 +144,7 @@ public class FlowEngine(
 
     // ---------------- 审批 / 转办 / 加签 / 撤回 ----------------
 
-    public async Task ActAsync(long taskId, FlowAction action, string? comment)
+    public async Task ActAsync(long taskId, FlowAction action, string? comment, string? returnNodeCode = null)
     {
         var userId = operatorProvider.OperatorUserId ?? throw new BusinessException("未登录");
         var task = await taskRepository.GetByIdAsync(taskId)
@@ -150,13 +156,32 @@ public class FlowEngine(
         var graph = await LoadGraphAsync(instance);
         var operatorName = task.ApproverName;
 
+        if (action == FlowAction.Return)
+        {
+            if (string.IsNullOrWhiteSpace(returnNodeCode))
+            {
+                throw new BusinessException("驳回请选择退回目标节点");
+            }
+            if (returnNodeCode != "start" && !graph.Index.TryGetValue(returnNodeCode, out _))
+            {
+                throw new BusinessException("退回目标节点不存在");
+            }
+            if (returnNodeCode == task.NodeCode)
+            {
+                throw new BusinessException("不能驳回至当前节点自身");
+            }
+        }
+
         await instanceRepository.TransactionAsync(async () =>
         {
-            task.Status = action == FlowAction.Approve ? FlowTaskStatus.Approved : FlowTaskStatus.Rejected;
+            task.Status = action == FlowAction.Approve ? FlowTaskStatus.Approved
+                        : action == FlowAction.Return ? FlowTaskStatus.Returned
+                        : FlowTaskStatus.Rejected;
             task.Comment = comment;
             task.ActTime = DateTime.Now;
             await taskRepository.UpdateAsync(task);
-            await RecordAsync(instance.Id, action == FlowAction.Approve ? "approve" : "reject",
+            await RecordAsync(instance.Id, action == FlowAction.Approve ? "approve"
+                        : action == FlowAction.Return ? "return" : "reject",
                 task.NodeCode, userId, operatorName, comment);
 
             if (action == FlowAction.Reject)
@@ -166,13 +191,74 @@ public class FlowEngine(
                 return true;
             }
 
+            if (action == FlowAction.Return)
+            {
+                await ReturnToNodeAsync(instance, graph, task.NodeCode, returnNodeCode!, operatorName, comment);
+                return true;
+            }
+
             // 同意：按模式判定节点是否完成（会签等他人 / 依次升下一位）
             if (await CompleteOrWaitAsync(instance, task))
             {
+                if (task.NodeCode == "start")
+                {
+                    // 驳回至发起人后的重提：从流程入口重走
+                    await EnterNodeAsync(instance, graph, graph.Entry);
+                    return true;
+                }
                 await AdvanceFromNodeAsync(instance, graph, task.NodeCode);
             }
             return true;
         });
+    }
+
+    /// <summary>
+    /// 驳回至节点：作废实例全部待办，目标节点重新生成审批任务（实例保持运行中）；
+    /// 目标为 start 时给发起人生成「重新提交」待办，其提交后从流程入口重走。
+    /// 退回后本实例的后续节点需重新审批（重复审批人自动通过仅对退回前的历史生效）。
+    /// </summary>
+    private async Task ReturnToNodeAsync(SysFlowInstance instance, FlowGraph graph,
+        string fromNodeCode, string returnNodeCode, string operatorName, string? comment)
+    {
+        await VoidInstanceTasksAsync(instance.Id);
+
+        if (returnNodeCode == "start")
+        {
+            await InsertTaskAsync(instance, "start", "重新提交", FlowNodeMode.OrSign,
+                instance.SubmitterId, instance.SubmitterName);
+            instance.CurrentNodeCode = "start";
+            await instanceRepository.UpdateAsync(instance);
+            await RecordAsync(instance.Id, "return", "start", 0, "system",
+                $"退回发起人修改后重新提交（{operatorName}）");
+            await notifyService.PushToUsersAsync([instance.SubmitterId], new NoticePayload
+            {
+                MsgType = 3,
+                Title = $"【待重新提交】{instance.Summary}",
+                Content = $"审批被驳回，请修改后重新提交。驳回人：{operatorName}，意见：{comment ?? "无"}",
+                SenderName = operatorName,
+                BizType = TaskBizType,
+                BizId = instance.Id.ToString()
+            });
+            return;
+        }
+
+        // 退回至审批节点：重新解析审批人并生成待办（模式沿用节点定义）
+        var node = graph.Index[returnNodeCode];
+        var approvers = await approverResolver.ResolveAsync(
+            node.Approvers ?? [], instance.SubmitterDeptId, ReadChoices(instance, node.Code));
+        foreach (var approver in approvers)
+        {
+            await InsertTaskAsync(instance, node.Code, node.Name ?? node.Code, node.Mode,
+                approver.UserId, approver.UserName);
+        }
+        instance.CurrentNodeCode = node.Code;
+        await instanceRepository.UpdateAsync(instance);
+        await RecordAsync(instance.Id, "return", node.Code, 0, "system",
+            $"退回至「{node.Name ?? node.Code}」重新审批（{operatorName}）");
+        if (approvers.Count > 0)
+        {
+            await NotifyTaskUsersAsync(instance, approvers.Select(a => a.UserId).ToList());
+        }
     }
 
     public async Task TransferAsync(long taskId, List<long> targetUserIds, string? comment)
@@ -367,19 +453,16 @@ public class FlowEngine(
     /// </summary>
     private async Task<bool> EnterApprovalAsync(SysFlowInstance instance, FlowNode node)
     {
-        var variables = JsonDocument.Parse(string.IsNullOrEmpty(instance.VariablesJson) ? "{}" : instance.VariablesJson).RootElement;
-        var choices = new List<long>();
-        if (variables.ValueKind == JsonValueKind.Object
-            && variables.TryGetProperty($"__choice_{node.Code}", out var arr)
-            && arr.ValueKind == JsonValueKind.Array)
-        {
-            choices = arr.EnumerateArray().Select(v => (long)v.GetDouble()).ToList();
-        }
+        var approvers = await approverResolver.ResolveAsync(
+            node.Approvers ?? [], instance.SubmitterDeptId, ReadChoices(instance, node.Code));
 
-        var approvers = await approverResolver.ResolveAsync(node.Approvers ?? [], instance.SubmitterDeptId, choices);
-
-        // 本实例已产生审批结论的人（跨节点去重：重复审批人自动通过）
-        var actedUserIds = (await taskRepository.GetListAsync(
+        // 本实例已产生审批结论的人（跨节点去重：重复审批人自动通过）；
+        // 发生过「驳回至节点」后关闭该规则——退回重审时后续节点须重新审批
+        var hasReturn = await recordRepository.AnyAsync(
+            r => r.InstanceId == instance.Id && r.Action == "return");
+        var actedUserIds = hasReturn
+            ? new HashSet<long>()
+            : (await taskRepository.GetListAsync(
                 t => t.InstanceId == instance.Id
                      && (t.Status == FlowTaskStatus.Approved || t.Status == FlowTaskStatus.AutoPassed)))
             .Select(t => t.ApproverUserId).ToHashSet();
@@ -387,7 +470,7 @@ public class FlowEngine(
         var needHuman = new List<FlowApprover>();
         foreach (var approver in approvers)
         {
-            var auto = approver.UserId == instance.SubmitterId || actedUserIds.Contains(approver.UserId);
+            var auto = approver.UserId == instance.SubmitterId || (!hasReturn && actedUserIds.Contains(approver.UserId));
             await InsertTaskAsync(instance, node.Code, node.Name ?? node.Code, node.Mode,
                 approver.UserId, approver.UserName,
                 status: auto ? FlowTaskStatus.AutoPassed : FlowTaskStatus.Pending);
@@ -519,6 +602,15 @@ public class FlowEngine(
                 BizId = instance.Id.ToString()
             });
         }
+        foreach (var ccUserId in ccUsers)
+        {
+            await ccRepository.InsertAsync(new SysFlowCc
+            {
+                InstanceId = instance.Id,
+                NodeCode = node.Code,
+                UserId = ccUserId
+            });
+        }
         await RecordAsync(instance.Id, "cc", node.Code, instance.SubmitterId, instance.SubmitterName,
             $"抄送 {ccUsers.Count} 人");
     }
@@ -538,6 +630,19 @@ public class FlowEngine(
             }
         }
         return result.Distinct().ToList();
+    }
+
+    /// <summary>读取发起人自选审批人（节点级 __choice_{code}）</summary>
+    private static List<long> ReadChoices(SysFlowInstance instance, string nodeCode)
+    {
+        var variables = JsonDocument.Parse(string.IsNullOrEmpty(instance.VariablesJson) ? "{}" : instance.VariablesJson).RootElement;
+        if (variables.ValueKind != JsonValueKind.Object
+            || !variables.TryGetProperty($"__choice_{nodeCode}", out var arr)
+            || arr.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+        return arr.EnumerateArray().Select(v => (long)v.GetDouble()).ToList();
     }
 
     private static void ValidateGraph(FlowGraph graph)

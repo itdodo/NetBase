@@ -49,6 +49,9 @@ public class UserDto
     /// <summary>拥有的角色</summary>
     public List<RoleSimpleDto> Roles { get; set; } = [];
 
+    /// <summary>拥有的岗位名称</summary>
+    public List<string> Positions { get; set; } = [];
+
     /// <summary>所属部门ID</summary>
     [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     public long DeptId { get; set; }
@@ -94,6 +97,9 @@ public class UserCreateDto
     /// <summary>角色ID列表</summary>
     public List<long> RoleIds { get; set; } = [];
 
+    /// <summary>岗位ID列表（选填）</summary>
+    public List<long>? PositionIds { get; set; }
+
     /// <summary>所属部门ID（可选，留空 = 未分配部门）</summary>
     [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     public long? DeptId { get; set; }
@@ -122,6 +128,9 @@ public class UserUpdateDto
 
     /// <summary>角色ID列表（传入则全量重设）</summary>
     public List<long>? RoleIds { get; set; }
+
+    /// <summary>岗位ID列表（传入则全量重设）</summary>
+    public List<long>? PositionIds { get; set; }
 
     /// <summary>所属部门ID（可选，留空 = 未分配部门）</summary>
     [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]

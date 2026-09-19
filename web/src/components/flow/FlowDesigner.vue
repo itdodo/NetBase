@@ -5,6 +5,8 @@ import { ElMessage } from 'element-plus'
 import type { DeptTree } from '@/api/dept'
 import { getDeptTree } from '@/api/dept'
 import { getRoleList } from '@/api/role'
+import { getPositionList } from '@/api/position'
+import type { Position } from '@/api/position'
 import { getUserList } from '@/api/user'
 import type { RoleSimple, User } from '@/types/api'
 
@@ -22,7 +24,7 @@ interface DesignerNode {
   name: string
   mode: 'counterSign' | 'orSign' | 'sequential'
   /** 审批人规则（提交给后端的规范结构） */
-  approvers: Array<{ type: 'user' | 'role' | 'deptLeader'; userIds: number[]; roleCodes: string[]; deptId: number }>
+  approvers: Array<{ type: 'user' | 'role' | 'position' | 'deptLeader'; userIds: number[]; roleCodes: string[]; positionCodes: string[]; deptId: number }>
   branches: Array<{ name: string; variable: string; op: string; value: string; next: string }>
   defaultNext: string
   ccUserIds: number[]
@@ -32,6 +34,7 @@ interface DesignerNode {
 const nodes = ref<DesignerNode[]>([])
 const users = ref<User[]>([])
 const roles = ref<RoleSimple[]>([])
+const positions = ref<Position[]>([])
 const deptTree = ref<DeptTree[]>([])
 
 const editing = ref<DesignerNode | null>(null)
@@ -46,7 +49,9 @@ const OP_LABEL: Record<string, string> = {
 }
 
 onMounted(async () => {
-  ;[users.value, roles.value, deptTree.value] = await Promise.all([getUserList(), getRoleList(), getDeptTree()])
+  ;[users.value, roles.value, deptTree.value, positions.value] = await Promise.all([
+    getUserList(), getRoleList(), getDeptTree(), getPositionList()
+  ])
   importModel(props.modelValue)
 })
 
@@ -81,6 +86,7 @@ function toDesigner(raw: any): DesignerNode {
       type: r.type,
       userIds: r.userIds ?? [],
       roleCodes: r.roleCodes ?? [],
+      positionCodes: r.positionCodes ?? [],
       deptId: r.deptId ?? 0
     })),
     branches: (raw.branches ?? []).map((b: any) => ({
@@ -108,6 +114,7 @@ function exportModel(): string {
           type: r.type,
           ...(r.type === 'user' ? { userIds: r.userIds } : {}),
           ...(r.type === 'role' ? { roleCodes: r.roleCodes } : {}),
+          ...(r.type === 'position' ? { positionCodes: r.positionCodes } : {}),
           ...(r.type === 'deptLeader' ? { deptId: r.deptId } : {})
         }))
       })
@@ -147,7 +154,7 @@ function newNode(type: DesignerNode['type']): DesignerNode {
     type,
     name: type === 'approval' ? '审批' : type === 'condition' ? '条件分支' : '抄送',
     mode: 'orSign',
-    approvers: type === 'approval' ? [{ type: 'user', userIds: [], roleCodes: [], deptId: 0 }] : [],
+    approvers: type === 'approval' ? [{ type: 'user', userIds: [], roleCodes: [], positionCodes: [], deptId: 0 }] : [],
     branches: type === 'condition'
       ? [{ name: '', variable: 'amount', op: 'lt', value: '', next: '' }]
       : [],
@@ -203,6 +210,10 @@ function saveEdit(): void {
         ElMessage.warning('请选择角色')
         return
       }
+      if (r.type === 'position' && r.positionCodes.length === 0) {
+        ElMessage.warning('请选择岗位')
+        return
+      }
     }
   }
   if (node.type === 'condition') {
@@ -225,7 +236,7 @@ function cancelEdit(): void {
 }
 
 function addRule(node: DesignerNode): void {
-  node.approvers.push({ type: 'user', userIds: [], roleCodes: [], deptId: 0 })
+  node.approvers.push({ type: 'user', userIds: [], roleCodes: [], positionCodes: [], deptId: 0 })
 }
 
 function addBranch(node: DesignerNode): void {
@@ -240,7 +251,10 @@ const targetOptions = computed(() =>
 function nodeSummary(n: DesignerNode): string {
   if (n.type === 'approval') {
     const parts = n.approvers.map((r) =>
-      r.type === 'user' ? `成员×${r.userIds.length}` : r.type === 'role' ? `角色×${r.roleCodes.length}` : '部门主管')
+      r.type === 'user' ? `成员×${r.userIds.length}`
+        : r.type === 'role' ? `角色×${r.roleCodes.length}`
+        : r.type === 'position' ? `岗位×${r.positionCodes.length}`
+        : '部门主管')
     return `${MODE_LABEL[n.mode]} · ${parts.join(' / ')}`
   }
   if (n.type === 'condition') {
@@ -254,6 +268,7 @@ function nodeSummary(n: DesignerNode): string {
 
 const userName = (id: number) => users.value.find((u) => u.id === id)?.nickName || users.value.find((u) => u.id === id)?.userName || `用户${id}`
 const roleName = (code: string) => roles.value.find((r) => r.roleCode === code)?.roleName ?? code
+const positionName = (code: string) => positions.value.find((p) => p.positionCode === code)?.positionName ?? code
 
 defineExpose({
   /** 供外层保存前校验：审批节点必须配置审批人规则 */
@@ -360,9 +375,10 @@ defineExpose({
               :label="ri === 0 ? '审批人' : ''"
             >
               <div class="rule-row">
-                <el-select v-model="rule.type" style="width: 130px" @change="rule.userIds = []; rule.roleCodes = []">
+                <el-select v-model="rule.type" style="width: 130px" @change="rule.userIds = []; rule.roleCodes = []; rule.positionCodes = []">
                   <el-option label="指定成员" value="user" />
                   <el-option label="指定角色" value="role" />
+                  <el-option label="指定岗位" value="position" />
                   <el-option label="部门主管" value="deptLeader" />
                 </el-select>
                 <el-select v-if="rule.type === 'user'" v-model="rule.userIds" multiple filterable placeholder="选择成员" style="flex: 1">
@@ -370,6 +386,9 @@ defineExpose({
                 </el-select>
                 <el-select v-if="rule.type === 'role'" v-model="rule.roleCodes" multiple filterable placeholder="选择角色" style="flex: 1">
                   <el-option v-for="r in roles" :key="r.roleCode" :label="r.roleName" :value="r.roleCode" />
+                </el-select>
+                <el-select v-if="rule.type === 'position'" v-model="rule.positionCodes" multiple filterable placeholder="选择岗位" style="flex: 1">
+                  <el-option v-for="p in positions" :key="p.positionCode" :label="p.positionName" :value="p.positionCode" />
                 </el-select>
                 <template v-if="rule.type === 'deptLeader'">
                   <el-tree-select
@@ -388,6 +407,9 @@ defineExpose({
               </div>
               <div v-if="rule.type === 'role' && rule.roleCodes.length" class="rule-preview">
                 {{ rule.roleCodes.map(roleName).join('、') }}
+              </div>
+              <div v-if="rule.type === 'position' && rule.positionCodes.length" class="rule-preview">
+                {{ rule.positionCodes.map(positionName).join('、') }}
               </div>
             </el-form-item>
             <el-form-item label=" ">

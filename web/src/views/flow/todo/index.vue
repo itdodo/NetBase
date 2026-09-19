@@ -92,7 +92,7 @@ onMounted(loadData)
             <BizDocPreview :business-table="current.businessTable" :business-id="current.businessId" />
           </el-tab-pane>
           <el-tab-pane label="审批记录" name="flow">
-            <ApprovalActions :task-id="current.taskId" @acted="onActed" />
+            <ApprovalActions :task-id="current.taskId" :instance-id="current.instanceId" @acted="onActed" />
             <el-divider />
             <FlowTimeline :instance-id="current.instanceId" />
             <div class="withdraw-row">

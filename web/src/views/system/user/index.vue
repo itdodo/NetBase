@@ -15,6 +15,8 @@ import {
 import { getRoleList } from '@/api/role'
 import { getDeptTree } from '@/api/dept'
 import type { DeptTree } from '@/api/dept'
+import { getPositionList } from '@/api/position'
+import type { Position } from '@/api/position'
 import { formatDateTime } from '@/utils/format'
 import { download } from '@/utils/download'
 import type { RoleSimple, User } from '@/types/api'
@@ -24,6 +26,7 @@ const loading = ref(false)
 const list = ref<User[]>([])
 const total = ref(0)
 const roleOptions = ref<RoleSimple[]>([])
+const positionOptions = ref<Position[]>([])
 const deptTree = ref<DeptTree[]>([])
 
 const query = reactive({ pageIndex: 1, pageSize: 10, keyword: '', status: undefined as number | undefined })
@@ -67,6 +70,7 @@ const form = reactive({
   status: 1,
   deptId: undefined as number | undefined,
   roleIds: [] as number[],
+  positionIds: [] as number[],
   version: 0
 })
 
@@ -85,6 +89,7 @@ function openCreate() {
     password: '',
     status: 1,
     roleIds: [],
+    positionIds: [],
     version: 0
   })
   dialogVisible.value = true
@@ -185,6 +190,7 @@ async function handleResetPassword(row: User) {
 
 onMounted(() => {
   getDeptTree().then((tree) => (deptTree.value = tree))
+  getPositionList().then((list) => (positionOptions.value = list))
   loadData()
   getRoleList().then((roles) => (roleOptions.value = roles))
 })
@@ -357,6 +363,13 @@ onMounted(() => {
           <el-checkbox-group v-model="form.roleIds">
             <el-checkbox v-for="role in roleOptions" :key="role.id" :value="role.id">
               {{ role.roleName }}
+            </el-checkbox>
+          </el-checkbox-group>
+        </el-form-item>
+        <el-form-item label="岗位">
+          <el-checkbox-group v-model="form.positionIds">
+            <el-checkbox v-for="p in positionOptions" :key="p.id" :value="p.id">
+              {{ p.positionName }}
             </el-checkbox>
           </el-checkbox-group>
         </el-form-item>

@@ -18,6 +18,8 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
 {
     private readonly IRepository<SysRole> _roleRepository;
     private readonly IRepository<SysUserRole> _userRoleRepository;
+    private readonly IRepository<SysPosition> _positionRepository;
+    private readonly IRepository<SysUserPosition> _userPositionRepository;
     private readonly NetBase.Common.Realtime.INotifyService _notifyService;
 
     /// <summary>内置管理员账号，不允许停用/删除</summary>
@@ -28,6 +30,8 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         IRepository<SysRole> roleRepository,
         IRepository<SysUserRole> userRoleRepository,
         IRepository<SysUserSession> userSessionRepository,
+        IRepository<SysPosition> positionRepository,
+        IRepository<SysUserPosition> userPositionRepository,
         NetBase.Common.Realtime.INotifyService notifyService,
         IPermissionService permissionService,
         ISysConfigService configService,
@@ -37,6 +41,8 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         _roleRepository = roleRepository;
         _notifyService = notifyService;
         _userRoleRepository = userRoleRepository;
+        _positionRepository = positionRepository;
+        _userPositionRepository = userPositionRepository;
         _userSessionRepository = userSessionRepository;
         _permissionService = permissionService;
         _configService = configService;
@@ -149,10 +155,8 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             await Repository.TransactionAsync(async () =>
             {
                 await Repository.InsertAsync(user);
-                if (roleIds.Count > 0)
-                {
-                    await SaveUserRolesAsync(user.Id, roleIds);
-                }
+                await SaveUserRolesAsync(user.Id, roleIds);
+                await SaveUserPositionsAsync(user.Id, null); // 导入模板无岗位列
                 return true;
             });
             successCount++;
@@ -262,6 +266,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             if (dto.RoleIds != null)
             {
                 await SaveUserRolesAsync(id, dto.RoleIds);
+            await SaveUserPositionsAsync(id, dto.PositionIds);
             }
             return true;
         });
@@ -385,6 +390,23 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             RoleName = x.RoleName,
             RoleCode = x.RoleCode
         });
+        var userPositions = await _userPositionRepository.GetListAsync(x => userIds.Contains(x.UserId));
+        var positionIds = userPositions.Select(x => x.PositionId).Distinct().ToList();
+        var positions = positionIds.Count == 0
+            ? []
+            : await _positionRepository.GetListAsync(x => positionIds.Contains(x.Id));
+        var positionNamesByUser = userPositions
+            .GroupBy(x => x.UserId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(x => x.PositionId).ToList())
+            .ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value
+                    .Select(pid => positions.FirstOrDefault(p => p.Id == pid)?.PositionName)
+                    .Where(name => !string.IsNullOrEmpty(name))
+                    .Cast<string>()
+                    .ToList());
 
         return users.Select(x => new UserDto
         {
@@ -401,7 +423,8 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             CreateTime = x.CreateTime,
             Roles = userRoles.Where(ur => ur.UserId == x.Id && roleMap.ContainsKey(ur.RoleId))
                 .Select(ur => roleMap[ur.RoleId])
-                .ToList()
+                .ToList(),
+            Positions = positionNamesByUser.TryGetValue(x.Id, out var pn) ? pn : []
         }).ToList();
     }
 
@@ -415,6 +438,22 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             {
                 UserId = userId,
                 RoleId = roleId
+            }));
+        }
+    }
+
+    /// <summary>全量重设用户岗位（null = 不动）</summary>
+    private async Task SaveUserPositionsAsync(long userId, List<long>? positionIds)
+    {
+        if (positionIds == null) return;
+        var distinct = positionIds.Distinct().ToList();
+        await _userPositionRepository.DeleteWhereAsync(x => x.UserId == userId);
+        if (distinct.Count > 0)
+        {
+            await _userPositionRepository.InsertRangeAsync(distinct.Select(positionId => new SysUserPosition
+            {
+                UserId = userId,
+                PositionId = positionId
             }));
         }
     }

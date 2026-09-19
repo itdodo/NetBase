@@ -165,6 +165,19 @@ public class FlowInstanceDetailDto
 
     /// <summary>当前用户可撤回（是发起人且审批中）</summary>
     public bool CanWithdraw { get; set; }
+
+    /// <summary>可驳回目标（本实例已走过的审批节点 + 发起人重提），审批人驳回时选择</summary>
+    public List<FlowReturnTarget> ReturnTargets { get; set; } = [];
+}
+
+/// <summary>可驳回目标</summary>
+public class FlowReturnTarget
+{
+    /// <summary>节点编码（start=退回发起人重新提交）</summary>
+    public string Code { get; set; } = string.Empty;
+
+    /// <summary>节点名称</summary>
+    public string Name { get; set; } = string.Empty;
 }
 
 /// <summary>时间线条目（融合流转记录与任务）</summary>
@@ -187,4 +200,29 @@ public class FlowTimelineItem
 
     /// <summary>时间</summary>
     public DateTime Time { get; set; }
+}
+
+
+/// <summary>抄送我的条目</summary>
+public class FlowCcViewDto
+{
+    [System.Text.Json.Serialization.JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
+    public long InstanceId { get; set; }
+
+    /// <summary>待办标题（实例 Summary）</summary>
+    public string Summary { get; set; } = string.Empty;
+
+    public string FlowCode { get; set; } = string.Empty;
+
+    public string BusinessTable { get; set; } = string.Empty;
+
+    public string BusinessId { get; set; } = string.Empty;
+
+    /// <summary>状态：1审批中 2通过 3拒绝 4撤回 5作废</summary>
+    public int Status { get; set; }
+
+    public string SubmitterName { get; set; } = string.Empty;
+
+    /// <summary>抄送时间</summary>
+    public DateTime CcTime { get; set; }
 }

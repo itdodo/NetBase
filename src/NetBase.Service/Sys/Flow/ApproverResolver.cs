@@ -15,7 +15,9 @@ public class ApproverResolver(
     IRepository<SysUser> userRepository,
     IRepository<SysUserRole> userRoleRepository,
     IRepository<SysRole> roleRepository,
-    IRepository<SysDept> deptRepository)
+    IRepository<SysDept> deptRepository,
+    IRepository<SysPosition> positionRepository,
+    IRepository<SysUserPosition> userPositionRepository)
 {
     /// <summary>
     /// 解析审批人。submitterDeptId 为发起人部门（DeptLeader 规则 fallback）；
@@ -60,6 +62,17 @@ public class ApproverResolver(
                     var deptId = rule.DeptId is > 0 ? rule.DeptId.Value : submitterDeptId;
                     var leaderId = deptRepository.GetFirst(d => d.Id == deptId)?.LeaderUserId ?? 0;
                     Add(leaderId > 0 ? [leaderId] : []);
+                    break;
+
+                case FlowApproverType.Position when rule.PositionCodes is { Count: > 0 }:
+                    var posIds = positionRepository
+                        .GetList(x => rule.PositionCodes.Contains(x.PositionCode) && x.Status == 1)
+                        .Select(p => p.Id).ToList();
+                    if (posIds.Count > 0)
+                    {
+                        Add((await userPositionRepository.GetListAsync(up => posIds.Contains(up.PositionId)))
+                            .Select(up => up.UserId));
+                    }
                     break;
 
                 case FlowApproverType.SubmitterChoice:

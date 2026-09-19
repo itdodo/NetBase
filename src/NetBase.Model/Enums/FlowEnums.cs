@@ -41,7 +41,10 @@ public enum FlowTaskStatus
     Voided = 6,
 
     /// <summary>等待中（依次审批的后续签人，前序完成后升为待办）</summary>
-    Waiting = 7
+    Waiting = 7,
+
+    /// <summary>已驳回（任务被驳回至其他节点，历史留痕）</summary>
+    Returned = 8
 }
 
 /// <summary>审批节点多人审批模式</summary>
@@ -70,5 +73,8 @@ public enum FlowApproverType
     DeptLeader = 3,
 
     /// <summary>发起人自选（提交时指定）</summary>
-    SubmitterChoice = 4
+    SubmitterChoice = 4,
+
+    /// <summary>指定岗位（审批权限与角色解耦：岗位管审批，角色管菜单）</summary>
+    Position = 5
 }

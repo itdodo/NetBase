@@ -63,6 +63,8 @@ export interface FlowInstanceDetail {
   currentNodeCode?: string
   timeline: FlowTimelineItem[]
   canWithdraw: boolean
+  /** 可驳回目标（本实例已走过的审批节点 + 发起人重提） */
+  returnTargets: Array<{ code: string; name: string }>
 }
 
 export interface FlowTimelineItem {
@@ -171,6 +173,9 @@ export const getFlowInstanceByBusiness = (businessTable: string, businessId: str
   request.get<never, FlowInstance | null>('/sys/flow/instance/by-business', {
     params: { businessTable, businessId }
   })
+
+export const getFlowCcMe = (params: Partial<PageQuery>) =>
+  request.get<never, PageResult<FlowInstance>>('/sys/flow/instance/cc-me', { params })
 
 export const withdrawFlowInstance = (id: string | number) =>
   request.post<never, void>(`/sys/flow/instance/${id}/withdraw`)

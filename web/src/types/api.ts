@@ -51,6 +51,8 @@ export interface User {
   lastLoginTime?: string
   createTime: string
   roles: RoleSimple[]
+  /** 拥有的岗位名称 */
+  positions: string[]
   /** 并发版本（编辑时读取、保存时回传，陈旧则后端拒绝） */
   version: number
 }

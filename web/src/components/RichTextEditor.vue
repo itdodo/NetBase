@@ -11,7 +11,7 @@ const props = defineProps<{ modelValue: string; placeholder?: string; height?: n
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
 const editorRef = shallowRef()
-const editorHeight = (props.height ?? 280) + 'px'
+const editorHeight = (props.height ?? 300) + 'px'
 const htmlValue = ref(props.modelValue)
 
 watch(
@@ -55,6 +55,7 @@ onBeforeUnmount(() => {
     <Editor
       v-model="htmlValue"
       class="editor-content"
+      :style="{ height: editorHeight, overflowY: 'auto' }"
       :default-config="editorConfig"
       mode="default"
       @on-created="handleCreated"
@@ -75,8 +76,5 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
-.editor-content {
-  height: v-bind("editorHeight");
-  overflow-y: auto;
-}
+
 </style>

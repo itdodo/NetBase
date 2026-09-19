@@ -140,10 +140,10 @@ export const deleteFlowBinding = (id: number | string) =>
 
 // ---------------- 待办 / 已办 / 审批操作 ----------------
 
-export const getFlowTodoPage = (params: Partial<PageQuery>) =>
+export const getFlowTodoPage = (params: Partial<PageQuery & { keyword?: string; flowCode?: string }>) =>
   request.get<never, PageResult<FlowTaskView>>('/sys/flow/task/todo', { params })
 
-export const getFlowDonePage = (params: Partial<PageQuery>) =>
+export const getFlowDonePage = (params: Partial<PageQuery & { keyword?: string; flowCode?: string }>) =>
   request.get<never, PageResult<FlowTaskView>>('/sys/flow/task/done', { params })
 
 export const getFlowTodoCount = () => request.get<never, number>('/sys/flow/task/todo-count')
@@ -174,7 +174,7 @@ export const getFlowInstanceByBusiness = (businessTable: string, businessId: str
     params: { businessTable, businessId }
   })
 
-export const getFlowCcMe = (params: Partial<PageQuery>) =>
+export const getFlowCcMe = (params: Partial<PageQuery & { keyword?: string; flowCode?: string; status?: number }>) =>
   request.get<never, PageResult<FlowInstance>>('/sys/flow/instance/cc-me', { params })
 
 export const withdrawFlowInstance = (id: string | number) =>

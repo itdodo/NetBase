@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import type { FlowInstance } from '@/api/flow'
+import { Refresh, Search } from '@element-plus/icons-vue'
 import { FLOW_INSTANCE_STATUS } from '@/api/flow'
 import { formatDateTime } from '@/utils/format'
 import { usePageList } from '@/composables/usePageList'
@@ -15,10 +16,21 @@ const {
   total,
   query,
   loadData
-} = usePageList<FlowInstance, { pageIndex: number; pageSize: number }>({
+} = usePageList<FlowInstance, { pageIndex: number; pageSize: number; keyword: string; flowCode: string; status?: number }>({
   url: '/sys/flow/instance/cc-me',
-  defaultQuery: { pageIndex: 1, pageSize: 10 }
+  defaultQuery: { pageIndex: 1, pageSize: 10, keyword: '', flowCode: '', status: undefined }
 })
+
+function handleSearch(): void {
+  loadData()
+}
+
+function handleReset(): void {
+  query.keyword = ''
+  query.flowCode = ''
+  query.status = undefined
+  handleSearch()
+}
 
 const detailVisible = ref(false)
 const activeTab = ref('doc')
@@ -35,6 +47,22 @@ onMounted(loadData)
 
 <template>
   <el-card>
+    <div class="toolbar">
+      <el-input
+        v-model="query.keyword"
+        placeholder="标题/提交人"
+        clearable
+        style="width: 180px"
+        :prefix-icon="Search"
+        @keyup.enter="handleSearch"
+      />
+      <el-input v-model="query.flowCode" placeholder="流程编码" clearable style="width: 140px" @keyup.enter="handleSearch" />
+      <el-select v-model="query.status" placeholder="状态" clearable style="width: 120px">
+        <el-option v-for="(v, k) in FLOW_INSTANCE_STATUS" :key="k" :label="v.label" :value="Number(k)" />
+      </el-select>
+      <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
+      <el-button :icon="Refresh" @click="handleReset">重置</el-button>
+    </div>
     <el-table v-loading="loading" :data="list" border stripe>
       <el-table-column prop="summary" label="标题" min-width="220" show-overflow-tooltip>
         <template #default="{ row }">
@@ -79,6 +107,13 @@ onMounted(loadData)
 </template>
 
 <style scoped>
+.toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
 .pagination {
   margin-top: 12px;
   justify-content: flex-end;

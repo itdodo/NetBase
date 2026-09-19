@@ -13,10 +13,10 @@ namespace NetBase.Service.Sys.Flow;
 public interface IFlowQueryService
 {
     /// <summary>我的待办分页</summary>
-    Task<PageResult<FlowTaskViewDto>> GetTodoPageAsync(PageQuery query);
+    Task<PageResult<FlowTaskViewDto>> GetTodoPageAsync(FlowTaskQueryDto query);
 
     /// <summary>我的已办分页</summary>
-    Task<PageResult<FlowTaskViewDto>> GetDonePageAsync(PageQuery query);
+    Task<PageResult<FlowTaskViewDto>> GetDonePageAsync(FlowTaskQueryDto query);
 
     /// <summary>我的待办数（顶栏角标）</summary>
     Task<int> GetTodoCountAsync();
@@ -31,7 +31,7 @@ public interface IFlowQueryService
     Task<PageResult<FlowInstanceDto>> GetMySubmitPageAsync(FlowInstanceQueryDto query);
 
     /// <summary>抄送我的分页（我在抄送对象里的审批实例）</summary>
-    Task<PageResult<FlowCcViewDto>> GetCcMePageAsync(PageQuery query);
+    Task<PageResult<FlowCcViewDto>> GetCcMePageAsync(FlowCcQueryDto query);
 
     /// <summary>审批详情：实例 + 时间线（流转记录 + 任务态融合）</summary>
     Task<FlowInstanceDetailDto> GetDetailAsync(long instanceId);
@@ -43,11 +43,11 @@ public class SysFlowQueryService(
     ISqlSugarClient db,
     IOperatorProvider operatorProvider) : IFlowQueryService
 {
-    public async Task<PageResult<FlowTaskViewDto>> GetTodoPageAsync(PageQuery query) =>
-        await QueryTaskPageAsync(query, onlyTodo: true);
+    public Task<PageResult<FlowTaskViewDto>> GetTodoPageAsync(FlowTaskQueryDto query) =>
+        QueryTaskPageAsync(query, onlyTodo: true);
 
-    public async Task<PageResult<FlowTaskViewDto>> GetDonePageAsync(PageQuery query) =>
-        await QueryTaskPageAsync(query, onlyTodo: false);
+    public Task<PageResult<FlowTaskViewDto>> GetDonePageAsync(FlowTaskQueryDto query) =>
+        QueryTaskPageAsync(query, onlyTodo: false);
 
     public async Task<int> GetTodoCountAsync()
     {
@@ -57,7 +57,7 @@ public class SysFlowQueryService(
             .CountAsync();
     }
 
-    private async Task<PageResult<FlowTaskViewDto>> QueryTaskPageAsync(PageQuery query, bool onlyTodo)
+    private async Task<PageResult<FlowTaskViewDto>> QueryTaskPageAsync(FlowTaskQueryDto query, bool onlyTodo)
     {
         var userId = operatorProvider.OperatorUserId ?? 0;
         RefAsync<int> total = 0;
@@ -66,6 +66,12 @@ public class SysFlowQueryService(
         var query2 = db.Queryable<SysFlowTask>()
             .InnerJoin<SysFlowInstance>((t, i) => t.InstanceId == i.Id)
             .Where((t, i) => t.ApproverUserId == userId);
+        var keyword = query.Keyword?.Trim();
+        var flowCode = query.FlowCode?.Trim();
+        query2 = query2
+            .WhereIF(!string.IsNullOrWhiteSpace(keyword), (t, i) =>
+                i.Summary.Contains(keyword!) || i.SubmitterName.Contains(keyword!))
+            .WhereIF(!string.IsNullOrWhiteSpace(flowCode), (t, i) => i.FlowCode == flowCode);
         query2 = onlyTodo
             ? query2.Where((t, i) => t.Status == FlowTaskStatus.Pending)
             : query2.Where((t, i) => t.Status != FlowTaskStatus.Pending && t.Status != FlowTaskStatus.Waiting);
@@ -118,14 +124,20 @@ public class SysFlowQueryService(
             page.Items.Select(ToInstanceDto).ToList(), page.Total, page.PageIndex, page.PageSize);
     }
 
-    public async Task<PageResult<FlowCcViewDto>> GetCcMePageAsync(PageQuery query)
+    public async Task<PageResult<FlowCcViewDto>> GetCcMePageAsync(FlowCcQueryDto query)
     {
         var userId = operatorProvider.OperatorUserId ?? 0;
+        var ccKeyword = query.Keyword?.Trim();
+        var ccFlowCode = query.FlowCode?.Trim();
         RefAsync<int> total = 0;
 
         var rows = await db.Queryable<SysFlowCc>()
             .InnerJoin<SysFlowInstance>((c, i) => c.InstanceId == i.Id)
             .Where((c, i) => c.UserId == userId)
+            .WhereIF(!string.IsNullOrWhiteSpace(ccKeyword), (c, i) =>
+                i.Summary.Contains(ccKeyword!) || i.SubmitterName.Contains(ccKeyword!))
+            .WhereIF(!string.IsNullOrWhiteSpace(ccFlowCode), (c, i) => i.FlowCode == ccFlowCode)
+            .WhereIF(query.Status.HasValue, (c, i) => (int)i.Status == query.Status!.Value)
             .OrderBy((c, i) => c.CreateTime, OrderByType.Desc)
             .Select((c, i) => new FlowCcViewDto
             {

@@ -113,6 +113,34 @@ public class DbSeeder
         // 存量用户数据归属人回填（幂等）
         db.Ado.ExecuteCommand("UPDATE sys_user SET OwnerUserId = Id WHERE OwnerUserId = 0");
 
+        // 菜单图标兜底：漏配图标的目录/菜单补默认图标并告警（新增菜单务必在种子清单中带图标）
+        var iconless = db.Queryable<SysMenu>()
+            .Where(x => x.MenuType != (int)MenuTypeEnum.Button
+                        && (x.Icon == null || x.Icon == "") && x.IsDeleted == false)
+            .ToList();
+        foreach (var menu in iconless)
+        {
+            db.Updateable<SysMenu>()
+                .SetColumns(x => new SysMenu { Icon = "Document" })
+                .Where(x => x.Id == menu.Id)
+                .ExecuteCommand();
+            _logger?.LogWarning("菜单「{Name}」未配置图标，已补默认图标 Document，请尽快在菜单管理中调整", menu.MenuName);
+        }
+        if (iconless.Count > 0)
+        {
+            _logger?.LogWarning("共 {Count} 个菜单图标为空已兜底，请检查种子清单", iconless.Count);
+        }
+
+        // 特例：抄送我的 用 Promotion（比默认 Document 更贴切）
+        var ccMenu = db.Queryable<SysMenu>().First(x => x.Permission == "menu:flow:cc" && (x.Icon == null || x.Icon == ""));
+        if (ccMenu != null)
+        {
+            db.Updateable<SysMenu>()
+                .SetColumns(x => new SysMenu { Icon = "Promotion" })
+                .Where(x => x.Id == ccMenu.Id)
+                .ExecuteCommand();
+        }
+
         // 外键列索引：权限查询/会话校验/菜单树是高频路径，避免全表扫描
         EnsureIndex(db, "sys_user_role", "ix_sys_user_role_userid", "UserId");
         EnsureIndex(db, "sys_user_role", "ix_sys_user_role_roleid", "RoleId");

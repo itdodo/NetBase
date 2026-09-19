@@ -59,6 +59,23 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
     /// <summary>默认密码：优先取系统参数 sys.pwd.defaultPassword，未配置回退内置值</summary>
     private async Task<bool> DeptExistsAsync(long deptId) => await _deptService.GetDetailAsync(deptId) != null;
 
+    /// <summary>内置超级管理员角色ID（无则 0）</summary>
+    private async Task<long> GetAdminRoleIdAsync() =>
+        (await _roleRepository.GetFirstAsync(x => x.RoleCode == SysRoleService.AdminRoleCode))?.Id ?? 0;
+
+    /// <summary>
+    /// 防提权：向用户授予内置超级管理员角色时，操作者必须是该账号本人。
+    /// 否则任何拥有 sys:user:edit 的人都能给自己/他人挂管理员角色实现越权。
+    /// </summary>
+    private async Task EnsureAdminRoleAssignmentAllowedAsync(IEnumerable<long> roleIds, string? operatorName)
+    {
+        var adminRoleId = await GetAdminRoleIdAsync();
+        if (adminRoleId > 0 && roleIds.Contains(adminRoleId) && operatorName != AdminUserName)
+        {
+            throw new BusinessException("仅内置管理员可以分配超级管理员角色", ApiResultCode.Forbidden);
+        }
+    }
+
     private async Task<string> GetDefaultPasswordAsync()
     {
         var configured = await _configService.GetConfigValueAsync("sys.pwd.defaultPassword");
@@ -155,8 +172,9 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             await Repository.TransactionAsync(async () =>
             {
                 await Repository.InsertAsync(user);
-                await SaveUserRolesAsync(user.Id, roleIds);
-                await SaveUserPositionsAsync(user.Id, null); // 导入模板无岗位列
+            await EnsureAdminRoleAssignmentAllowedAsync(roleIds, operatorName);
+            await SaveUserRolesAsync(user.Id, roleIds);
+            await SaveUserPositionsAsync(user.Id, null); // 导入模板无岗位列
                 return true;
             });
             successCount++;
@@ -224,6 +242,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             await Repository.InsertAsync(user);
             // 回填数据归属人（仅本人范围依赖此列）
             await Repository.UpdateWhereAsync(x => x.Id == user.Id, x => new SysUser { OwnerUserId = user.Id });
+            await EnsureAdminRoleAssignmentAllowedAsync(dto.RoleIds, operatorName);
             await SaveUserRolesAsync(user.Id, dto.RoleIds);
             return true;
         });
@@ -243,6 +262,18 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         if (dto.DeptId.HasValue && !await DeptExistsAsync(dto.DeptId.Value))
         {
             throw new BusinessException("所属部门不存在", ApiResultCode.BadRequest);
+        }
+
+        // 防提权/防降权：涉及超级管理员角色（授予任何用户）或修改 admin 账号的角色，仅限内置管理员本人
+        var adminRoleId = await GetAdminRoleIdAsync();
+        var targetIsAdmin = user.UserName == AdminUserName;
+        if (dto.RoleIds != null)
+        {
+            await EnsureAdminRoleAssignmentAllowedAsync(dto.RoleIds, operatorName);
+            if (targetIsAdmin && operatorName != AdminUserName)
+            {
+                throw new BusinessException("内置管理员账号的角色仅允许本人修改", ApiResultCode.Forbidden);
+            }
         }
 
         user.NickName = dto.NickName;
@@ -298,6 +329,11 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
     public async Task ResetPasswordAsync(long id, string? newPassword, string? operatorName = null)
     {
         var user = await GetRequiredAsync(id);
+        // 防接管：内置管理员账号的密码不允许被他人重置（本人走修改密码接口，需验旧密码）
+        if (user.UserName == AdminUserName && operatorName != AdminUserName)
+        {
+            throw new BusinessException("内置管理员账号的密码不允许重置", ApiResultCode.Forbidden);
+        }
         var password = newPassword.IsNullOrEmpty() ? await GetDefaultPasswordAsync() : newPassword;
         // 密码复杂度服务端强制校验（管理员重置同样受策略约束）
         var policyError = PasswordPolicy.Validate(password);
@@ -318,13 +354,14 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         _cacheService.Remove(lockKey);
     }
 
-    public async Task AssignRolesAsync(long userId, List<long> roleIds)
+    public async Task AssignRolesAsync(long userId, List<long> roleIds, string? operatorName = null)
     {
         _ = await GetRequiredAsync(userId);
         if (roleIds.Count > 0)
         {
             await EnsureRolesExistAsync(roleIds);
         }
+        await EnsureAdminRoleAssignmentAllowedAsync(roleIds, operatorName);
         await Repository.TransactionAsync(async () =>
         {
             await SaveUserRolesAsync(userId, roleIds);

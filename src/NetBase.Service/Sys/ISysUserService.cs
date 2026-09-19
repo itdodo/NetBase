@@ -35,7 +35,7 @@ public interface ISysUserService
     Task ResetPasswordAsync(long id, string? newPassword, string? operatorName = null);
 
     /// <summary>为用户分配角色（全量重设）</summary>
-    Task AssignRolesAsync(long userId, List<long> roleIds);
+    Task AssignRolesAsync(long userId, List<long> roleIds, string? operatorName = null);
 
     /// <summary>按用户名查询（登录用，含已停用）</summary>
     Task<SysUser?> GetByUserNameAsync(string userName);

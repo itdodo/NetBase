@@ -226,3 +226,32 @@ public class FlowCcViewDto
     /// <summary>抄送时间</summary>
     public DateTime CcTime { get; set; }
 }
+
+
+/// <summary>待办/已办查询条件</summary>
+public class FlowTaskQueryDto : PageQuery
+{
+    /// <summary>标题/提交人关键字</summary>
+    [System.ComponentModel.DataAnnotations.StringLength(50)]
+    public string? Keyword { get; set; }
+
+    /// <summary>流程编码</summary>
+    [System.ComponentModel.DataAnnotations.StringLength(50)]
+    public string? FlowCode { get; set; }
+}
+
+/// <summary>抄送我的查询条件</summary>
+public class FlowCcQueryDto : PageQuery
+{
+    /// <summary>标题/提交人关键字</summary>
+    [System.ComponentModel.DataAnnotations.StringLength(50)]
+    public string? Keyword { get; set; }
+
+    /// <summary>流程编码</summary>
+    [System.ComponentModel.DataAnnotations.StringLength(50)]
+    public string? FlowCode { get; set; }
+
+    /// <summary>状态：1审批中 2通过 3拒绝 4撤回 5作废</summary>
+    [System.ComponentModel.DataAnnotations.Range(1, 5)]
+    public int? Status { get; set; }
+}

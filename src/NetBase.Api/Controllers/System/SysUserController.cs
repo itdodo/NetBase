@@ -142,7 +142,7 @@ public class SysUserController(
         [HttpPut("{id:long}/roles")]
     public async Task<ApiResult> AssignRoles(long id, [FromBody] AssignRolesDto dto)
     {
-        await userService.AssignRolesAsync(id, dto.RoleIds);
+        await userService.AssignRolesAsync(id, dto.RoleIds, OperatorName);
         return ApiResult.Ok("角色分配成功");
     }
 }

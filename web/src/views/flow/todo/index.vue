@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Refresh, Search } from '@element-plus/icons-vue'
 import type { FlowTaskView } from '@/api/flow'
 import { withdrawFlowInstance } from '@/api/flow'
 import { formatDateTime } from '@/utils/format'
@@ -17,10 +18,20 @@ const {
   total,
   query,
   loadData
-} = usePageList<FlowTaskView, { pageIndex: number; pageSize: number }>({
+} = usePageList<FlowTaskView, { pageIndex: number; pageSize: number; keyword: string; flowCode: string }>({
   url: '/sys/flow/task/todo',
-  defaultQuery: { pageIndex: 1, pageSize: 10 }
+  defaultQuery: { pageIndex: 1, pageSize: 10, keyword: '', flowCode: '' }
 })
+
+function handleSearch(): void {
+  loadData()
+}
+
+function handleReset(): void {
+  query.keyword = ''
+  query.flowCode = ''
+  handleSearch()
+}
 
 // ---------- 审批详情抽屉 ----------
 const detailVisible = ref(false)
@@ -53,6 +64,19 @@ onMounted(loadData)
 
 <template>
   <el-card>
+    <div class="toolbar">
+      <el-input
+        v-model="query.keyword"
+        placeholder="标题/提交人"
+        clearable
+        style="width: 180px"
+        :prefix-icon="Search"
+        @keyup.enter="handleSearch"
+      />
+      <el-input v-model="query.flowCode" placeholder="流程编码" clearable style="width: 140px" @keyup.enter="handleSearch" />
+      <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
+      <el-button :icon="Refresh" @click="handleReset">重置</el-button>
+    </div>
     <el-table v-loading="loading" :data="list" border stripe>
       <el-table-column prop="summary" label="待办标题" min-width="200" show-overflow-tooltip>
         <template #default="{ row }">
@@ -106,6 +130,13 @@ onMounted(loadData)
 </template>
 
 <style scoped>
+.toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
 .pagination {
   margin-top: 12px;
   justify-content: flex-end;

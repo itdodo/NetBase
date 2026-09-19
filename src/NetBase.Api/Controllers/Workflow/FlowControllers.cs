@@ -156,7 +156,7 @@ public class FlowTaskController(IFlowEngine engine, IFlowQueryService queryServi
 {
     /// <summary>我的待办分页</summary>
     [HttpGet("todo")]
-    public async Task<ApiResult<PageResult<FlowTaskViewDto>>> Todo([FromQuery] PageQuery query) =>
+    public async Task<ApiResult<PageResult<FlowTaskViewDto>>> Todo([FromQuery] FlowTaskQueryDto query) =>
         Success(await queryService.GetTodoPageAsync(query));
 
     /// <summary>我的待办数（顶栏角标）</summary>
@@ -165,7 +165,7 @@ public class FlowTaskController(IFlowEngine engine, IFlowQueryService queryServi
 
     /// <summary>我的已办分页</summary>
     [HttpGet("done")]
-    public async Task<ApiResult<PageResult<FlowTaskViewDto>>> Done([FromQuery] PageQuery query) =>
+    public async Task<ApiResult<PageResult<FlowTaskViewDto>>> Done([FromQuery] FlowTaskQueryDto query) =>
         Success(await queryService.GetDonePageAsync(query));
 
     /// <summary>审批（同意/拒绝/驳回，仅任务归属人）</summary>
@@ -234,7 +234,7 @@ public class FlowInstanceController(IFlowEngine engine, IFlowQueryService queryS
     /// <summary>抄送我的分页</summary>
     [Authorize]
     [HttpGet("cc-me")]
-    public async Task<ApiResult<PageResult<FlowCcViewDto>>> CcMe([FromQuery] PageQuery query) =>
+    public async Task<ApiResult<PageResult<FlowCcViewDto>>> CcMe([FromQuery] FlowCcQueryDto query) =>
         Success(await queryService.GetCcMePageAsync(query));
 
     /// <summary>撤回（仅发起人、审批尚未开始处理）</summary>

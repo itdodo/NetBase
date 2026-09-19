@@ -12,8 +12,21 @@ public static class PasswordPolicy
     /// <summary>最大长度（与实体列长度对齐）</summary>
     public const int MaxLength = 64;
 
-    /// <summary>校验密码复杂度，不合规时返回错误消息</summary>
-    public static string? Validate(string? password)
+    /// <summary>
+    /// 校验密码复杂度，不合规时返回错误消息。
+    /// trustedPassword：系统配置的默认密码（如 sys.pwd.defaultPassword）——
+    /// 由管理员掌控并配合"首次登录强制改密"策略使用，豁免复杂度校验。
+    /// </summary>
+    public static string? Validate(string? password, string? trustedPassword = null)
+    {
+        if (!string.IsNullOrEmpty(trustedPassword) && password == trustedPassword)
+        {
+            return null;
+        }
+        return ValidateCore(password);
+    }
+
+    private static string? ValidateCore(string? password)
     {
         if (string.IsNullOrWhiteSpace(password))
         {

@@ -180,7 +180,7 @@ async function handleDelete(row: User) {
 
 async function handleResetPassword(row: User) {
   await ElMessageBox.confirm(
-    `确定将用户「${row.userName}」的密码重置为默认密码 Net123456 吗？`,
+    `确定将用户「${row.userName}」的密码重置为系统默认密码吗？`,
     '重置密码',
     { type: 'warning' }
   )
@@ -351,7 +351,7 @@ onMounted(() => {
           <el-input v-model="form.email" />
         </el-form-item>
         <el-form-item v-if="editingId == null" label="初始密码">
-          <el-input v-model="form.password" type="password" show-password placeholder="留空则使用默认密码 Net123456" />
+          <el-input v-model="form.password" type="password" show-password placeholder="留空则使用系统默认密码" />
         </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="form.status">

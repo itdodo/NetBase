@@ -135,7 +135,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             }
 
             var password = row.Password.IsNullOrEmpty() ? defaultPassword : row.Password;
-            var policyError = PasswordPolicy.Validate(password);
+            var policyError = PasswordPolicy.Validate(password, defaultPassword);
             if (policyError != null)
             {
                 errors.Add($"第 {index} 行：{userName} 密码不合规（{policyError}），已跳过");
@@ -211,9 +211,10 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             await EnsureRolesExistAsync(dto.RoleIds);
         }
 
-        var password = dto.Password.IsNullOrEmpty() ? await GetDefaultPasswordAsync() : dto.Password;
-        // 密码复杂度服务端强制校验（默认密码本身满足策略）
-        var policyError = PasswordPolicy.Validate(password);
+        var defaultPassword = await GetDefaultPasswordAsync();
+        var password = dto.Password.IsNullOrEmpty() ? defaultPassword : dto.Password;
+        // 密码复杂度服务端强制校验；使用系统配置的默认密码时豁免复杂度
+        var policyError = PasswordPolicy.Validate(password, defaultPassword);
         if (policyError != null)
         {
             throw new BusinessException(policyError, ApiResultCode.BadRequest);
@@ -335,8 +336,9 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             throw new BusinessException("内置管理员账号的密码不允许重置", ApiResultCode.Forbidden);
         }
         var password = newPassword.IsNullOrEmpty() ? await GetDefaultPasswordAsync() : newPassword;
-        // 密码复杂度服务端强制校验（管理员重置同样受策略约束）
-        var policyError = PasswordPolicy.Validate(password);
+        var defaultPassword = await GetDefaultPasswordAsync();
+        // 密码复杂度服务端强制校验；使用系统默认密码时豁免（默认密码由管理员掌控）
+        var policyError = PasswordPolicy.Validate(password, defaultPassword);
         if (policyError != null)
         {
             throw new BusinessException(policyError, ApiResultCode.BadRequest);

@@ -43,6 +43,9 @@ public static class ServiceCollectionExtensions
         {
             options.CodeLength = 4;
             options.ImageOption.FontSize = 26;
+            // 内部系统：去掉干扰线与气泡噪点，验证码清晰易读（防机器识别由限流/锁定兜底）
+            options.ImageOption.InterferenceLineCount = 0;
+            options.ImageOption.BubbleCount = 0;
         });
         services.TryAddScoped<ICaptchaService, CaptchaService>();
 

@@ -98,6 +98,8 @@ public class DbSeeder
         EnsureCrudButtons(db, "sys:flow:list", adminRoleId, now);
         // 岗位管理（审批权限载体）
         EnsurePositionMenu(db, adminRoleId, now);
+        // 审批统计（系统监控）
+        EnsureFlowStatsMenu(db, adminRoleId, now);
         // 个人办公目录 + 我的待办/已办（个人页面，无权限码，登录可见）
         EnsurePersonalFlowMenus(db, adminRoleId, now);
         // 业务样板菜单（业务办公：报销/采购申请，接入审批流的活样例）
@@ -715,6 +717,37 @@ public class DbSeeder
         }
         _logger?.LogInformation("种子数据：增量菜单「岗位管理」已写入");
         EnsureCrudButtons(db, permission, adminRoleId, now);
+    }
+
+    /// <summary>增量补充「审批统计」菜单（按权限码幂等）</summary>
+    private void EnsureFlowStatsMenu(ISqlSugarClient db, long adminRoleId, DateTime now)
+    {
+        const string permission = "monitor:flowstats:list";
+        var monitorDir = db.Queryable<SysMenu>().First(x => x.MenuName == "系统监控" && x.MenuType == (int)MenuTypeEnum.Directory);
+        if (monitorDir == null || db.Queryable<SysMenu>().Any(x => x.Permission == permission))
+        {
+            return;
+        }
+
+        var menu = db.Insertable(new SysMenu
+        {
+            ParentId = monitorDir.Id,
+            MenuName = "审批统计",
+            MenuType = (int)MenuTypeEnum.Menu,
+            Path = "/monitor/flowstats",
+            Component = "monitor/flowstats/index",
+            Permission = permission,
+            Icon = "Odometer",
+            Sort = 3,
+            CreateTime = now,
+            CreateBy = "system"
+        }).ExecuteReturnEntity();
+
+        if (!db.Queryable<SysRoleMenu>().Any(x => x.RoleId == adminRoleId && x.MenuId == menu.Id))
+        {
+            db.Insertable(new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
+        }
+        _logger?.LogInformation("种子数据：增量菜单「审批统计」已写入");
     }
 
     /// <summary>审批流单据绑定初始值（幂等：按业务表名判断）</summary>

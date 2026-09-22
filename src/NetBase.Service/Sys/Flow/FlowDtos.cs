@@ -255,3 +255,61 @@ public class FlowCcQueryDto : PageQuery
     [System.ComponentModel.DataAnnotations.Range(1, 5)]
     public int? Status { get; set; }
 }
+
+
+/// <summary>审批统计查询（时间范围）</summary>
+public class FlowStatsQueryDto
+{
+    /// <summary>开始时间（提交时间 >=）</summary>
+    public DateTime? BeginTime { get; set; }
+
+    /// <summary>结束时间（提交时间 <=）</summary>
+    public DateTime? EndTime { get; set; }
+}
+
+/// <summary>审批统计汇总</summary>
+public class FlowStatsSummaryDto
+{
+    public int Total { get; set; }
+    public int Running { get; set; }
+    public int Approved { get; set; }
+    public int Rejected { get; set; }
+    /// <summary>已通过实例平均耗时（小时，-1=无样本）</summary>
+    public double AvgApproveHours { get; set; }
+    /// <summary>超过 3 天未处理的待办数</summary>
+    public int OverduePending { get; set; }
+}
+
+/// <summary>按流程统计行</summary>
+public class FlowStatsByFlowDto
+{
+    public string FlowCode { get; set; } = string.Empty;
+    public int Total { get; set; }
+    public int Running { get; set; }
+    public int Approved { get; set; }
+    public int Rejected { get; set; }
+    /// <summary>平均通过耗时（小时，-1=无样本）</summary>
+    public double AvgApproveHours { get; set; }
+}
+
+/// <summary>按审批人统计行</summary>
+public class FlowStatsByApproverDto
+{
+    public string UserName { get; set; } = string.Empty;
+    /// <summary>已处理（同意+拒绝）</summary>
+    public int Handled { get; set; }
+    public int Approved { get; set; }
+    public int Rejected { get; set; }
+    /// <summary>当前待办数</summary>
+    public int Pending { get; set; }
+    /// <summary>平均处理时长（小时，任务生成到处理，-1=无样本）</summary>
+    public double AvgHandleHours { get; set; }
+}
+
+/// <summary>审批统计聚合结果</summary>
+public class FlowStatsDto
+{
+    public FlowStatsSummaryDto Summary { get; set; } = new();
+    public List<FlowStatsByFlowDto> ByFlow { get; set; } = [];
+    public List<FlowStatsByApproverDto> ByApprover { get; set; } = [];
+}

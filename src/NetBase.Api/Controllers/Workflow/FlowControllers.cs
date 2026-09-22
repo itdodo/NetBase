@@ -231,6 +231,12 @@ public class FlowInstanceController(IFlowEngine engine, IFlowQueryService queryS
     public async Task<ApiResult<FlowInstanceDto?>> ByBusiness([FromQuery] string businessTable, [FromQuery] long businessId) =>
         Success(await queryService.GetByBusinessAsync(businessTable, businessId));
 
+    /// <summary>审批统计（汇总/按流程/按审批人）</summary>
+    [HasPermission("monitor:flowstats:list")]
+    [HttpGet("stats")]
+    public async Task<ApiResult<FlowStatsDto>> Stats([FromQuery] FlowStatsQueryDto query) =>
+        Success(await queryService.GetStatisticsAsync(query));
+
     /// <summary>抄送我的分页</summary>
     [Authorize]
     [HttpGet("cc-me")]

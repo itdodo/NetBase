@@ -33,6 +33,9 @@ public interface IFlowQueryService
     /// <summary>抄送我的分页（我在抄送对象里的审批实例）</summary>
     Task<PageResult<FlowCcViewDto>> GetCcMePageAsync(FlowCcQueryDto query);
 
+    /// <summary>审批统计：汇总 + 按流程 + 按审批人（时间范围过滤提交时间）</summary>
+    Task<FlowStatsDto> GetStatisticsAsync(FlowStatsQueryDto query);
+
     /// <summary>审批详情：实例 + 时间线（流转记录 + 任务态融合）</summary>
     Task<FlowInstanceDetailDto> GetDetailAsync(long instanceId);
 }
@@ -153,6 +156,59 @@ public class SysFlowQueryService(
             .ToPageListAsync(query.PageIndex, query.PageSize, total);
 
         return PageResult<FlowCcViewDto>.Of(rows, total, query.PageIndex, query.PageSize);
+    }
+
+    public async Task<FlowStatsDto> GetStatisticsAsync(FlowStatsQueryDto query)
+    {
+        var begin = query.BeginTime ?? new DateTime(2000, 1, 1);
+        var end = query.EndTime ?? new DateTime(2099, 1, 1);
+        var args = new SugarParameter[] { new("@b", begin), new("@e", end) };
+
+        // 汇总（实例级；超期待办为运行中实例的 3 天以上待办）
+        var summary = (await db.Ado.SqlQueryAsync<FlowStatsSummaryDto>("""
+SELECT COUNT(1) AS Total,
+       SUM(CASE WHEN Status = 1 THEN 1 ELSE 0 END) AS Running,
+       SUM(CASE WHEN Status = 2 THEN 1 ELSE 0 END) AS Approved,
+       SUM(CASE WHEN Status = 3 THEN 1 ELSE 0 END) AS Rejected,
+       ISNULL(AVG(CASE WHEN Status = 2 THEN DATEDIFF(MINUTE, SubmitTime, EndTime) END), -60) / 60.0 AS AvgApproveHours,
+       (SELECT COUNT(1) FROM sys_flow_task t
+          JOIN sys_flow_instance i2 ON t.InstanceId = i2.Id AND i2.Status = 1
+         WHERE t.Status = 1 AND t.IsDeleted = 0
+           AND t.CreateTime <= DATEADD(DAY, -3, GETDATE())) AS OverduePending
+FROM sys_flow_instance
+WHERE IsDeleted = 0 AND SubmitTime >= @b AND SubmitTime <= @e
+""", args))[0];
+
+        // 按流程
+        var byFlow = await db.Ado.SqlQueryAsync<FlowStatsByFlowDto>("""
+SELECT FlowCode,
+       COUNT(1) AS Total,
+       SUM(CASE WHEN Status = 1 THEN 1 ELSE 0 END) AS Running,
+       SUM(CASE WHEN Status = 2 THEN 1 ELSE 0 END) AS Approved,
+       SUM(CASE WHEN Status = 3 THEN 1 ELSE 0 END) AS Rejected,
+       ISNULL(AVG(CASE WHEN Status = 2 THEN DATEDIFF(MINUTE, SubmitTime, EndTime) END), -60) / 60.0 AS AvgApproveHours
+FROM sys_flow_instance
+WHERE IsDeleted = 0 AND SubmitTime >= @b AND SubmitTime <= @e
+GROUP BY FlowCode
+ORDER BY COUNT(1) DESC
+""", args);
+
+        // 按审批人（任务级；时间范围按任务归属实例的提交时间过滤）
+        var byApprover = await db.Ado.SqlQueryAsync<FlowStatsByApproverDto>("""
+SELECT t.ApproverName AS UserName,
+       SUM(CASE WHEN t.Status IN (2,8) THEN 1 ELSE 0 END) AS Handled,
+       SUM(CASE WHEN t.Status = 2 THEN 1 ELSE 0 END) AS Approved,
+       SUM(CASE WHEN t.Status = 3 THEN 1 ELSE 0 END) AS Rejected,
+       SUM(CASE WHEN t.Status = 1 THEN 1 ELSE 0 END) AS Pending,
+       ISNULL(AVG(CASE WHEN t.ActTime IS NOT NULL THEN DATEDIFF(MINUTE, t.CreateTime, t.ActTime) END), -60) / 60.0 AS AvgHandleHours
+FROM sys_flow_task t
+JOIN sys_flow_instance i ON t.InstanceId = i.Id
+WHERE t.IsDeleted = 0 AND i.IsDeleted = 0 AND i.SubmitTime >= @b AND i.SubmitTime <= @e
+GROUP BY t.ApproverName
+ORDER BY SUM(CASE WHEN t.Status IN (2,3,8) THEN 1 ELSE 0 END) DESC
+""", args);
+
+        return new FlowStatsDto { Summary = summary, ByFlow = byFlow, ByApprover = byApprover };
     }
 
     public async Task<FlowInstanceDto?> GetByBusinessAsync(string businessTable, long businessId) =>

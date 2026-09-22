@@ -358,6 +358,42 @@ public class FlowEngineTests
     }
 
     [Fact]
+    public async Task Statistics_ShouldAggregateByFlowAndApprover()
+    {
+        var querySvc = _fixture.GetService<NetBase.Service.Sys.Flow.IFlowQueryService>();
+        var approverNick = IntegrationFixture.Uid("统计审批人");
+        var (submitter, a) = (await CreateUserAsync("统计提交人"), await CreateUserAsync(approverNick));
+        var flowCode = IntegrationFixture.Uid("stats");
+        await CreateEnabledFlowAsync(flowCode, Chain(Approval("n1", "统计审批", FlowNodeMode.OrSign, a)));
+
+        // 两笔：一笔通过、一笔进行中
+        IntegrationFixture.SetOperator($"user-{submitter}", submitter);
+        var ok = await SubmitAsync(flowCode, 9600);
+        var t1 = await PendingTaskOfAsync(ok, a);
+        IntegrationFixture.SetOperator($"user-{a}", a);
+        await _engine.ActAsync(t1.Id, FlowAction.Approve, "同意");
+        IntegrationFixture.SetOperator($"user-{submitter}", submitter); // 切回发起人（否则第二笔发起人=审批人触发自动通过）
+        await SubmitAsync(flowCode, 9601); // 留在待办
+
+        var stats = await querySvc.GetStatisticsAsync(new FlowStatsQueryDto
+        {
+            BeginTime = DateTime.Now.AddHours(-1), EndTime = DateTime.Now.AddHours(1)
+        });
+
+        var row = stats.ByFlow.FirstOrDefault(x => x.FlowCode == flowCode);
+        Assert.NotNull(row);
+        Assert.Equal(2, row!.Total);
+        Assert.Equal(1, row.Running);
+        Assert.Equal(1, row.Approved);
+
+        // 审批人姓名为 CreateUserAsync 生成的昵称（"统计审批人"），按昵称查
+        var approver = stats.ByApprover.FirstOrDefault(x => x.UserName == approverNick);
+        Assert.NotNull(approver);
+        Assert.Equal(1, approver!.Approved);
+        Assert.True(approver.Pending >= 1);
+    }
+
+    [Fact]
     public async Task Delegation_Active_ShouldRouteTaskToAgent()
     {
         var (submitter, delegator, agent) =

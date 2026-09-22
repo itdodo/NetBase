@@ -358,6 +358,34 @@ public class FlowEngineTests
     }
 
     [Fact]
+    public async Task Delegation_Active_ShouldRouteTaskToAgent()
+    {
+        var (submitter, delegator, agent) =
+            (await CreateUserAsync("委托提交人"), await CreateUserAsync("委托人"), await CreateUserAsync("代理人"));
+        var delegateRepo = _fixture.GetRepository<SysFlowDelegate>();
+        await delegateRepo.InsertAsync(new SysFlowDelegate
+        {
+            DelegatorId = delegator, DelegatorName = "委托人",
+            AgentId = agent, AgentName = "代理人",
+            StartTime = DateTime.Now.AddHours(-1), EndTime = DateTime.Now.AddDays(3), Status = 1
+        });
+
+        // 流程审批人=委托人 → 提交后待办应落到代理人
+        await CreateEnabledFlowAsync("delegate_flow", Chain(Approval("n1", "审批", FlowNodeMode.OrSign, delegator)));
+        IntegrationFixture.SetOperator($"user-{submitter}", submitter);
+        var instanceId = await SubmitAsync("delegate_flow", 9500);
+
+        var agentTask = await PendingTaskOfAsync(instanceId, agent);
+        Assert.Equal("代理人", agentTask.ApproverName);
+        Assert.Empty(await _taskRepo.GetListAsync(t => t.InstanceId == instanceId && t.ApproverUserId == delegator));
+
+        // 代理人审批通过 → 实例通过
+        IntegrationFixture.SetOperator($"user-{agent}", agent);
+        await _engine.ActAsync(agentTask.Id, FlowAction.Approve, "代审");
+        Assert.Equal(FlowInstanceStatus.Approved, (await InstanceOfAsync(instanceId)).Status);
+    }
+
+    [Fact]
     public async Task CounterSign_RatioReached_ShouldPassAndVoidRemainder()
     {
         var submitter = await CreateUserAsync("比例提交人");

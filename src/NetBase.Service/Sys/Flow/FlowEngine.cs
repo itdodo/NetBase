@@ -83,6 +83,7 @@ public class FlowEngine(
     IRepository<SysPosition> positionRepository,
     IRepository<SysUserPosition> userPositionRepository,
     IRepository<SysFlowCc> ccRepository,
+    IRepository<SysFlowDelegate> delegateRepository,
     ApproverResolver approverResolver,
     INotifyService notifyService,
     IOperatorProvider operatorProvider,
@@ -253,8 +254,8 @@ public class FlowEngine(
 
         // 退回至审批节点：重新解析审批人并生成待办（模式沿用节点定义）
         var node = graph.Index[returnNodeCode];
-        var approvers = await approverResolver.ResolveAsync(
-            node.Approvers ?? [], instance.SubmitterDeptId, ReadChoices(instance, node.Code));
+        var approvers = await ApplyDelegationAsync(await approverResolver.ResolveAsync(
+            node.Approvers ?? [], instance.SubmitterDeptId, ReadChoices(instance, node.Code)));
         foreach (var approver in approvers)
         {
             await InsertTaskAsync(instance, node.Code, node.Name ?? node.Code, node.Mode,
@@ -544,8 +545,8 @@ public class FlowEngine(
     /// </summary>
     private async Task<bool> EnterApprovalAsync(SysFlowInstance instance, FlowNode node)
     {
-        var approvers = await approverResolver.ResolveAsync(
-            node.Approvers ?? [], instance.SubmitterDeptId, ReadChoices(instance, node.Code));
+        var approvers = await ApplyDelegationAsync(await approverResolver.ResolveAsync(
+            node.Approvers ?? [], instance.SubmitterDeptId, ReadChoices(instance, node.Code)));
 
         // 本实例已产生审批结论的人（跨节点去重：重复审批人自动通过）；
         // 发生过「驳回至节点」后关闭该规则——退回重审时后续节点须重新审批
@@ -750,6 +751,30 @@ public class FlowEngine(
             }
         }
         return result.Distinct().ToList();
+    }
+
+    /// <summary>
+    /// 应用审批委托：审批人存在生效中的委托（时间段覆盖当前）时，任务改由代理人审批。
+    /// 仅影响新生成的任务；已生成的待办不迁移。委托给自己无效。
+    /// </summary>
+    private async Task<List<FlowApprover>> ApplyDelegationAsync(List<FlowApprover> approvers)
+    {
+        if (approvers.Count == 0)
+        {
+            return approvers;
+        }
+        var now = DateTime.Now;
+        var result = new List<FlowApprover>(approvers.Count);
+        foreach (var approver in approvers)
+        {
+            var delegation = await delegateRepository.GetFirstAsync(
+                x => x.DelegatorId == approver.UserId && x.Status == 1
+                     && x.StartTime <= now && x.EndTime > now);
+            result.Add(delegation != null && delegation.AgentId != approver.UserId
+                ? new FlowApprover(delegation.AgentId, delegation.AgentName)
+                : approver);
+        }
+        return result;
     }
 
     /// <summary>读取发起人自选审批人（节点级 __choice_{code}）</summary>

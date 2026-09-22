@@ -288,6 +288,32 @@ public class FlowBindingController(ISysFlowBindingService bindingService,
     }
 }
 
+/// <summary>审批委托代理：委托人时间段内的新待办自动转由代理人审批</summary>
+[ApiController]
+[Route("api/v1/sys/flow/delegate")]
+[Authorize]
+public class FlowDelegateController(ISysFlowDelegateService delegateService,
+    ICurrentUserService currentUserService) : BaseController(currentUserService)
+{
+    /// <summary>我的委托列表</summary>
+    [HttpGet]
+    public async Task<ApiResult<List<FlowDelegateDto>>> My() => Success(await delegateService.GetMyListAsync());
+
+    /// <summary>创建委托</summary>
+    [NoRepeatSubmit]
+    [HttpPost]
+    public async Task<ApiResult<string>> Create([FromBody] FlowDelegateCreateDto dto) =>
+        SuccessId(await delegateService.CreateAsync(dto), "委托已创建：时间段内的新审批将转由代理人处理");
+
+    /// <summary>删除委托（仅本人的）</summary>
+    [HttpDelete("{id:long}")]
+    public async Task<ApiResult> Delete(long id)
+    {
+        await delegateService.DeleteAsync(id);
+        return Success();
+    }
+}
+
 /// <summary>审批流提交入口（业务单据页调用）</summary>
 [ApiController]
 [Route("api/v1/sys/flow")]

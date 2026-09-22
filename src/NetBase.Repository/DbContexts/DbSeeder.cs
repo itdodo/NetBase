@@ -665,6 +665,7 @@ public class DbSeeder
             ("menu:flow:todo", "AlarmClock"),
             ("menu:flow:done", "Finished"),
             ("menu:flow:mine", "DocumentAdd"),
+            ("menu:flow:delegate", "Connection"),
             ("biz:expense:list", "Money"),
             ("biz:purchase:list", "ShoppingCart")
         ];
@@ -781,7 +782,8 @@ public class DbSeeder
             ("我的待办", "/personal/todo", "flow/todo/index", "menu:flow:todo", 1),
             ("我的已办", "/personal/done", "flow/done/index", "menu:flow:done", 2),
             ("我的申请", "/personal/mine", "flow/mine/index", "menu:flow:mine", 3),
-            ("抄送我的", "/personal/cc", "flow/cc/index", "menu:flow:cc", 4)
+            ("抄送我的", "/personal/cc", "flow/cc/index", "menu:flow:cc", 4),
+            ("委托设置", "/personal/delegate", "flow/delegate/index", "menu:flow:delegate", 5)
         ];
 
         foreach (var spec in pages)

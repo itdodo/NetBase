@@ -79,6 +79,7 @@ public class SystemJobService(
     IRepository<SysRole> roleRepository,
     IRepository<SysUserRole> userRoleRepository,
     IRepository<SysUserSession> userSessionRepository,
+    NetBase.Service.Sys.Flow.IFlowEngine flowEngine,
     IBackupService backupService,
     IOptions<BackupOptions> backupOptions,
     IBackgroundJobClient backgroundJobClient,
@@ -95,7 +96,9 @@ public class SystemJobService(
         (BackupJobId, "数据备份（SqlServer 全量 + 上传文件镜像）", "0 3 * * *",
             svc => svc.RunBackupAsync()),
         ("sys.notice.publish", "公告定时发布（每分钟检查到期定时公告）", "* * * * *",
-            svc => svc.RunNoticePublishAsync())
+            svc => svc.RunNoticePublishAsync()),
+        ("sys.flow.remind", "审批超时提醒（每早 9 点提醒超期待办）", "0 9 * * *",
+            svc => svc.RunFlowRemindAsync())
     ];
 
     public void RegisterJobs()
@@ -148,6 +151,22 @@ public class SystemJobService(
         if (count > 0)
         {
             logger.LogInformation("公告定时发布: {Count} 条已发布", count);
+        }
+    }
+
+    /// <summary>审批超时提醒：待办超过 sys.flow.remindDays 天（默认 3，0=关闭）未处理，站内信提醒审批人</summary>
+    [DisableConcurrentExecution(timeoutInSeconds: 60)]
+    public async Task RunFlowRemindAsync()
+    {
+        var remindDays = await configService.GetIntConfigAsync("sys.flow.remindDays", 3);
+        if (remindDays <= 0)
+        {
+            return;
+        }
+        var reminded = await flowEngine.RemindOverdueAsync(remindDays);
+        if (reminded > 0)
+        {
+            logger.LogInformation("审批超时提醒: 已提醒 {Count} 个待办", reminded);
         }
     }
 

@@ -25,8 +25,8 @@
 dotnet build                                # 后端构建（0 警告 0 错误基线）
 dotnet test                                 # 全部测试（37 单元 + 43 集成）
 cd web && npm run type-check                # 前端类型检查
-cd web && npm run dev                       # 启动前端（5173，代理 5026）
-cd src/NetBase.Api && dotnet run            # 启动后端（5026）
+cd web && npm run dev                       # 启动前端（5173，代理 5306）
+cd src/NetBase.Api && dotnet run            # 启动后端（5306）
 ```
 
 ## 提醒

@@ -63,6 +63,12 @@ public interface IFlowEngine
 
     /// <summary>撤回：仅发起人、且尚无人处理时</summary>
     Task WithdrawAsync(long instanceId);
+
+    /// <summary>催办：发起人对运行中实例催促当前审批人（4 小时内仅一次）</summary>
+    Task UrgeAsync(long instanceId);
+
+    /// <summary>超时自动提醒：待办超过 remindDays 天未处理的审批人收到站内信催办（返回提醒条数）</summary>
+    Task<int> RemindOverdueAsync(int remindDays);
 }
 
 public class FlowEngine(
@@ -369,6 +375,88 @@ public class FlowEngine(
             await FinishCoreAsync(instance, FlowInstanceStatus.Revoked, "发起人撤回");
             return true;
         });
+    }
+
+    /// <summary>催办：发起人对运行中实例催促当前审批人（4 小时内仅一次）</summary>
+    public async Task UrgeAsync(long instanceId)
+    {
+        var userId = operatorProvider.OperatorUserId ?? throw new BusinessException("未登录");
+        var instance = await instanceRepository.GetByIdAsync(instanceId)
+                       ?? throw new BusinessException("流程实例不存在");
+        if (instance.SubmitterId != userId)
+        {
+            throw new BusinessException("仅发起人可催办");
+        }
+        EnsureRunning(instance);
+
+        // 限频：4 小时内已催办过则拒绝（查催办流转记录）
+        var recent = await recordRepository.AnyAsync(r => r.InstanceId == instanceId
+            && r.Action == "urge" && r.ActTime >= DateTime.Now.AddHours(-4));
+        if (recent)
+        {
+            throw new BusinessException("4 小时内已催办过，请稍后再试");
+        }
+
+        var pending = await taskRepository.GetListAsync(
+            t => t.InstanceId == instanceId && t.Status == FlowTaskStatus.Pending);
+        if (pending.Count == 0)
+        {
+            throw new BusinessException("当前没有待处理的审批任务");
+        }
+
+        var approverIds = pending.Select(t => t.ApproverUserId).Distinct().ToList();
+        await RecordAsync(instanceId, "urge", instance.CurrentNodeCode, userId,
+            instance.SubmitterName, "发起人催办");
+        await NotifyTaskUsersAsync(instance, approverIds, "【催办】");
+    }
+
+    /// <summary>超时自动提醒：待办创建超过 remindDays 天未处理，按任务提醒审批人（每天每任务最多一次）</summary>
+    public async Task<int> RemindOverdueAsync(int remindDays)
+    {
+        if (remindDays <= 0)
+        {
+            return 0;
+        }
+        var deadline = DateTime.Now.AddDays(-remindDays);
+        var overdue = await taskRepository.GetListAsync(
+            t => t.Status == FlowTaskStatus.Pending && t.CreateTime <= deadline);
+        if (overdue.Count == 0)
+        {
+            return 0;
+        }
+
+        var reminded = 0;
+        foreach (var group in overdue.GroupBy(t => t.InstanceId))
+        {
+            // 每实例每天最多提醒一次（查催办/提醒记录防重复轰炸）
+            var todayReminded = await recordRepository.AnyAsync(
+                r => r.InstanceId == group.Key && r.Action == "urge" && r.ActTime >= DateTime.Now.Date);
+            if (todayReminded)
+            {
+                continue;
+            }
+
+            var instance = await instanceRepository.GetByIdAsync(group.Key);
+            if (instance == null || instance.Status != FlowInstanceStatus.Running)
+            {
+                continue;
+            }
+
+            var userIds = group.Select(t => t.ApproverUserId).Distinct().ToList();
+            await RecordAsync(instance.Id, "urge", instance.CurrentNodeCode, 0, "system",
+                $"待办超过 {remindDays} 天未处理，系统自动提醒");
+            await notifyService.PushToUsersAsync(userIds, new NoticePayload
+            {
+                MsgType = 3,
+                Title = $"【超时提醒】{instance.Summary}",
+                Content = $"该审批已超过 {remindDays} 天未处理，请尽快处理",
+                SenderName = "system",
+                BizType = TaskBizType,
+                BizId = instance.Id.ToString()
+            });
+            reminded += userIds.Count;
+        }
+        return reminded;
     }
 
     // ---------------- 节点游走（调用方须已在事务内） ----------------
@@ -716,7 +804,7 @@ public class FlowEngine(
         });
     }
 
-    private async Task NotifyTaskUsersAsync(SysFlowInstance instance, List<long> userIds)
+    private async Task NotifyTaskUsersAsync(SysFlowInstance instance, List<long> userIds, string titlePrefix = "【待审批】")
     {
         if (userIds.Count == 0)
         {
@@ -725,7 +813,7 @@ public class FlowEngine(
         await notifyService.PushToUsersAsync(userIds, new NoticePayload
         {
             MsgType = 3,
-            Title = $"【待审批】{instance.Summary}",
+            Title = $"{titlePrefix}{instance.Summary}",
             Content = $"{instance.SubmitterName} 提交的审批等待您处理",
             SenderName = instance.SubmitterName,
             BizType = TaskBizType,

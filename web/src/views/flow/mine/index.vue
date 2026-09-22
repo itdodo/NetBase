@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import type { FlowInstance, FlowInstanceDetail } from '@/api/flow'
-import { FLOW_INSTANCE_STATUS, getFlowInstanceDetail, withdrawFlowInstance } from '@/api/flow'
+import { FLOW_INSTANCE_STATUS, getFlowInstanceDetail, urgeFlowInstance, withdrawFlowInstance } from '@/api/flow'
 import { formatDateTime } from '@/utils/format'
 import { usePageList } from '@/composables/usePageList'
 import FlowTimeline from '@/components/flow/FlowTimeline.vue'
@@ -44,6 +44,13 @@ async function openDetail(row: FlowInstance): Promise<void> {
   } finally {
     detailLoading.value = false
   }
+}
+
+/** 催办：提醒当前审批人尽快处理（4 小时内仅一次，后端限频） */
+async function handleUrge(): Promise<void> {
+  if (!detail.value) return
+  await urgeFlowInstance(detail.value.instance.id)
+  ElMessage.success('已提醒审批人尽快处理')
 }
 
 async function handleWithdraw(): Promise<void> {
@@ -115,8 +122,9 @@ onMounted(loadData)
             </el-tab-pane>
             <el-tab-pane label="审批记录" name="flow">
               <FlowTimeline :instance-id="detail.instance.id" />
-              <div v-if="detail.canWithdraw" class="withdraw-row">
-                <el-button type="warning" plain @click="handleWithdraw">撤回此审批</el-button>
+              <div v-if="detail.instance.status === 1" class="withdraw-row">
+                <el-button type="primary" plain @click="handleUrge">催办</el-button>
+                <el-button v-if="detail.canWithdraw" type="warning" plain @click="handleWithdraw">撤回</el-button>
               </div>
             </el-tab-pane>
           </el-tabs>

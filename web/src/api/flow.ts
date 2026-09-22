@@ -177,6 +177,10 @@ export const getFlowInstanceByBusiness = (businessTable: string, businessId: str
 export const getFlowCcMe = (params: Partial<PageQuery & { keyword?: string; flowCode?: string; status?: number }>) =>
   request.get<never, PageResult<FlowInstance>>('/sys/flow/instance/cc-me', { params })
 
+/** 催办（发起人对运行中实例催促当前审批人，4 小时内仅一次） */
+export const urgeFlowInstance = (id: string | number) =>
+  request.post<never, void>(`/sys/flow/instance/${id}/urge`)
+
 export const withdrawFlowInstance = (id: string | number) =>
   request.post<never, void>(`/sys/flow/instance/${id}/withdraw`)
 

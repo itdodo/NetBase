@@ -888,8 +888,9 @@ public class DbSeeder
             ("sys.login.failThreshold", "5", "登录失败锁定阈值", "连续失败达到该次数后锁定账号"),
             ("sys.login.lockMinutes", "10", "登录锁定时长(分钟)", "账号锁定持续时间"),
             ("sys.captcha.enabled", "true", "登录图形验证码开关", "设为 false 关闭验证码（内网场景）"),
-            ("sys.pwd.expireDays", "0", "密码有效期（天）", "0=不启用；启用后登录时超期将要求强制修改密码"),
-            ("sys.login.kickSameUser", "0", "同账号互踢", "1=新登录踢旧端（单点在线）；0=允许多端在线")
+            ("sys.flow.remindDays", "3", "审批超时提醒天数", "0=不启用；待办超期自动站内信提醒审批人"),
+            ("sys.login.kickSameUser", "1", "同账号互踢", "1=新登录踢旧端（单点在线）；0=允许多端在线"),
+            ("sys.pwd.expireDays", "0", "密码有效期（天）", "0=不启用；启用后登录时超期将要求强制修改密码")
         ];
 
         foreach (var spec in configs)

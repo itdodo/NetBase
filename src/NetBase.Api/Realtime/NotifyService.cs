@@ -17,16 +17,24 @@ public class NotifyService(
     {
         foreach (var userId in userIds.Distinct())
         {
-            // 落库：离线用户登录后可在通知中心看到
-            await messageService.SendAsync(new MessageSendDto
+            // 落库：离线用户登录后可在通知中心看到。
+            // 通知是尽力而为的辅助通道：接收人已删除/停用时跳过落库（仅推在线连接），不阻断引擎主流程
+            try
             {
-                ReceiverId = userId,
-                Title = notice.Title,
-                Content = notice.Content,
-                MsgType = notice.MsgType,
-                BizType = notice.BizType,
-                BizId = notice.BizId
-            }, notice.SenderName ?? "system");
+                await messageService.SendAsync(new MessageSendDto
+                {
+                    ReceiverId = userId,
+                    Title = notice.Title,
+                    Content = notice.Content,
+                    MsgType = notice.MsgType,
+                    BizType = notice.BizType,
+                    BizId = notice.BizId
+                }, notice.SenderName ?? "system");
+            }
+            catch (Common.Exceptions.BusinessException)
+            {
+                // 接收人不存在（已删除）——跳过落库继续
+            }
 
             // 在线实时推
             await PushConnectionsAsync(userId, notice);

@@ -237,6 +237,15 @@ public class FlowInstanceController(IFlowEngine engine, IFlowQueryService queryS
     public async Task<ApiResult<PageResult<FlowCcViewDto>>> CcMe([FromQuery] FlowCcQueryDto query) =>
         Success(await queryService.GetCcMePageAsync(query));
 
+    /// <summary>催办：发起人对运行中实例催促当前审批人（4 小时内仅一次）</summary>
+    [Authorize]
+    [HttpPost("{id:long}/urge")]
+    public async Task<ApiResult> Urge(long id)
+    {
+        await engine.UrgeAsync(id);
+        return Success("已提醒审批人尽快处理");
+    }
+
     /// <summary>撤回（仅发起人、审批尚未开始处理）</summary>
     [NoRepeatSubmit]
     [Authorize]

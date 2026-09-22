@@ -58,6 +58,12 @@ public class FlowNode
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public FlowNodeMode Mode { get; set; } = FlowNodeMode.OrSign;
 
+    /// <summary>
+    /// 会签通过比例（百分比 1-100，默认 100=全员通过；仅会签模式生效）：
+    /// 同意数（含自动通过）达到 ceil(参与人数 × 比例%) 即节点通过，剩余待办作废。
+    /// </summary>
+    public int ApproveRatio { get; set; } = 100;
+
     /// <summary>审批人规则（approval 节点，多规则取并集）</summary>
     public List<ApproverRule>? Approvers { get; set; }
 

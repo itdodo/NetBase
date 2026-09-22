@@ -23,6 +23,8 @@ interface DesignerNode {
   type: 'approval' | 'condition' | 'cc'
   name: string
   mode: 'counterSign' | 'orSign' | 'sequential'
+  /** 会签通过比例（百分比，默认 100=全员通过；仅会签生效） */
+  approveRatio: number
   /** 审批人规则（提交给后端的规范结构） */
   approvers: Array<{ type: 'user' | 'role' | 'position' | 'deptLeader'; userIds: number[]; roleCodes: string[]; positionCodes: string[]; scope: string; deptId: number }>
   branches: Array<{ name: string; variable: string; op: string; value: string; next: string }>
@@ -90,6 +92,7 @@ function toDesigner(raw: any): DesignerNode {
       scope: r.scope ?? 'company',
       deptId: r.deptId ?? 0
     })),
+    approveRatio: raw.approveRatio ?? 100,
     branches: (raw.branches ?? []).map((b: any) => ({
       name: b.name ?? '',
       variable: b.conditions?.[0]?.variable ?? '',
@@ -111,6 +114,7 @@ function exportModel(): string {
     if (n.type === 'approval') {
       graphNodes.push({
         code: n.code, type: 'approval', name: n.name, mode: n.mode, next,
+        ...(n.mode === 'counterSign' && n.approveRatio < 100 ? { approveRatio: n.approveRatio } : {}),
         approvers: n.approvers.map((r) => ({
           type: r.type,
           ...(r.type === 'user' ? { userIds: r.userIds } : {}),
@@ -157,6 +161,7 @@ function newNode(type: DesignerNode['type']): DesignerNode {
     type,
     name: type === 'approval' ? '审批' : type === 'condition' ? '条件分支' : '抄送',
     mode: 'orSign',
+    approveRatio: 100,
     approvers: type === 'approval' ? [{ type: 'user', userIds: [], roleCodes: [], positionCodes: [], scope: 'company', deptId: 0 }] : [],
     branches: type === 'condition'
       ? [{ name: '', variable: 'amount', op: 'lt', value: '', next: '' }]
@@ -258,7 +263,8 @@ function nodeSummary(n: DesignerNode): string {
         : r.type === 'role' ? `角色×${r.roleCodes.length}`
         : r.type === 'position' ? `岗位×${r.positionCodes.length}`
         : '部门主管')
-    return `${MODE_LABEL[n.mode]} · ${parts.join(' / ')}`
+    const ratio = n.mode === 'counterSign' && n.approveRatio < 100 ? `（${n.approveRatio}% 通过）` : ''
+    return `${MODE_LABEL[n.mode]}${ratio} · ${parts.join(' / ')}`
   }
   if (n.type === 'condition') {
     return `${n.branches.length} 个分支`
@@ -371,6 +377,15 @@ defineExpose({
                 <el-radio value="counterSign">会签（全部通过才过）</el-radio>
                 <el-radio value="sequential">依次审批</el-radio>
               </el-radio-group>
+            </el-form-item>
+            <el-form-item v-if="editing.mode === 'counterSign'" label="通过比例">
+              <el-input-number
+                v-model="editing.approveRatio"
+                :min="1"
+                :max="100"
+                style="width: 140px"
+              />
+              <span class="ratio-tip">% 通过即节点通过（100 = 全员）</span>
             </el-form-item>
             <el-form-item
               v-for="(rule, ri) in editing.approvers"
@@ -532,6 +547,12 @@ defineExpose({
   padding: 8px 0;
   display: flex;
   justify-content: center;
+}
+
+.ratio-tip {
+  margin-left: 8px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 
 .rule-row,

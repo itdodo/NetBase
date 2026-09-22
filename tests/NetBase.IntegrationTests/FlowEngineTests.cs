@@ -358,6 +358,44 @@ public class FlowEngineTests
     }
 
     [Fact]
+    public async Task CounterSign_RatioReached_ShouldPassAndVoidRemainder()
+    {
+        var submitter = await CreateUserAsync("比例提交人");
+        var (a, b, c) = (await CreateUserAsync("会签甲"), await CreateUserAsync("会签乙"), await CreateUserAsync("会签丙"));
+        var n1 = new FlowNode
+        {
+            Code = "n1", Type = FlowNodeType.Approval, Name = "半数会签", Mode = FlowNodeMode.CounterSign,
+            ApproveRatio = 50,
+            Approvers = [new ApproverRule { Type = FlowApproverType.User, UserIds = [a, b, c] }]
+        };
+        var graph = new FlowGraph
+        {
+            Nodes = [new FlowNode { Code = "start", Type = FlowNodeType.Start, Next = "n1" }, n1,
+                     new FlowNode { Code = "end", Type = FlowNodeType.End }]
+        };
+        n1.Next = "end";
+        await CreateEnabledFlowAsync("ratio_flow", graph);
+
+        IntegrationFixture.SetOperator($"user-{submitter}", submitter);
+        var instanceId = await SubmitAsync("ratio_flow", 9400);
+
+        // 3 人各拿到待办；甲乙同意（2/3 ≥ ceil(3×50%)=2）→ 节点通过，丙的待办作废
+        var tA = await PendingTaskOfAsync(instanceId, a);
+        var tB = await PendingTaskOfAsync(instanceId, b);
+        var tC = await PendingTaskOfAsync(instanceId, c);
+        IntegrationFixture.SetOperator($"user-{a}", a);
+        await _engine.ActAsync(tA.Id, FlowAction.Approve, "甲同意");
+        IntegrationFixture.SetOperator($"user-{b}", b);
+        await _engine.ActAsync(tB.Id, FlowAction.Approve, "乙同意");
+
+        var final = await InstanceOfAsync(instanceId);
+        Assert.Equal(FlowInstanceStatus.Approved, final.Status); // 达比例即整体通过
+
+        var taskC = await _taskRepo.GetByIdAsync(tC.Id);
+        Assert.Equal(FlowTaskStatus.Voided, taskC!.Status); // 丙的待办被作废
+    }
+
+    [Fact]
     public async Task PositionApprover_SubmitterDeptScope_ShouldFilterByDept()
     {
         // 岗位+发起人所在部门范围：同岗位、不同部门的人不应被解析

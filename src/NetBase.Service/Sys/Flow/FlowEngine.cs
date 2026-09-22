@@ -203,8 +203,11 @@ public class FlowEngine(
                 return true;
             }
 
-            // 同意：按模式判定节点是否完成（会签等他人 / 依次升下一位）
-            if (await CompleteOrWaitAsync(instance, task))
+            // 同意：按模式判定节点是否完成（会签等他人或达比例 / 依次升下一位）
+            var actedNode = task.NodeCode != null && graph.Index.TryGetValue(task.NodeCode, out var defNode)
+                ? defNode
+                : null; // 后加签追加节点不在图索引内（或签，无比例语义）
+            if (await CompleteOrWaitAsync(instance, task, actedNode))
             {
                 if (task.NodeCode == "start")
                 {
@@ -615,8 +618,8 @@ public class FlowEngine(
         return int.MaxValue;
     }
 
-    /// <summary>按节点模式判定：本任务处理后节点是否完成（true=完成可前进，false=等待）</summary>
-    private async Task<bool> CompleteOrWaitAsync(SysFlowInstance instance, SysFlowTask task)
+    /// <summary>按节点模式判定：本任务处理后节点是否完成（true=完成可前进，false=等待）；node 为节点定义（追加节点为 null）</summary>
+    private async Task<bool> CompleteOrWaitAsync(SysFlowInstance instance, SysFlowTask task, FlowNode? node = null)
     {
         var nodeTasks = await taskRepository.GetListAsync(
             t => t.InstanceId == instance.Id && t.NodeCode == task.NodeCode);
@@ -636,10 +639,39 @@ public class FlowEngine(
                 return true;
 
             case FlowNodeMode.CounterSign:
-                // 全员有结论（同意/自动/转办替换/失效）才算过；任一拒绝在 Reject 分支已终止
+            {
+                // 参与人数 = 待出结论的任务（同意/自动通过/待办/等待）；转办由新任务接替、失效不参与
+                var eligible = nodeTasks.Count(t =>
+                    t.Status is FlowTaskStatus.Approved or FlowTaskStatus.AutoPassed
+                        or FlowTaskStatus.Pending or FlowTaskStatus.Waiting);
+                var approvedCount = nodeTasks.Count(t =>
+                    t.Status is FlowTaskStatus.Approved or FlowTaskStatus.AutoPassed);
+
+                var ratio = node is { ApproveRatio: > 0 and < 100 } ? node.ApproveRatio : 100;
+                if (ratio < 100)
+                {
+                    var required = (int)Math.Ceiling(eligible * ratio / 100.0);
+                    if (approvedCount >= required)
+                    {
+                        // 达到比例：作废剩余待办，节点通过
+                        foreach (var other in nodeTasks.Where(t => t.Id != task.Id
+                                     && (t.Status == FlowTaskStatus.Pending || t.Status == FlowTaskStatus.Waiting)))
+                        {
+                            other.Status = FlowTaskStatus.Voided;
+                            other.ActTime = DateTime.Now;
+                            other.Comment = "会签已达通过比例，任务失效";
+                            await taskRepository.UpdateAsync(other);
+                        }
+                        return true;
+                    }
+                    return false; // 未达比例：等待
+                }
+
+                // 100%：全员有结论（同意/自动/转办替换/失效）才算过；任一拒绝在 Reject 分支已终止
                 return nodeTasks.All(t =>
                     t.Status is FlowTaskStatus.Approved or FlowTaskStatus.AutoPassed
                         or FlowTaskStatus.Voided or FlowTaskStatus.Transferred);
+            }
 
             case FlowNodeMode.Sequential:
             {

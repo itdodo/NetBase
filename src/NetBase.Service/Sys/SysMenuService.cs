@@ -37,7 +37,7 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
         if (roleId.HasValue)
         {
             _ = await _roleRepository.GetByIdAsync(roleId.Value)
-                ?? throw new BusinessException($"角色不存在（Id={roleId}）", ApiResultCode.NotFound);
+                ?? throw new BusinessException($"角色不存在（Id={roleId}）", ApiResultCode.NotFound, ErrorCodes.SYS_ROLE_NOT_FOUND);
 
             menus = FilterByVisibleIds(menus, [await CollectRoleVisibleIdsAsync(roleId.Value)]);
         }
@@ -110,7 +110,7 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
         Validate(dto);
         if (dto.ParentId != 0 && !await Repository.AnyAsync(x => x.Id == dto.ParentId))
         {
-            throw new BusinessException("父级菜单不存在", ApiResultCode.BadRequest);
+            throw new BusinessException("父级菜单不存在", ApiResultCode.BadRequest, ErrorCodes.SYS_MENU_PARENT_NOT_FOUND);
         }
 
         var menu = new SysMenu
@@ -137,15 +137,15 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
         Validate(dto);
         if (dto.ParentId == id)
         {
-            throw new BusinessException("父级菜单不能是自身", ApiResultCode.BadRequest);
+            throw new BusinessException("父级菜单不能是自身", ApiResultCode.BadRequest, ErrorCodes.SYS_MENU_PARENT_SELF);
         }
         if (dto.ParentId != 0 && !await Repository.AnyAsync(x => x.Id == dto.ParentId))
         {
-            throw new BusinessException("父级菜单不存在", ApiResultCode.BadRequest);
+            throw new BusinessException("父级菜单不存在", ApiResultCode.BadRequest, ErrorCodes.SYS_MENU_PARENT_NOT_FOUND);
         }
         if (dto.ParentId != 0 && await IsDescendantAsync(id, dto.ParentId))
         {
-            throw new BusinessException("父级菜单不能是自身的子孙节点", ApiResultCode.BadRequest);
+            throw new BusinessException("父级菜单不能是自身的子孙节点", ApiResultCode.BadRequest, ErrorCodes.SYS_MENU_PARENT_CYCLE);
         }
 
         menu.ParentId = dto.ParentId;
@@ -171,11 +171,11 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
         var menu = await GetRequiredAsync(id);
         if (await Repository.AnyAsync(x => x.ParentId == id))
         {
-            throw new BusinessException("存在子菜单，不允许删除");
+            throw new BusinessException("存在子菜单，不允许删除", ErrorCodes.SYS_MENU_HAS_CHILDREN);
         }
         if (await _roleMenuRepository.AnyAsync(x => x.MenuId == id))
         {
-            throw new BusinessException("菜单已被角色引用，请先取消角色授权");
+            throw new BusinessException("菜单已被角色引用，请先取消角色授权", ErrorCodes.SYS_MENU_IN_USE);
         }
 
         menu.UpdateBy = operatorName;
@@ -208,11 +208,11 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
     {
         if (dto.MenuName.IsNullOrWhiteSpace())
         {
-            throw new BusinessException("菜单名称不能为空", ApiResultCode.BadRequest);
+            throw new BusinessException("菜单名称不能为空", ApiResultCode.BadRequest, ErrorCodes.SYS_MENU_NAME_REQUIRED);
         }
         if (dto.MenuType is < 1 or > 3)
         {
-            throw new BusinessException("菜单类型无效（1-目录 2-菜单 3-按钮）", ApiResultCode.BadRequest);
+            throw new BusinessException("菜单类型无效（1-目录 2-菜单 3-按钮）", ApiResultCode.BadRequest, ErrorCodes.SYS_MENU_TYPE_INVALID);
         }
     }
 

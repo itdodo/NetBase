@@ -49,7 +49,7 @@ public class SysAuthService(
             {
                 // 密码错误（不泄露账号是否存在）
                 await WriteLoginLogAsync(userName, 0, false, "用户名或密码错误", loginIp, userAgent);
-                throw new BusinessException("用户名或密码错误", ApiResultCode.BadRequest);
+                throw new BusinessException("用户名或密码错误", ApiResultCode.BadRequest, ErrorCodes.AUTH_BAD_CREDENTIALS);
             }
 
             await WriteLoginLogAsync(userName, result.User.Id, true, "登录成功", loginIp, userAgent);
@@ -71,13 +71,13 @@ public class SysAuthService(
     {
         if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(password))
         {
-            throw new BusinessException("用户名和密码不能为空", ApiResultCode.BadRequest);
+            throw new BusinessException("用户名和密码不能为空", ApiResultCode.BadRequest, ErrorCodes.AUTH_PARAM_MISSING);
         }
 
         // 图形验证码（系统参数 sys.captcha.enabled 可关闭，内网场景）
         if (await captchaService.IsEnabledAsync() && !await captchaService.ValidateAsync(captchaId ?? string.Empty, captchaCode ?? string.Empty))
         {
-            throw new BusinessException("验证码错误或已过期", ApiResultCode.BadRequest);
+            throw new BusinessException("验证码错误或已过期", ApiResultCode.BadRequest, ErrorCodes.AUTH_CAPTCHA_INVALID);
         }
 
         // 登录失败锁定：连续失败达阈值则锁定一段时间（阈值/时长支持参数配置）
@@ -87,7 +87,7 @@ public class SysAuthService(
         if (cacheService.Get<bool>(lockKey))
         {
             var lockMinutes = await GetLockMinutesAsync();
-            throw new BusinessException($"密码错误次数过多，账号已锁定，请 {lockMinutes} 分钟后重试", ApiResultCode.BadRequest);
+            throw new BusinessException($"密码错误次数过多，账号已锁定，请 {lockMinutes} 分钟后重试", ApiResultCode.BadRequest, ErrorCodes.AUTH_ACCOUNT_LOCKED);
         }
 
         var user = await userRepository.GetFirstAsync(x => x.UserName == userName);
@@ -108,7 +108,7 @@ public class SysAuthService(
 
         if (user.Status != (int)StatusEnum.Enabled)
         {
-            throw new BusinessException("账号已被停用，请联系管理员", ApiResultCode.Forbidden);
+            throw new BusinessException("账号已被停用，请联系管理员", ApiResultCode.Forbidden, ErrorCodes.AUTH_ACCOUNT_DISABLED);
         }
 
         cacheService.Remove(failKey);
@@ -130,20 +130,20 @@ public class SysAuthService(
     {
         if (string.IsNullOrWhiteSpace(refreshToken))
         {
-            throw new BusinessException("无效的刷新令牌", ApiResultCode.Unauthorized);
+            throw new BusinessException("无效的刷新令牌", ApiResultCode.Unauthorized, ErrorCodes.AUTH_REFRESH_TOKEN_INVALID);
         }
 
         var session = await sessionRepository.GetFirstAsync(x => x.RefreshTokenHash == HashToken(refreshToken));
         if (session == null || session.ExpireTime <= DateTime.Now)
         {
-            throw new BusinessException("登录已过期，请重新登录", ApiResultCode.Unauthorized);
+            throw new BusinessException("登录已过期，请重新登录", ApiResultCode.Unauthorized, ErrorCodes.AUTH_SESSION_EXPIRED);
         }
 
         var user = await userRepository.GetByIdAsync(session.UserId)
-            ?? throw new BusinessException("账号不存在", ApiResultCode.Unauthorized);
+            ?? throw new BusinessException("账号不存在", ApiResultCode.Unauthorized, ErrorCodes.AUTH_ACCOUNT_NOT_FOUND);
         if (user.Status != (int)StatusEnum.Enabled)
         {
-            throw new BusinessException("账号已被停用，请联系管理员", ApiResultCode.Forbidden);
+            throw new BusinessException("账号已被停用，请联系管理员", ApiResultCode.Forbidden, ErrorCodes.AUTH_ACCOUNT_DISABLED);
         }
 
         // 轮换：删除旧会话，签发全新 token 对
@@ -199,18 +199,18 @@ public class SysAuthService(
         var policyError = PasswordPolicy.Validate(newPassword);
         if (policyError != null)
         {
-            throw new BusinessException(policyError, ApiResultCode.BadRequest);
+            throw new BusinessException(policyError, ApiResultCode.BadRequest, ErrorCodes.AUTH_PWD_POLICY_VIOLATION);
         }
 
         var user = await userRepository.GetByIdAsync(userId)
-            ?? throw new BusinessException("账号不存在", ApiResultCode.Unauthorized);
+            ?? throw new BusinessException("账号不存在", ApiResultCode.Unauthorized, ErrorCodes.AUTH_ACCOUNT_NOT_FOUND);
         if (!PasswordHelper.Verify(oldPassword, user.Password))
         {
-            throw new BusinessException("旧密码不正确", ApiResultCode.BadRequest);
+            throw new BusinessException("旧密码不正确", ApiResultCode.BadRequest, ErrorCodes.AUTH_OLD_PWD_WRONG);
         }
         if (PasswordHelper.Verify(newPassword, user.Password))
         {
-            throw new BusinessException("新密码不能与旧密码相同", ApiResultCode.BadRequest);
+            throw new BusinessException("新密码不能与旧密码相同", ApiResultCode.BadRequest, ErrorCodes.AUTH_PWD_SAME_AS_OLD);
         }
 
         var hashed = PasswordHelper.Encrypt(newPassword);

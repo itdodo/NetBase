@@ -72,7 +72,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         var adminRoleId = await GetAdminRoleIdAsync();
         if (adminRoleId > 0 && roleIds.Contains(adminRoleId) && operatorName != AdminUserName)
         {
-            throw new BusinessException("仅内置管理员可以分配超级管理员角色", ApiResultCode.Forbidden);
+            throw new BusinessException("仅内置管理员可以分配超级管理员角色", ApiResultCode.Forbidden, ErrorCodes.SYS_USER_ADMIN_ROLE_GRANT_FORBIDDEN);
         }
     }
 
@@ -190,7 +190,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
     public async Task<UserDto?> GetDetailAsync(long id)
     {
         var user = await Repository.GetByIdAsync(id)
-            ?? throw new BusinessException($"用户不存在（Id={id}）", ApiResultCode.NotFound, "SYS_USER_NOT_FOUND");
+            ?? throw new BusinessException($"用户不存在（Id={id}）", ApiResultCode.NotFound, ErrorCodes.SYS_USER_NOT_FOUND);
         return (await ToDtosAsync([user]))[0];
     }
 
@@ -198,12 +198,12 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
     {
         if (dto.UserName.IsNullOrEmpty())
         {
-            throw new BusinessException("用户名不能为空", ApiResultCode.BadRequest);
+            throw new BusinessException("用户名不能为空", ApiResultCode.BadRequest, ErrorCodes.SYS_USER_NAME_REQUIRED);
         }
 
         if (await Repository.AnyAsync(x => x.UserName == dto.UserName))
         {
-            throw new BusinessException($"用户名 {dto.UserName} 已存在", ApiResultCode.BadRequest);
+            throw new BusinessException($"用户名 {dto.UserName} 已存在", ApiResultCode.BadRequest, ErrorCodes.SYS_USER_NAME_EXISTS);
         }
 
         if (dto.RoleIds.Count > 0)
@@ -217,12 +217,12 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         var policyError = PasswordPolicy.Validate(password, defaultPassword);
         if (policyError != null)
         {
-            throw new BusinessException(policyError, ApiResultCode.BadRequest);
+            throw new BusinessException(policyError, ApiResultCode.BadRequest, ErrorCodes.SYS_USER_PWD_POLICY_VIOLATION);
         }
         // 部门选填：传了才校验存在性；未分配落 0（数据权限按"未分配"处理）
         if (dto.DeptId.HasValue && !await DeptExistsAsync(dto.DeptId.Value))
         {
-            throw new BusinessException("所属部门不存在", ApiResultCode.BadRequest);
+            throw new BusinessException("所属部门不存在", ApiResultCode.BadRequest, ErrorCodes.SYS_USER_DEPT_NOT_FOUND);
         }
 
         var user = new SysUser
@@ -256,13 +256,13 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
 
         if (user.UserName == AdminUserName && dto.Status != (int)StatusEnum.Enabled)
         {
-            throw new BusinessException("不允许停用内置管理员账号");
+            throw new BusinessException("不允许停用内置管理员账号", ErrorCodes.SYS_USER_ADMIN_DISABLE_FORBIDDEN);
         }
 
         // 部门选填：传了才校验存在性；清空部门 = 未分配（0）
         if (dto.DeptId.HasValue && !await DeptExistsAsync(dto.DeptId.Value))
         {
-            throw new BusinessException("所属部门不存在", ApiResultCode.BadRequest);
+            throw new BusinessException("所属部门不存在", ApiResultCode.BadRequest, ErrorCodes.SYS_USER_DEPT_NOT_FOUND);
         }
 
         // 防提权/防降权：涉及超级管理员角色（授予任何用户）或修改 admin 账号的角色，仅限内置管理员本人
@@ -273,7 +273,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             await EnsureAdminRoleAssignmentAllowedAsync(dto.RoleIds, operatorName);
             if (targetIsAdmin && operatorName != AdminUserName)
             {
-                throw new BusinessException("内置管理员账号的角色仅允许本人修改", ApiResultCode.Forbidden);
+                throw new BusinessException("内置管理员账号的角色仅允许本人修改", ApiResultCode.Forbidden, ErrorCodes.SYS_USER_ADMIN_ROLE_SELF_ONLY);
             }
         }
 
@@ -310,7 +310,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         var user = await GetRequiredAsync(id);
         if (user.UserName == AdminUserName)
         {
-            throw new BusinessException("不允许删除内置管理员账号");
+            throw new BusinessException("不允许删除内置管理员账号", ErrorCodes.SYS_USER_ADMIN_DELETE_FORBIDDEN);
         }
 
         user.UpdateBy = operatorName;
@@ -333,7 +333,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         // 防接管：内置管理员账号的密码不允许被他人重置（本人走修改密码接口，需验旧密码）
         if (user.UserName == AdminUserName && operatorName != AdminUserName)
         {
-            throw new BusinessException("内置管理员账号的密码不允许重置", ApiResultCode.Forbidden);
+            throw new BusinessException("内置管理员账号的密码不允许重置", ApiResultCode.Forbidden, ErrorCodes.SYS_USER_ADMIN_RESET_FORBIDDEN);
         }
         var password = newPassword.IsNullOrEmpty() ? await GetDefaultPasswordAsync() : newPassword;
         var defaultPassword = await GetDefaultPasswordAsync();
@@ -341,7 +341,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         var policyError = PasswordPolicy.Validate(password, defaultPassword);
         if (policyError != null)
         {
-            throw new BusinessException(policyError, ApiResultCode.BadRequest);
+            throw new BusinessException(policyError, ApiResultCode.BadRequest, ErrorCodes.SYS_USER_PWD_POLICY_VIOLATION);
         }
         // 哈希在表达式外计算，闭包变量会被 SqlSugar 参数化；静态方法调用放入表达式树无法翻译
         var hashed = PasswordHelper.Encrypt(password);
@@ -503,7 +503,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         var existCount = await _roleRepository.CountAsync(x => roleIds.Contains(x.Id));
         if (existCount != roleIds.Distinct().Count())
         {
-            throw new BusinessException("存在无效的角色ID", ApiResultCode.BadRequest);
+            throw new BusinessException("存在无效的角色ID", ApiResultCode.BadRequest, ErrorCodes.SYS_USER_ROLE_INVALID);
         }
     }
 }

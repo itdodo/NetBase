@@ -74,7 +74,7 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
         Validate(dto);
         if (await Repository.AnyAsync(x => x.RoleCode == dto.RoleCode))
         {
-            throw new BusinessException($"角色编码 {dto.RoleCode} 已存在", ApiResultCode.BadRequest);
+            throw new BusinessException($"角色编码 {dto.RoleCode} 已存在", ApiResultCode.BadRequest, ErrorCodes.SYS_ROLE_CODE_EXISTS);
         }
 
         var role = new SysRole
@@ -99,13 +99,13 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
         var role = await GetRequiredAsync(id);
         if (role.RoleCode == AdminRoleCode && dto.Status != (int)StatusEnum.Enabled)
         {
-            throw new BusinessException("不允许停用内置管理员角色");
+            throw new BusinessException("不允许停用内置管理员角色", ErrorCodes.SYS_ROLE_ADMIN_DISABLE_FORBIDDEN);
         }
 
         Validate(dto);
         if (await Repository.AnyAsync(x => x.RoleCode == dto.RoleCode && x.Id != id))
         {
-            throw new BusinessException($"角色编码 {dto.RoleCode} 已存在", ApiResultCode.BadRequest);
+            throw new BusinessException($"角色编码 {dto.RoleCode} 已存在", ApiResultCode.BadRequest, ErrorCodes.SYS_ROLE_CODE_EXISTS);
         }
 
         role.RoleName = dto.RoleName;
@@ -149,7 +149,7 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
         var role = await GetRequiredAsync(id);
         if (role.RoleCode == AdminRoleCode)
         {
-            throw new BusinessException("不允许删除内置管理员角色");
+            throw new BusinessException("不允许删除内置管理员角色", ErrorCodes.SYS_ROLE_ADMIN_DELETE_FORBIDDEN);
         }
 
         role.UpdateBy = operatorName;
@@ -175,7 +175,7 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
             var existCount = await _menuRepository.CountAsync(x => distinct.Contains(x.Id));
             if (existCount != distinct.Count)
             {
-                throw new BusinessException("存在无效的菜单ID", ApiResultCode.BadRequest);
+                throw new BusinessException("存在无效的菜单ID", ApiResultCode.BadRequest, ErrorCodes.SYS_ROLE_MENU_INVALID);
             }
         }
 
@@ -217,11 +217,11 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
     {
         if (dto.RoleName.IsNullOrWhiteSpace())
         {
-            throw new BusinessException("角色名称不能为空", ApiResultCode.BadRequest);
+            throw new BusinessException("角色名称不能为空", ApiResultCode.BadRequest, ErrorCodes.SYS_ROLE_NAME_REQUIRED);
         }
         if (dto.RoleCode.IsNullOrWhiteSpace())
         {
-            throw new BusinessException("角色编码不能为空", ApiResultCode.BadRequest);
+            throw new BusinessException("角色编码不能为空", ApiResultCode.BadRequest, ErrorCodes.SYS_ROLE_CODE_REQUIRED);
         }
     }
 

@@ -34,7 +34,7 @@ public class SysDictService(
     {
         if (await typeRepository.AnyAsync(x => x.DictCode == dto.DictCode))
         {
-            throw new BusinessException($"字典编码 {dto.DictCode} 已存在", ApiResultCode.BadRequest);
+            throw new BusinessException($"字典编码 {dto.DictCode} 已存在", ApiResultCode.BadRequest, ErrorCodes.SYS_DICT_CODE_EXISTS);
         }
 
         var type = new SysDictType
@@ -52,10 +52,10 @@ public class SysDictService(
     public async Task UpdateTypeAsync(long id, DictTypeSaveDto dto, string? operatorName = null)
     {
         var type = await typeRepository.GetByIdAsync(id)
-            ?? throw new BusinessException($"字典类型不存在（Id={id}）", ApiResultCode.NotFound);
+            ?? throw new BusinessException($"字典类型不存在（Id={id}）", ApiResultCode.NotFound, ErrorCodes.SYS_DICT_TYPE_NOT_FOUND);
         if (await typeRepository.AnyAsync(x => x.DictCode == dto.DictCode && x.Id != id))
         {
-            throw new BusinessException($"字典编码 {dto.DictCode} 已存在", ApiResultCode.BadRequest);
+            throw new BusinessException($"字典编码 {dto.DictCode} 已存在", ApiResultCode.BadRequest, ErrorCodes.SYS_DICT_CODE_EXISTS);
         }
 
         var codeChanged = type.DictCode != dto.DictCode;
@@ -77,7 +77,7 @@ public class SysDictService(
     public async Task DeleteTypeAsync(long id)
     {
         var type = await typeRepository.GetByIdAsync(id)
-            ?? throw new BusinessException($"字典类型不存在（Id={id}）", ApiResultCode.NotFound);
+            ?? throw new BusinessException($"字典类型不存在（Id={id}）", ApiResultCode.NotFound, ErrorCodes.SYS_DICT_TYPE_NOT_FOUND);
         await typeRepository.DeleteAsync(id);
         // 数据项与类型保持一致的软删除（级联可追溯）
         await dataRepository.DeleteWhereAsync(x => x.DictTypeId == id);
@@ -90,10 +90,10 @@ public class SysDictService(
     public async Task<long> CreateDataAsync(DictDataSaveDto dto, string? operatorName = null)
     {
         _ = await typeRepository.GetByIdAsync(dto.DictTypeId)
-            ?? throw new BusinessException("字典类型不存在", ApiResultCode.BadRequest);
+            ?? throw new BusinessException("字典类型不存在", ApiResultCode.BadRequest, ErrorCodes.SYS_DICT_TYPE_NOT_FOUND);
         if (await dataRepository.AnyAsync(x => x.DictTypeId == dto.DictTypeId && x.Value == dto.Value))
         {
-            throw new BusinessException($"字典值 {dto.Value} 已存在", ApiResultCode.BadRequest);
+            throw new BusinessException($"字典值 {dto.Value} 已存在", ApiResultCode.BadRequest, ErrorCodes.SYS_DICT_VALUE_EXISTS);
         }
 
         var data = new SysDictData
@@ -114,12 +114,12 @@ public class SysDictService(
     public async Task UpdateDataAsync(long id, DictDataSaveDto dto, string? operatorName = null)
     {
         var data = await dataRepository.GetByIdAsync(id)
-            ?? throw new BusinessException($"字典项不存在（Id={id}）", ApiResultCode.BadRequest);
+            ?? throw new BusinessException($"字典项不存在（Id={id}）", ApiResultCode.BadRequest, ErrorCodes.SYS_DICT_DATA_NOT_FOUND);
         _ = await typeRepository.GetByIdAsync(dto.DictTypeId)
-            ?? throw new BusinessException("字典类型不存在", ApiResultCode.BadRequest);
+            ?? throw new BusinessException("字典类型不存在", ApiResultCode.BadRequest, ErrorCodes.SYS_DICT_TYPE_NOT_FOUND);
         if (await dataRepository.AnyAsync(x => x.DictTypeId == dto.DictTypeId && x.Value == dto.Value && x.Id != id))
         {
-            throw new BusinessException($"字典值 {dto.Value} 已存在", ApiResultCode.BadRequest);
+            throw new BusinessException($"字典值 {dto.Value} 已存在", ApiResultCode.BadRequest, ErrorCodes.SYS_DICT_VALUE_EXISTS);
         }
 
         data.DictTypeId = dto.DictTypeId;
@@ -137,7 +137,7 @@ public class SysDictService(
     public async Task DeleteDataAsync(long id)
     {
         var data = await dataRepository.GetByIdAsync(id)
-            ?? throw new BusinessException($"字典项不存在（Id={id}）", ApiResultCode.NotFound);
+            ?? throw new BusinessException($"字典项不存在（Id={id}）", ApiResultCode.NotFound, ErrorCodes.SYS_DICT_DATA_NOT_FOUND);
         await dataRepository.DeleteAsync(id);
         await InvalidateDataCacheAsync(data.DictTypeId);
     }

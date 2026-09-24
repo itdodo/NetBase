@@ -37,11 +37,11 @@ public class SysDeptService(
         Validate(dto);
         if (dto.ParentId != 0 && !await repository.AnyAsync(x => x.Id == dto.ParentId))
         {
-            throw new BusinessException("父级部门不存在", ApiResultCode.BadRequest);
+            throw new BusinessException("父级部门不存在", ApiResultCode.BadRequest, ErrorCodes.SYS_DEPT_PARENT_NOT_FOUND);
         }
         if (await repository.AnyAsync(x => x.DeptCode == dto.DeptCode))
         {
-            throw new BusinessException($"部门编码 {dto.DeptCode} 已存在", ApiResultCode.BadRequest);
+            throw new BusinessException($"部门编码 {dto.DeptCode} 已存在", ApiResultCode.BadRequest, ErrorCodes.SYS_DEPT_CODE_EXISTS);
         }
 
         var dept = new SysDept
@@ -62,23 +62,23 @@ public class SysDeptService(
     public async Task UpdateAsync(long id, DeptSaveDto dto, string? operatorName = null)
     {
         var dept = await repository.GetByIdAsync(id)
-            ?? throw new BusinessException($"部门不存在（Id={id}）", ApiResultCode.NotFound);
+            ?? throw new BusinessException($"部门不存在（Id={id}）", ApiResultCode.NotFound, ErrorCodes.SYS_DEPT_NOT_FOUND);
         Validate(dto);
         if (dto.ParentId == id)
         {
-            throw new BusinessException("父级部门不能是自身", ApiResultCode.BadRequest);
+            throw new BusinessException("父级部门不能是自身", ApiResultCode.BadRequest, ErrorCodes.SYS_DEPT_PARENT_SELF);
         }
         if (dto.ParentId != 0 && !await repository.AnyAsync(x => x.Id == dto.ParentId))
         {
-            throw new BusinessException("父级部门不存在", ApiResultCode.BadRequest);
+            throw new BusinessException("父级部门不存在", ApiResultCode.BadRequest, ErrorCodes.SYS_DEPT_PARENT_NOT_FOUND);
         }
         if (await IsDescendantAsync(id, dto.ParentId))
         {
-            throw new BusinessException("父级部门不能是自身的子孙部门", ApiResultCode.BadRequest);
+            throw new BusinessException("父级部门不能是自身的子孙部门", ApiResultCode.BadRequest, ErrorCodes.SYS_DEPT_PARENT_CYCLE);
         }
         if (await repository.AnyAsync(x => x.DeptCode == dto.DeptCode && x.Id != id))
         {
-            throw new BusinessException($"部门编码 {dto.DeptCode} 已存在", ApiResultCode.BadRequest);
+            throw new BusinessException($"部门编码 {dto.DeptCode} 已存在", ApiResultCode.BadRequest, ErrorCodes.SYS_DEPT_CODE_EXISTS);
         }
 
         dept.ParentId = dto.ParentId;
@@ -96,14 +96,14 @@ public class SysDeptService(
     public async Task DeleteAsync(long id)
     {
         _ = await repository.GetByIdAsync(id)
-            ?? throw new BusinessException($"部门不存在（Id={id}）", ApiResultCode.NotFound);
+            ?? throw new BusinessException($"部门不存在（Id={id}）", ApiResultCode.NotFound, ErrorCodes.SYS_DEPT_NOT_FOUND);
         if (await repository.AnyAsync(x => x.ParentId == id))
         {
-            throw new BusinessException("存在下级部门，不允许删除");
+            throw new BusinessException("存在下级部门，不允许删除", ErrorCodes.SYS_DEPT_HAS_CHILDREN);
         }
         if (await userRepository.AnyAsync(x => x.DeptId == id))
         {
-            throw new BusinessException("部门下存在用户，不允许删除");
+            throw new BusinessException("部门下存在用户，不允许删除", ErrorCodes.SYS_DEPT_HAS_USERS);
         }
 
         await repository.DeleteAsync(id);
@@ -139,11 +139,11 @@ public class SysDeptService(
     {
         if (dto.DeptName.IsNullOrWhiteSpace())
         {
-            throw new BusinessException("部门名称不能为空", ApiResultCode.BadRequest);
+            throw new BusinessException("部门名称不能为空", ApiResultCode.BadRequest, ErrorCodes.SYS_DEPT_NAME_REQUIRED);
         }
         if (dto.DeptCode.IsNullOrWhiteSpace())
         {
-            throw new BusinessException("部门编码不能为空", ApiResultCode.BadRequest);
+            throw new BusinessException("部门编码不能为空", ApiResultCode.BadRequest, ErrorCodes.SYS_DEPT_CODE_REQUIRED);
         }
     }
 

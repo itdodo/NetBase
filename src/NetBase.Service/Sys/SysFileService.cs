@@ -4,6 +4,7 @@ using NetBase.Common.Exceptions;
 using NetBase.Common.Security;
 using NetBase.Model.Entities;
 using NetBase.Repository.Repositories;
+using NetBase.Common.Results;
 
 namespace NetBase.Service.Sys;
 
@@ -40,7 +41,7 @@ public class SysFileService(
         fileName = Path.GetFileName(fileName);
         if (string.IsNullOrWhiteSpace(fileName))
         {
-            throw new BusinessException("文件名无效", NetBase.Common.Results.ApiResultCode.BadRequest);
+            throw new BusinessException("文件名无效", NetBase.Common.Results.ApiResultCode.BadRequest, NetBase.Common.Results.ErrorCodes.SYS_FILE_NAME_INVALID);
         }
 
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
@@ -52,25 +53,25 @@ public class SysFileService(
             string[] imageExts = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
             if (!imageExts.Contains(extension))
             {
-                throw new BusinessException("头像仅支持 jpg/png/gif/webp 格式", NetBase.Common.Results.ApiResultCode.BadRequest);
+                throw new BusinessException("头像仅支持 jpg/png/gif/webp 格式", NetBase.Common.Results.ApiResultCode.BadRequest, NetBase.Common.Results.ErrorCodes.SYS_FILE_AVATAR_TYPE_INVALID);
             }
         }
         else if (!_options.AllowedExtensions.Contains(extension))
         {
-            throw new BusinessException($"不支持的文件类型：{extension}", NetBase.Common.Results.ApiResultCode.BadRequest);
+            throw new BusinessException($"不支持的文件类型：{extension}", NetBase.Common.Results.ApiResultCode.BadRequest, NetBase.Common.Results.ErrorCodes.SYS_FILE_TYPE_INVALID);
         }
 
         // 内容嗅探：文件头与扩展名比对，拦截改后缀伪装（txt 等无签名类型跳过）
         if (!FileSignatureValidator.IsValid(extension, content))
         {
-            throw new BusinessException("文件内容与扩展名不符，已拒绝上传", NetBase.Common.Results.ApiResultCode.BadRequest);
+            throw new BusinessException("文件内容与扩展名不符，已拒绝上传", NetBase.Common.Results.ApiResultCode.BadRequest, NetBase.Common.Results.ErrorCodes.SYS_FILE_SIGNATURE_MISMATCH);
         }
 
         // 大小限制
         var maxSize = isAvatar ? _options.ImageMaxSize : _options.MaxSize;
         if (content.Length > maxSize)
         {
-            throw new BusinessException($"文件大小超过限制（最大 {maxSize / 1024 / 1024}MB）", NetBase.Common.Results.ApiResultCode.BadRequest);
+            throw new BusinessException($"文件大小超过限制（最大 {maxSize / 1024 / 1024}MB）", NetBase.Common.Results.ApiResultCode.BadRequest, NetBase.Common.Results.ErrorCodes.SYS_FILE_SIZE_EXCEEDED);
         }
 
         // 落盘：uploads/yyyyMMdd/{uuid}{ext}

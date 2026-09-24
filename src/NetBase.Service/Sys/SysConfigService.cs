@@ -73,7 +73,7 @@ public class SysConfigService(
     {
         if (await repository.AnyAsync(x => x.ConfigKey == dto.ConfigKey))
         {
-            throw new BusinessException($"参数键 {dto.ConfigKey} 已存在", ApiResultCode.BadRequest);
+            throw new BusinessException($"参数键 {dto.ConfigKey} 已存在", ApiResultCode.BadRequest, ErrorCodes.SYS_CONFIG_KEY_EXISTS);
         }
 
         var config = new SysConfig
@@ -93,15 +93,15 @@ public class SysConfigService(
     public async Task UpdateAsync(long id, ConfigSaveDto dto, string? operatorName = null)
     {
         var config = await repository.GetByIdAsync(id)
-            ?? throw new BusinessException($"参数不存在（Id={id}）", ApiResultCode.NotFound);
+            ?? throw new BusinessException($"参数不存在（Id={id}）", ApiResultCode.NotFound, ErrorCodes.SYS_CONFIG_NOT_FOUND);
         // 内置参数的业务键不可变更（值/名称/备注可改），否则业务读取将静默失效
         if (config.IsBuiltIn && !string.Equals(config.ConfigKey, dto.ConfigKey, StringComparison.Ordinal))
         {
-            throw new BusinessException("内置参数不允许修改参数键，仅可修改参数值", ApiResultCode.BadRequest);
+            throw new BusinessException("内置参数不允许修改参数键，仅可修改参数值", ApiResultCode.BadRequest, ErrorCodes.SYS_CONFIG_BUILTIN_KEY_LOCKED);
         }
         if (await repository.AnyAsync(x => x.ConfigKey == dto.ConfigKey && x.Id != id))
         {
-            throw new BusinessException($"参数键 {dto.ConfigKey} 已存在", ApiResultCode.BadRequest);
+            throw new BusinessException($"参数键 {dto.ConfigKey} 已存在", ApiResultCode.BadRequest, ErrorCodes.SYS_CONFIG_KEY_EXISTS);
         }
 
         var oldKey = config.ConfigKey;
@@ -120,10 +120,10 @@ public class SysConfigService(
     public async Task DeleteAsync(long id)
     {
         var config = await repository.GetByIdAsync(id)
-            ?? throw new BusinessException($"参数不存在（Id={id}）", ApiResultCode.NotFound);
+            ?? throw new BusinessException($"参数不存在（Id={id}）", ApiResultCode.NotFound, ErrorCodes.SYS_CONFIG_NOT_FOUND);
         if (config.IsBuiltIn)
         {
-            throw new BusinessException("内置参数不允许删除，仅可修改值");
+            throw new BusinessException("内置参数不允许删除，仅可修改值", ErrorCodes.SYS_CONFIG_BUILTIN_DELETE_FORBIDDEN);
         }
         await repository.DeleteAsync(id);
         await cacheService.RemoveAsync(CacheKey(config.ConfigKey));

@@ -42,7 +42,7 @@ public class SysNoticeService(IRepository<SysNotice> repository) : ISysNoticeSer
     public async Task UpdateAsync(long id, NoticeSaveDto dto, string? operatorName = null)
     {
         var notice = await repository.GetByIdAsync(id)
-            ?? throw new BusinessException($"公告不存在（Id={id}）", ApiResultCode.NotFound);
+            ?? throw new BusinessException($"公告不存在（Id={id}）", ApiResultCode.NotFound, ErrorCodes.SYS_NOTICE_NOT_FOUND);
         ValidatePublishTime(dto);
         notice.Title = dto.Title;
         notice.NoticeType = dto.NoticeType;
@@ -76,7 +76,7 @@ public class SysNoticeService(IRepository<SysNotice> repository) : ISysNoticeSer
     {
         if (dto.Status == 2 && (!dto.PublishTime.HasValue || dto.PublishTime.Value <= DateTime.Now))
         {
-            throw new BusinessException("定时发布时间必须为当前时间之后", ApiResultCode.BadRequest);
+            throw new BusinessException("定时发布时间必须为当前时间之后", ApiResultCode.BadRequest, ErrorCodes.SYS_NOTICE_PUBLISH_TIME_INVALID);
         }
     }
 }

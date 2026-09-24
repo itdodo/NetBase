@@ -104,7 +104,7 @@ public class SysPositionService(
     {
         if (await repository.AnyAsync(x => x.PositionCode == dto.PositionCode))
         {
-            throw new BusinessException($"岗位编码 {dto.PositionCode} 已存在", ApiResultCode.BadRequest);
+            throw new BusinessException($"岗位编码 {dto.PositionCode} 已存在", ApiResultCode.BadRequest, ErrorCodes.SYS_POSITION_CODE_EXISTS);
         }
 
         var position = new SysPosition
@@ -123,10 +123,10 @@ public class SysPositionService(
     public async Task UpdateAsync(long id, PositionSaveDto dto, string? operatorName = null)
     {
         var position = await repository.GetByIdAsync(id)
-                       ?? throw new BusinessException("岗位不存在");
+                       ?? throw new BusinessException("岗位不存在", ErrorCodes.SYS_POSITION_NOT_FOUND);
         if (await repository.AnyAsync(x => x.PositionCode == dto.PositionCode && x.Id != id))
         {
-            throw new BusinessException($"岗位编码 {dto.PositionCode} 已存在", ApiResultCode.BadRequest);
+            throw new BusinessException($"岗位编码 {dto.PositionCode} 已存在", ApiResultCode.BadRequest, ErrorCodes.SYS_POSITION_CODE_EXISTS);
         }
 
         position.PositionCode = dto.PositionCode;
@@ -143,10 +143,10 @@ public class SysPositionService(
     {
         if (await userPositionRepository.AnyAsync(x => x.PositionId == id))
         {
-            throw new BusinessException("该岗位下仍有用户，请先移出");
+            throw new BusinessException("该岗位下仍有用户，请先移出", ErrorCodes.SYS_POSITION_HAS_USERS);
         }
         var position = await repository.GetByIdAsync(id)
-                      ?? throw new BusinessException("岗位不存在");
+                      ?? throw new BusinessException("岗位不存在", ErrorCodes.SYS_POSITION_NOT_FOUND);
         await repository.DeleteAsync(position);
     }
 

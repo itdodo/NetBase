@@ -16,7 +16,7 @@ public class SysMessageService(IRepository<SysMessage> repository, IRepository<S
         // 接收人必须存在（防消息发往无效账号）
         if (!await userRepository.AnyAsync(x => x.Id == dto.ReceiverId))
         {
-            throw new BusinessException($"接收用户不存在（Id={dto.ReceiverId}）", ApiResultCode.BadRequest);
+            throw new BusinessException($"接收用户不存在（Id={dto.ReceiverId}）", ApiResultCode.BadRequest, ErrorCodes.SYS_MESSAGE_RECEIVER_NOT_FOUND);
         }
 
         var message = new SysMessage
@@ -54,10 +54,10 @@ public class SysMessageService(IRepository<SysMessage> repository, IRepository<S
     public async Task MarkReadAsync(long userId, long messageId)
     {
         var message = await repository.GetByIdAsync(messageId)
-            ?? throw new BusinessException("消息不存在", ApiResultCode.NotFound);
+            ?? throw new BusinessException("消息不存在", ApiResultCode.NotFound, ErrorCodes.SYS_MESSAGE_NOT_FOUND);
         if (message.ReceiverId != userId)
         {
-            throw new BusinessException("无权操作该消息", ApiResultCode.Forbidden);
+            throw new BusinessException("无权操作该消息", ApiResultCode.Forbidden, ErrorCodes.SYS_MESSAGE_ACCESS_DENIED);
         }
         if (!message.IsRead)
         {

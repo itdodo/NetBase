@@ -50,7 +50,10 @@ public class BaseService<T> : IBaseService<T> where T : BaseEntity, new()
     {
         if (!await Repository.UpdateWithAuditAsync(entity))
         {
-            throw new NetBase.Common.Exceptions.BusinessException("数据已被他人修改，请刷新后重试");
+            throw new NetBase.Common.Exceptions.BusinessException(
+                "数据已被他人修改，请刷新后重试",
+                ApiResultCode.Conflict,
+                ErrorCodes.COMMON_CONCURRENCY_CONFLICT);
         }
     }
 
@@ -61,7 +64,7 @@ public class BaseService<T> : IBaseService<T> where T : BaseEntity, new()
     /// </summary>
     protected async Task<T> GetRequiredAsync(long id, string notFoundMessage, string? errorCode = null) =>
         await Repository.GetByIdAsync(id)
-        ?? throw new BusinessException(notFoundMessage, ApiResultCode.NotFound, errorCode);
+        ?? throw new BusinessException(notFoundMessage, ApiResultCode.NotFound, errorCode ?? ErrorCodes.COMMON_NOT_FOUND);
 
     public bool Delete(long id) => Repository.Delete(id);
 

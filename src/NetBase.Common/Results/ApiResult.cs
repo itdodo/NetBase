@@ -20,7 +20,10 @@ public static class ApiResultCode
     /// <summary>资源不存在</summary>
     public const int NotFound = 404;
 
-    /// <summary>业务处理失败</summary>
+    /// <summary>并发冲突（乐观锁版本不匹配）</summary>
+    public const int Conflict = 409;
+
+    /// <summary>业务处理失败（系统级）</summary>
     public const int Fail = 500;
 }
 
@@ -50,7 +53,8 @@ public class ApiResult
 
     public static ApiResult Ok(string message = "操作成功") => new() { Message = message };
 
-    public static ApiResult Fail(string message, int code = ApiResultCode.Fail) => new() { Code = code, Message = message };
+    public static ApiResult Fail(string message, int code = ApiResultCode.Fail, string? errorCode = null) =>
+        new() { Code = code, Message = message, ErrorCode = errorCode };
 
     public override string ToString() => $"[{Code}] {Message}";
 }
@@ -65,5 +69,6 @@ public class ApiResult<T> : ApiResult
 
     public static ApiResult<T> Ok(T? data, string message, int code) => new() { Data = data, Message = message, Code = code };
 
-    public static new ApiResult<T> Fail(string message, int code = ApiResultCode.Fail) => new() { Code = code, Message = message };
+    public static new ApiResult<T> Fail(string message, int code = ApiResultCode.Fail, string? errorCode = null) =>
+        new() { Code = code, Message = message, ErrorCode = errorCode };
 }

@@ -22,7 +22,8 @@ public abstract class BaseController(ICurrentUserService currentUserService) : C
     protected static ApiResult<T> Success<T>(T data, string message = "操作成功") => ApiResult<T>.Ok(data, message);
 
     /// <summary>失败返回</summary>
-    protected static ApiResult Fail(string message, int code = ApiResultCode.Fail) => ApiResult.Fail(message, code);
+    protected static ApiResult Fail(string message, int code = ApiResultCode.Fail, string? errorCode = null) =>
+        ApiResult.Fail(message, code, errorCode);
 
     /// <summary>成功返回雪花ID（字符串化防前端精度丢失）</summary>
     protected static ApiResult<string> SuccessId(long id, string message = "操作成功") => ApiResult<string>.Ok(id.ToString(), message);

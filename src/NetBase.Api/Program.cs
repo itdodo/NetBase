@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using System.Text;
 using System.Text.Encodings.Web;
+using System.Text.Json;
 using System.Text.Unicode;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
@@ -17,6 +18,7 @@ using NetBase.Service.Sys;
 using Hangfire;
 using NetBase.Api.Services;
 using NetBase.Common.Realtime;
+using NetBase.Common.Results;
 using NetBase.Common.Users;
 using NetBase.Middleware;
 using NetBase.Repository;
@@ -176,6 +178,19 @@ builder.Services
                 {
                     context.Fail("会话已失效");
                 }
+            },
+            // 统一返回：管道 401 也带 ApiResult 结构（HTTP 状态仍为真实 401，前端按状态码走刷新/回登录）
+            OnChallenge = async context =>
+            {
+                context.HandleResponse();
+                await WriteAuthError(context.HttpContext, ApiResultCode.Unauthorized,
+                    "未登录或登录已过期，请重新登录", ErrorCodes.AUTH_SESSION_EXPIRED);
+            },
+            // 统一返回：管道 403（[HasPermission] 不通过）带 ApiResult 结构
+            OnForbidden = async context =>
+            {
+                await WriteAuthError(context.HttpContext, ApiResultCode.Forbidden,
+                    "没有操作权限，请联系管理员", ErrorCodes.AUTH_FORBIDDEN);
             }
         };
     });
@@ -257,6 +272,26 @@ app.UseAuthentication();
 app.UseMiddleware<DataScopeMiddleware>();
 app.UseAuthorization();
 
+// 统一返回：/api 未匹配路由返回 ApiResult 404（不落入 SPA 回退返回 HTML，方法不匹配同理）
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api") && context.GetEndpoint() == null)
+    {
+        context.Response.StatusCode = ApiResultCode.NotFound;
+        context.Response.ContentType = "application/json; charset=utf-8";
+        await context.Response.WriteAsync(JsonSerializer.Serialize(
+            new ApiResult
+            {
+                Code = ApiResultCode.NotFound,
+                Message = "接口不存在",
+                ErrorCode = ErrorCodes.COMMON_ROUTE_NOT_FOUND
+            },
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        return;
+    }
+    await next();
+});
+
 // Hangfire Dashboard（默认仅本机访问；生产建议保持关闭，管理动作走系统管理页）
 if (hangfireOptions.DashboardEnabled)
 {
@@ -286,3 +321,13 @@ if (File.Exists(indexPage))
 app.MapHealthChecks("/health");
 
 app.Run();
+
+/// <summary>认证管道错误统一写 ApiResult 结构（HTTP 状态码保持真实 401/403）</summary>
+static async Task WriteAuthError(HttpContext context, int code, string message, string errorCode)
+{
+    var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+    context.Response.StatusCode = code;
+    context.Response.ContentType = "application/json; charset=utf-8";
+    await context.Response.WriteAsync(JsonSerializer.Serialize(
+        new ApiResult { Code = code, Message = message, ErrorCode = errorCode }, jsonOptions));
+}

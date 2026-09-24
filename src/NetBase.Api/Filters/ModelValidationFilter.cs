@@ -23,7 +23,7 @@ public class ModelValidationFilter : IActionFilter
             .Distinct()
             .ToList();
 
-        var result = ApiResult.Fail(errors.Count == 0 ? "请求参数错误" : string.Join("；", errors), ApiResultCode.BadRequest);
+        var result = ApiResult.Fail(errors.Count == 0 ? "请求参数错误" : string.Join("；", errors), ApiResultCode.BadRequest, ErrorCodes.COMMON_PARAM_INVALID);
         context.Result = new JsonResult(result);
     }
 

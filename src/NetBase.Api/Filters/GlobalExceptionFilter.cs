@@ -45,7 +45,7 @@ public class GlobalExceptionFilter : IExceptionFilter
 
             default:
                 _logger.LogError(exception, "未处理异常: {Message}", exception.Message);
-                context.Result = new JsonResult(ApiResult.Fail("系统繁忙，请稍后重试"));
+                context.Result = new JsonResult(ApiResult.Fail("系统繁忙，请稍后重试", ApiResultCode.Fail, ErrorCodes.COMMON_SYSTEM_ERROR));
                 break;
         }
 

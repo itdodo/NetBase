@@ -1,0 +1,254 @@
+/**
+ * 全局业务错误码镜像（源：src/NetBase.Common/Results/ErrorCodes.cs，本文档由 scripts/gen-error-codes-ts.cjs 生成勿手改）。
+ * 随 ApiResult.errorCode 返回；配合 request.ts 的 ApiError 使用，页面按码分支时从中取值。
+ * 码只增不改不删（后端为准）；重新生成：node scripts/gen-error-codes-ts.cjs
+ */
+export const ERROR_CODES = {
+  // ---------- COMMON ----------
+  /** 请求参数校验失败（模型验证过滤器） */
+  COMMON_PARAM_INVALID: 'COMMON_PARAM_INVALID',
+  /** 数据已被他人修改（乐观锁并发冲突，code=409） */
+  COMMON_CONCURRENCY_CONFLICT: 'COMMON_CONCURRENCY_CONFLICT',
+  /** 请勿重复提交（2 秒防重窗口） */
+  COMMON_REPEAT_SUBMIT: 'COMMON_REPEAT_SUBMIT',
+  /** 未选择文件 */
+  COMMON_FILE_REQUIRED: 'COMMON_FILE_REQUIRED',
+  /** 资源不存在（GetRequiredAsync 未传实体码时的兜底） */
+  COMMON_NOT_FOUND: 'COMMON_NOT_FOUND',
+  /** 接口路径不存在（未匹配路由，code=404） */
+  COMMON_ROUTE_NOT_FOUND: 'COMMON_ROUTE_NOT_FOUND',
+  /** 未预期系统异常（全局异常过滤器兜底，code=500） */
+  COMMON_SYSTEM_ERROR: 'COMMON_SYSTEM_ERROR',
+  /** 业务规则不满足（未赋码业务异常的兜底，不建议新代码使用） */
+  COMMON_BUSINESS_ERROR: 'COMMON_BUSINESS_ERROR',
+
+  // ---------- AUTH ----------
+  /** 用户名或密码错误 */
+  AUTH_BAD_CREDENTIALS: 'AUTH_BAD_CREDENTIALS',
+  /** 用户名和密码不能为空 */
+  AUTH_PARAM_MISSING: 'AUTH_PARAM_MISSING',
+  /** 验证码错误或已过期 */
+  AUTH_CAPTCHA_INVALID: 'AUTH_CAPTCHA_INVALID',
+  /** 密码错误次数过多，账号已锁定 */
+  AUTH_ACCOUNT_LOCKED: 'AUTH_ACCOUNT_LOCKED',
+  /** 账号已被停用 */
+  AUTH_ACCOUNT_DISABLED: 'AUTH_ACCOUNT_DISABLED',
+  /** 无效的刷新令牌 */
+  AUTH_REFRESH_TOKEN_INVALID: 'AUTH_REFRESH_TOKEN_INVALID',
+  /** 登录已过期/会话失效（含管道 401） */
+  AUTH_SESSION_EXPIRED: 'AUTH_SESSION_EXPIRED',
+  /** 账号不存在（刷新令牌/改密路径） */
+  AUTH_ACCOUNT_NOT_FOUND: 'AUTH_ACCOUNT_NOT_FOUND',
+  /** 密码不符合复杂度策略（改密路径） */
+  AUTH_PWD_POLICY_VIOLATION: 'AUTH_PWD_POLICY_VIOLATION',
+  /** 旧密码不正确 */
+  AUTH_OLD_PWD_WRONG: 'AUTH_OLD_PWD_WRONG',
+  /** 新密码不能与旧密码相同 */
+  AUTH_PWD_SAME_AS_OLD: 'AUTH_PWD_SAME_AS_OLD',
+  /** 无权限访问（管道 403） */
+  AUTH_FORBIDDEN: 'AUTH_FORBIDDEN',
+
+  // ---------- SYS ----------
+  /** 用户不存在 */
+  SYS_USER_NOT_FOUND: 'SYS_USER_NOT_FOUND',
+  /** 用户名不能为空 */
+  SYS_USER_NAME_REQUIRED: 'SYS_USER_NAME_REQUIRED',
+  /** 用户名已存在 */
+  SYS_USER_NAME_EXISTS: 'SYS_USER_NAME_EXISTS',
+  /** 密码不符合复杂度策略（创建/导入/重置路径） */
+  SYS_USER_PWD_POLICY_VIOLATION: 'SYS_USER_PWD_POLICY_VIOLATION',
+  /** 所属部门不存在 */
+  SYS_USER_DEPT_NOT_FOUND: 'SYS_USER_DEPT_NOT_FOUND',
+  /** 存在无效的角色ID */
+  SYS_USER_ROLE_INVALID: 'SYS_USER_ROLE_INVALID',
+  /** 仅内置管理员可以分配超级管理员角色 */
+  SYS_USER_ADMIN_ROLE_GRANT_FORBIDDEN: 'SYS_USER_ADMIN_ROLE_GRANT_FORBIDDEN',
+  /** 不允许停用内置管理员账号 */
+  SYS_USER_ADMIN_DISABLE_FORBIDDEN: 'SYS_USER_ADMIN_DISABLE_FORBIDDEN',
+  /** 内置管理员账号的角色仅允许本人修改 */
+  SYS_USER_ADMIN_ROLE_SELF_ONLY: 'SYS_USER_ADMIN_ROLE_SELF_ONLY',
+  /** 不允许删除内置管理员账号 */
+  SYS_USER_ADMIN_DELETE_FORBIDDEN: 'SYS_USER_ADMIN_DELETE_FORBIDDEN',
+  /** 内置管理员账号的密码不允许重置 */
+  SYS_USER_ADMIN_RESET_FORBIDDEN: 'SYS_USER_ADMIN_RESET_FORBIDDEN',
+  /** 请选择导入文件 */
+  SYS_USER_IMPORT_FILE_REQUIRED: 'SYS_USER_IMPORT_FILE_REQUIRED',
+  /** 导入文件仅支持 xlsx/xls */
+  SYS_USER_IMPORT_TYPE_INVALID: 'SYS_USER_IMPORT_TYPE_INVALID',
+  /** 导入文件中没有数据行 */
+  SYS_USER_IMPORT_EMPTY: 'SYS_USER_IMPORT_EMPTY',
+  /** 角色不存在 */
+  SYS_ROLE_NOT_FOUND: 'SYS_ROLE_NOT_FOUND',
+  /** 角色编码已存在 */
+  SYS_ROLE_CODE_EXISTS: 'SYS_ROLE_CODE_EXISTS',
+  /** 角色编码不能为空 */
+  SYS_ROLE_CODE_REQUIRED: 'SYS_ROLE_CODE_REQUIRED',
+  /** 角色名称不能为空 */
+  SYS_ROLE_NAME_REQUIRED: 'SYS_ROLE_NAME_REQUIRED',
+  /** 存在无效的菜单ID */
+  SYS_ROLE_MENU_INVALID: 'SYS_ROLE_MENU_INVALID',
+  /** 不允许停用内置管理员角色 */
+  SYS_ROLE_ADMIN_DISABLE_FORBIDDEN: 'SYS_ROLE_ADMIN_DISABLE_FORBIDDEN',
+  /** 不允许删除内置管理员角色 */
+  SYS_ROLE_ADMIN_DELETE_FORBIDDEN: 'SYS_ROLE_ADMIN_DELETE_FORBIDDEN',
+  /** 父级菜单不存在 */
+  SYS_MENU_PARENT_NOT_FOUND: 'SYS_MENU_PARENT_NOT_FOUND',
+  /** 父级菜单不能是自身 */
+  SYS_MENU_PARENT_SELF: 'SYS_MENU_PARENT_SELF',
+  /** 父级菜单不能是自身的子孙节点 */
+  SYS_MENU_PARENT_CYCLE: 'SYS_MENU_PARENT_CYCLE',
+  /** 存在子菜单，不允许删除 */
+  SYS_MENU_HAS_CHILDREN: 'SYS_MENU_HAS_CHILDREN',
+  /** 菜单已被角色引用，请先取消角色授权 */
+  SYS_MENU_IN_USE: 'SYS_MENU_IN_USE',
+  /** 菜单名称不能为空 */
+  SYS_MENU_NAME_REQUIRED: 'SYS_MENU_NAME_REQUIRED',
+  /** 菜单类型无效（1-目录 2-菜单 3-按钮） */
+  SYS_MENU_TYPE_INVALID: 'SYS_MENU_TYPE_INVALID',
+  /** 部门不存在 */
+  SYS_DEPT_NOT_FOUND: 'SYS_DEPT_NOT_FOUND',
+  /** 父级部门不存在 */
+  SYS_DEPT_PARENT_NOT_FOUND: 'SYS_DEPT_PARENT_NOT_FOUND',
+  /** 父级部门不能是自身 */
+  SYS_DEPT_PARENT_SELF: 'SYS_DEPT_PARENT_SELF',
+  /** 父级部门不能是自身的子孙部门 */
+  SYS_DEPT_PARENT_CYCLE: 'SYS_DEPT_PARENT_CYCLE',
+  /** 部门编码已存在 */
+  SYS_DEPT_CODE_EXISTS: 'SYS_DEPT_CODE_EXISTS',
+  /** 部门名称不能为空 */
+  SYS_DEPT_NAME_REQUIRED: 'SYS_DEPT_NAME_REQUIRED',
+  /** 部门编码不能为空 */
+  SYS_DEPT_CODE_REQUIRED: 'SYS_DEPT_CODE_REQUIRED',
+  /** 存在下级部门，不允许删除 */
+  SYS_DEPT_HAS_CHILDREN: 'SYS_DEPT_HAS_CHILDREN',
+  /** 部门下存在用户，不允许删除 */
+  SYS_DEPT_HAS_USERS: 'SYS_DEPT_HAS_USERS',
+  /** 岗位不存在 */
+  SYS_POSITION_NOT_FOUND: 'SYS_POSITION_NOT_FOUND',
+  /** 岗位编码已存在 */
+  SYS_POSITION_CODE_EXISTS: 'SYS_POSITION_CODE_EXISTS',
+  /** 该岗位下仍有用户，请先移出 */
+  SYS_POSITION_HAS_USERS: 'SYS_POSITION_HAS_USERS',
+  /** 字典类型不存在 */
+  SYS_DICT_TYPE_NOT_FOUND: 'SYS_DICT_TYPE_NOT_FOUND',
+  /** 字典编码已存在 */
+  SYS_DICT_CODE_EXISTS: 'SYS_DICT_CODE_EXISTS',
+  /** 字典值已存在 */
+  SYS_DICT_VALUE_EXISTS: 'SYS_DICT_VALUE_EXISTS',
+  /** 字典项不存在 */
+  SYS_DICT_DATA_NOT_FOUND: 'SYS_DICT_DATA_NOT_FOUND',
+  /** 参数不存在 */
+  SYS_CONFIG_NOT_FOUND: 'SYS_CONFIG_NOT_FOUND',
+  /** 参数键已存在 */
+  SYS_CONFIG_KEY_EXISTS: 'SYS_CONFIG_KEY_EXISTS',
+  /** 内置参数不允许修改参数键，仅可修改参数值 */
+  SYS_CONFIG_BUILTIN_KEY_LOCKED: 'SYS_CONFIG_BUILTIN_KEY_LOCKED',
+  /** 内置参数不允许删除，仅可修改值 */
+  SYS_CONFIG_BUILTIN_DELETE_FORBIDDEN: 'SYS_CONFIG_BUILTIN_DELETE_FORBIDDEN',
+  /** 公告不存在 */
+  SYS_NOTICE_NOT_FOUND: 'SYS_NOTICE_NOT_FOUND',
+  /** 定时发布时间必须为当前时间之后 */
+  SYS_NOTICE_PUBLISH_TIME_INVALID: 'SYS_NOTICE_PUBLISH_TIME_INVALID',
+  /** 消息不存在 */
+  SYS_MESSAGE_NOT_FOUND: 'SYS_MESSAGE_NOT_FOUND',
+  /** 接收用户不存在 */
+  SYS_MESSAGE_RECEIVER_NOT_FOUND: 'SYS_MESSAGE_RECEIVER_NOT_FOUND',
+  /** 无权操作该消息 */
+  SYS_MESSAGE_ACCESS_DENIED: 'SYS_MESSAGE_ACCESS_DENIED',
+  /** 文件名无效 */
+  SYS_FILE_NAME_INVALID: 'SYS_FILE_NAME_INVALID',
+  /** 不支持的文件类型 */
+  SYS_FILE_TYPE_INVALID: 'SYS_FILE_TYPE_INVALID',
+  /** 头像仅支持 jpg/png/gif/webp 格式 */
+  SYS_FILE_AVATAR_TYPE_INVALID: 'SYS_FILE_AVATAR_TYPE_INVALID',
+  /** 文件内容与扩展名不符，已拒绝上传 */
+  SYS_FILE_SIGNATURE_MISMATCH: 'SYS_FILE_SIGNATURE_MISMATCH',
+  /** 文件大小超过限制 */
+  SYS_FILE_SIZE_EXCEEDED: 'SYS_FILE_SIZE_EXCEEDED',
+
+  // ---------- FLOW ----------
+  /** 未登录无法执行审批操作 */
+  FLOW_NOT_AUTHENTICATED: 'FLOW_NOT_AUTHENTICATED',
+  /** 流程定义不存在 */
+  FLOW_DEF_NOT_FOUND: 'FLOW_DEF_NOT_FOUND',
+  /** 流程未配置或未启用 */
+  FLOW_DEF_NOT_ENABLED: 'FLOW_DEF_NOT_ENABLED',
+  /** 流程节点配置无效 */
+  FLOW_DEF_NODES_INVALID: 'FLOW_DEF_NODES_INVALID',
+  /** 节点配置 JSON 解析失败 */
+  FLOW_DEF_JSON_INVALID: 'FLOW_DEF_JSON_INVALID',
+  /** 流程缺少入口节点 */
+  FLOW_DEF_NO_ENTRY: 'FLOW_DEF_NO_ENTRY',
+  /** 节点编码重复 */
+  FLOW_DEF_NODE_CODE_DUP: 'FLOW_DEF_NODE_CODE_DUP',
+  /** 审批节点未配置审批人规则 */
+  FLOW_DEF_APPROVER_MISSING: 'FLOW_DEF_APPROVER_MISSING',
+  /** 流程节点配置成环 */
+  FLOW_DEF_CYCLE: 'FLOW_DEF_CYCLE',
+  /** 流程定义已删除 */
+  FLOW_DEF_DELETED: 'FLOW_DEF_DELETED',
+  /** 启用中的流程不允许删除，请先停用 */
+  FLOW_DEF_DELETE_ENABLED_FORBIDDEN: 'FLOW_DEF_DELETE_ENABLED_FORBIDDEN',
+  /** 该单据未绑定审批流 */
+  FLOW_BINDING_MISSING: 'FLOW_BINDING_MISSING',
+  /** 条件节点无命中分支且未配置默认分支 */
+  FLOW_CONDITION_NO_BRANCH: 'FLOW_CONDITION_NO_BRANCH',
+  /** 流程实例不存在 */
+  FLOW_INSTANCE_NOT_FOUND: 'FLOW_INSTANCE_NOT_FOUND',
+  /** 流程已结束 */
+  FLOW_INSTANCE_FINISHED: 'FLOW_INSTANCE_FINISHED',
+  /** 审批任务不存在 */
+  FLOW_TASK_NOT_FOUND: 'FLOW_TASK_NOT_FOUND',
+  /** 仅任务归属人可处理 */
+  FLOW_TASK_OWNER_ONLY: 'FLOW_TASK_OWNER_ONLY',
+  /** 该任务已处理或已失效 */
+  FLOW_TASK_ALREADY_HANDLED: 'FLOW_TASK_ALREADY_HANDLED',
+  /** 驳回请选择退回目标节点 */
+  FLOW_RETURN_TARGET_REQUIRED: 'FLOW_RETURN_TARGET_REQUIRED',
+  /** 退回目标节点不存在 */
+  FLOW_RETURN_TARGET_NOT_FOUND: 'FLOW_RETURN_TARGET_NOT_FOUND',
+  /** 不能驳回至当前节点自身 */
+  FLOW_RETURN_TARGET_SELF: 'FLOW_RETURN_TARGET_SELF',
+  /** 转办目标人无效 */
+  FLOW_TRANSFER_TARGET_INVALID: 'FLOW_TRANSFER_TARGET_INVALID',
+  /** 加签人无效 */
+  FLOW_ADDSIGN_TARGET_INVALID: 'FLOW_ADDSIGN_TARGET_INVALID',
+  /** 仅发起人可撤回 */
+  FLOW_WITHDRAW_FORBIDDEN: 'FLOW_WITHDRAW_FORBIDDEN',
+  /** 审批已开始处理，无法撤回 */
+  FLOW_WITHDRAW_PROCESSING: 'FLOW_WITHDRAW_PROCESSING',
+  /** 仅发起人可催办 */
+  FLOW_URGE_FORBIDDEN: 'FLOW_URGE_FORBIDDEN',
+  /** 催办限频（4 小时内已催办过） */
+  FLOW_URGE_RATE_LIMITED: 'FLOW_URGE_RATE_LIMITED',
+  /** 当前没有待处理的审批任务 */
+  FLOW_URGE_NO_PENDING_TASK: 'FLOW_URGE_NO_PENDING_TASK',
+  /** 分类名不能为空 */
+  FLOW_CATEGORY_NAME_REQUIRED: 'FLOW_CATEGORY_NAME_REQUIRED',
+  /** 分类下还有流程，不允许删除 */
+  FLOW_CATEGORY_IN_USE: 'FLOW_CATEGORY_IN_USE',
+  /** 委托不存在 */
+  FLOW_DELEGATE_NOT_FOUND: 'FLOW_DELEGATE_NOT_FOUND',
+  /** 结束时间必须晚于开始时间 */
+  FLOW_DELEGATE_TIME_INVALID: 'FLOW_DELEGATE_TIME_INVALID',
+  /** 不能委托给自己 */
+  FLOW_DELEGATE_SELF: 'FLOW_DELEGATE_SELF',
+  /** 代理人不存在或已停用 */
+  FLOW_DELEGATE_AGENT_INVALID: 'FLOW_DELEGATE_AGENT_INVALID',
+  /** 仅可删除自己的委托 */
+  FLOW_DELEGATE_DELETE_FORBIDDEN: 'FLOW_DELEGATE_DELETE_FORBIDDEN',
+
+  // ---------- BIZ ----------
+  /** 报销单不存在 */
+  BIZ_EXPENSE_NOT_FOUND: 'BIZ_EXPENSE_NOT_FOUND',
+  /** 采购申请单不存在 */
+  BIZ_PURCHASE_NOT_FOUND: 'BIZ_PURCHASE_NOT_FOUND',
+  /** 仅草稿或被拒绝的单据可提交审批 */
+  BIZ_DOC_SUBMIT_STATUS_INVALID: 'BIZ_DOC_SUBMIT_STATUS_INVALID',
+  /** 仅草稿状态的单据可修改/操作 */
+  BIZ_DOC_MODIFY_STATUS_INVALID: 'BIZ_DOC_MODIFY_STATUS_INVALID',
+
+} as const
+
+/** 业务错误码字面量类型 */
+export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES]

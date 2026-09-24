@@ -2,7 +2,9 @@
 export interface ApiResult<T = unknown> {
   code: number
   message: string
-  data: T
+  /** 全局业务错误码（失败时携带，码表见 types/errorCodes.ts） */
+  errorCode?: string
+  data?: T
   timestamp: number
 }
 

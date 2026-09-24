@@ -71,17 +71,17 @@ public class SysFlowDelegateService(
     public async Task<long> CreateAsync(FlowDelegateCreateDto dto)
     {
         var userId = operatorProvider.OperatorUserId
-                     ?? throw new BusinessException("未登录", ApiResultCode.Unauthorized);
+                     ?? throw new BusinessException("未登录", ApiResultCode.Unauthorized, ErrorCodes.FLOW_NOT_AUTHENTICATED);
         if (dto.EndTime <= dto.StartTime)
         {
-            throw new BusinessException("结束时间必须晚于开始时间", ApiResultCode.BadRequest);
+            throw new BusinessException("结束时间必须晚于开始时间", ApiResultCode.BadRequest, ErrorCodes.FLOW_DELEGATE_TIME_INVALID);
         }
         if (dto.AgentId == userId)
         {
-            throw new BusinessException("不能委托给自己", ApiResultCode.BadRequest);
+            throw new BusinessException("不能委托给自己", ApiResultCode.BadRequest, ErrorCodes.FLOW_DELEGATE_SELF);
         }
         var agent = await userRepository.GetFirstAsync(x => x.Id == dto.AgentId && x.Status == 1)
-                    ?? throw new BusinessException("代理人不存在或已停用", ApiResultCode.BadRequest);
+                    ?? throw new BusinessException("代理人不存在或已停用", ApiResultCode.BadRequest, ErrorCodes.FLOW_DELEGATE_AGENT_INVALID);
 
         var row = new SysFlowDelegate
         {
@@ -101,10 +101,10 @@ public class SysFlowDelegateService(
     {
         var userId = operatorProvider.OperatorUserId ?? 0;
         var row = await repository.GetByIdAsync(id)
-                  ?? throw new BusinessException("委托不存在");
+                  ?? throw new BusinessException("委托不存在", ErrorCodes.FLOW_DELEGATE_NOT_FOUND);
         if (row.DelegatorId != userId)
         {
-            throw new BusinessException("仅可删除自己的委托", ApiResultCode.Forbidden);
+            throw new BusinessException("仅可删除自己的委托", ApiResultCode.Forbidden, ErrorCodes.FLOW_DELEGATE_DELETE_FORBIDDEN);
         }
         await repository.DeleteAsync(row);
     }

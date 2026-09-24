@@ -83,7 +83,7 @@ public class ExpenseFlowHandler(IRepository<BizExpense> repository) : IFlowBusin
     public async Task<string> GetSummaryAsync(long businessId)
     {
         var doc = await repository.GetByIdAsync(businessId)
-                  ?? throw new BusinessException("报销单不存在");
+                  ?? throw new BusinessException("报销单不存在", ErrorCodes.BIZ_EXPENSE_NOT_FOUND);
         return $"报销申请：{doc.Title}（¥{doc.Amount:N2}）";
     }
 
@@ -142,10 +142,10 @@ public class BizExpenseService(
     public async Task<long> SubmitAsync(long id)
     {
         var doc = await repository.GetByIdAsync(id)
-                  ?? throw new BusinessException("报销单不存在");
+                  ?? throw new BusinessException("报销单不存在", ErrorCodes.BIZ_EXPENSE_NOT_FOUND);
         if (doc.Status != BizDocStatus.Draft && doc.Status != BizDocStatus.Rejected)
         {
-            throw new BusinessException("仅草稿或被拒绝的单据可提交审批");
+            throw new BusinessException("仅草稿或被拒绝的单据可提交审批", ErrorCodes.BIZ_DOC_SUBMIT_STATUS_INVALID);
         }
 
         doc.Status = BizDocStatus.InApproval;
@@ -165,10 +165,10 @@ public class BizExpenseService(
     private async Task<BizExpense> GetDraftAsync(long id)
     {
         var doc = await repository.GetByIdAsync(id)
-                  ?? throw new BusinessException("报销单不存在");
+                  ?? throw new BusinessException("报销单不存在", ErrorCodes.BIZ_EXPENSE_NOT_FOUND);
         if (doc.Status != BizDocStatus.Draft)
         {
-            throw new BusinessException("仅草稿可修改");
+            throw new BusinessException("仅草稿可修改", ErrorCodes.BIZ_DOC_MODIFY_STATUS_INVALID);
         }
         return doc;
     }
@@ -270,7 +270,7 @@ public class PurchaseRequestFlowHandler(IRepository<BizPurchaseRequest> reposito
     public async Task<string> GetSummaryAsync(long businessId)
     {
         var doc = await repository.GetByIdAsync(businessId)
-                  ?? throw new BusinessException("采购申请单不存在");
+                  ?? throw new BusinessException("采购申请单不存在", ErrorCodes.BIZ_PURCHASE_NOT_FOUND);
         return $"采购申请：{doc.Title}（¥{doc.Amount:N2}）";
     }
 
@@ -341,10 +341,10 @@ public class BizPurchaseRequestService(
     public async Task<long> SubmitAsync(long id)
     {
         var doc = await repository.GetByIdAsync(id)
-                  ?? throw new BusinessException("采购申请单不存在");
+                  ?? throw new BusinessException("采购申请单不存在", ErrorCodes.BIZ_PURCHASE_NOT_FOUND);
         if (doc.Status != BizDocStatus.Draft && doc.Status != BizDocStatus.Rejected)
         {
-            throw new BusinessException("仅草稿或被拒绝的单据可提交审批");
+            throw new BusinessException("仅草稿或被拒绝的单据可提交审批", ErrorCodes.BIZ_DOC_SUBMIT_STATUS_INVALID);
         }
 
         doc.Status = BizDocStatus.InApproval;
@@ -363,10 +363,10 @@ public class BizPurchaseRequestService(
     private async Task<BizPurchaseRequest> GetEditableAsync(long id)
     {
         var doc = await repository.GetByIdAsync(id)
-                  ?? throw new BusinessException("采购申请单不存在");
+                  ?? throw new BusinessException("采购申请单不存在", ErrorCodes.BIZ_PURCHASE_NOT_FOUND);
         if (doc.Status != BizDocStatus.Draft)
         {
-            throw new BusinessException("仅草稿可操作");
+            throw new BusinessException("仅草稿可操作", ErrorCodes.BIZ_DOC_MODIFY_STATUS_INVALID);
         }
         return doc;
     }

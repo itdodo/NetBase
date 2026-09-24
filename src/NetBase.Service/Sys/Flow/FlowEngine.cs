@@ -5,6 +5,7 @@ using NetBase.Model.Entities;
 using NetBase.Model.Enums;
 using NetBase.Repository.Auditing;
 using NetBase.Repository.Repositories;
+using NetBase.Common.Results;
 
 namespace NetBase.Service.Sys.Flow;
 
@@ -97,7 +98,7 @@ public class FlowEngine(
     public async Task<long> SubmitAsync(FlowSubmitRequest request)
     {
         var operatorId = operatorProvider.OperatorUserId
-                         ?? throw new BusinessException("未登录无法提交审批");
+                         ?? throw new BusinessException("未登录无法提交审批", ErrorCodes.FLOW_NOT_AUTHENTICATED);
         var operatorName = operatorProvider.OperatorName ?? "system";
 
         // 有效流程编码：绑定表记录优先（FlowCode 空 = 该单据不走审批）；无记录回退业务代码默认值
@@ -107,15 +108,15 @@ public class FlowEngine(
             : !string.IsNullOrWhiteSpace(binding.FlowCode)
                 ? binding.FlowCode
                 : throw new BusinessException(
-                    "该单据未绑定审批流，请联系管理员在「流程管理 → 单据绑定」中配置");
+                    "该单据未绑定审批流，请联系管理员在「流程管理 → 单据绑定」中配置", ErrorCodes.FLOW_BINDING_MISSING);
 
         var definition = (await definitionRepository.GetListAsync(
                 d => d.FlowCode == flowCode && d.Status == 1))
             .OrderByDescending(d => d.Version).FirstOrDefault()
-            ?? throw new BusinessException($"流程 {flowCode} 未配置或未启用");
+            ?? throw new BusinessException($"流程 {flowCode} 未配置或未启用", ErrorCodes.FLOW_DEF_NOT_ENABLED);
 
         var graph = FlowGraph.Parse(definition.NodeJson)
-                    ?? throw new BusinessException($"流程 {request.FlowCode} 节点配置无效");
+                    ?? throw new BusinessException($"流程 {request.FlowCode} 节点配置无效", ErrorCodes.FLOW_DEF_NODES_INVALID);
         ValidateGraph(graph);
 
         var submitter = await userRepository.GetByIdAsync(operatorId);
@@ -153,12 +154,12 @@ public class FlowEngine(
 
     public async Task ActAsync(long taskId, FlowAction action, string? comment, string? returnNodeCode = null)
     {
-        var userId = operatorProvider.OperatorUserId ?? throw new BusinessException("未登录");
+        var userId = operatorProvider.OperatorUserId ?? throw new BusinessException("未登录", ErrorCodes.FLOW_NOT_AUTHENTICATED);
         var task = await taskRepository.GetByIdAsync(taskId)
-                   ?? throw new BusinessException("审批任务不存在");
+                   ?? throw new BusinessException("审批任务不存在", ErrorCodes.FLOW_TASK_NOT_FOUND);
         EnsureOwner(task, userId);
         var instance = await instanceRepository.GetByIdAsync(task.InstanceId)
-                       ?? throw new BusinessException("流程实例不存在");
+                       ?? throw new BusinessException("流程实例不存在", ErrorCodes.FLOW_INSTANCE_NOT_FOUND);
         EnsureRunning(instance);
         var graph = await LoadGraphAsync(instance);
         var operatorName = task.ApproverName;
@@ -167,15 +168,15 @@ public class FlowEngine(
         {
             if (string.IsNullOrWhiteSpace(returnNodeCode))
             {
-                throw new BusinessException("驳回请选择退回目标节点");
+                throw new BusinessException("驳回请选择退回目标节点", ErrorCodes.FLOW_RETURN_TARGET_REQUIRED);
             }
             if (returnNodeCode != "start" && !graph.Index.TryGetValue(returnNodeCode, out _))
             {
-                throw new BusinessException("退回目标节点不存在");
+                throw new BusinessException("退回目标节点不存在", ErrorCodes.FLOW_RETURN_TARGET_NOT_FOUND);
             }
             if (returnNodeCode == task.NodeCode)
             {
-                throw new BusinessException("不能驳回至当前节点自身");
+                throw new BusinessException("不能驳回至当前节点自身", ErrorCodes.FLOW_RETURN_TARGET_SELF);
             }
         }
 
@@ -273,18 +274,18 @@ public class FlowEngine(
 
     public async Task TransferAsync(long taskId, List<long> targetUserIds, string? comment)
     {
-        var userId = operatorProvider.OperatorUserId ?? throw new BusinessException("未登录");
+        var userId = operatorProvider.OperatorUserId ?? throw new BusinessException("未登录", ErrorCodes.FLOW_NOT_AUTHENTICATED);
         var task = await taskRepository.GetByIdAsync(taskId)
-                   ?? throw new BusinessException("审批任务不存在");
+                   ?? throw new BusinessException("审批任务不存在", ErrorCodes.FLOW_TASK_NOT_FOUND);
         EnsureOwner(task, userId);
         var instance = await instanceRepository.GetByIdAsync(task.InstanceId)
-                       ?? throw new BusinessException("流程实例不存在");
+                       ?? throw new BusinessException("流程实例不存在", ErrorCodes.FLOW_INSTANCE_NOT_FOUND);
         EnsureRunning(instance);
 
         var targets = await ValidUsersAsync(targetUserIds);
         if (targets.Count == 0)
         {
-            throw new BusinessException("转办目标人无效");
+            throw new BusinessException("转办目标人无效", ErrorCodes.FLOW_TRANSFER_TARGET_INVALID);
         }
 
         await instanceRepository.TransactionAsync(async () =>
@@ -307,18 +308,18 @@ public class FlowEngine(
 
     public async Task AddSignAsync(long taskId, List<long> targetUserIds, bool before, string? comment)
     {
-        var userId = operatorProvider.OperatorUserId ?? throw new BusinessException("未登录");
+        var userId = operatorProvider.OperatorUserId ?? throw new BusinessException("未登录", ErrorCodes.FLOW_NOT_AUTHENTICATED);
         var task = await taskRepository.GetByIdAsync(taskId)
-                   ?? throw new BusinessException("审批任务不存在");
+                   ?? throw new BusinessException("审批任务不存在", ErrorCodes.FLOW_TASK_NOT_FOUND);
         EnsureOwner(task, userId);
         var instance = await instanceRepository.GetByIdAsync(task.InstanceId)
-                       ?? throw new BusinessException("流程实例不存在");
+                       ?? throw new BusinessException("流程实例不存在", ErrorCodes.FLOW_INSTANCE_NOT_FOUND);
         EnsureRunning(instance);
 
         var targets = await ValidUsersAsync(targetUserIds);
         if (targets.Count == 0)
         {
-            throw new BusinessException("加签人无效");
+            throw new BusinessException("加签人无效", ErrorCodes.FLOW_ADDSIGN_TARGET_INVALID);
         }
 
         await instanceRepository.TransactionAsync(async () =>
@@ -352,12 +353,12 @@ public class FlowEngine(
 
     public async Task WithdrawAsync(long instanceId)
     {
-        var userId = operatorProvider.OperatorUserId ?? throw new BusinessException("未登录");
+        var userId = operatorProvider.OperatorUserId ?? throw new BusinessException("未登录", ErrorCodes.FLOW_NOT_AUTHENTICATED);
         var instance = await instanceRepository.GetByIdAsync(instanceId)
-                       ?? throw new BusinessException("流程实例不存在");
+                       ?? throw new BusinessException("流程实例不存在", ErrorCodes.FLOW_INSTANCE_NOT_FOUND);
         if (instance.SubmitterId != userId)
         {
-            throw new BusinessException("仅发起人可撤回");
+            throw new BusinessException("仅发起人可撤回", ErrorCodes.FLOW_WITHDRAW_FORBIDDEN);
         }
         EnsureRunning(instance);
 
@@ -368,7 +369,7 @@ public class FlowEngine(
                  && t.Status != FlowTaskStatus.Waiting);
         if (acted)
         {
-            throw new BusinessException("审批已开始处理，无法撤回");
+            throw new BusinessException("审批已开始处理，无法撤回", ErrorCodes.FLOW_WITHDRAW_PROCESSING);
         }
 
         await instanceRepository.TransactionAsync(async () =>
@@ -384,12 +385,12 @@ public class FlowEngine(
     /// <summary>催办：发起人对运行中实例催促当前审批人（4 小时内仅一次）</summary>
     public async Task UrgeAsync(long instanceId)
     {
-        var userId = operatorProvider.OperatorUserId ?? throw new BusinessException("未登录");
+        var userId = operatorProvider.OperatorUserId ?? throw new BusinessException("未登录", ErrorCodes.FLOW_NOT_AUTHENTICATED);
         var instance = await instanceRepository.GetByIdAsync(instanceId)
-                       ?? throw new BusinessException("流程实例不存在");
+                       ?? throw new BusinessException("流程实例不存在", ErrorCodes.FLOW_INSTANCE_NOT_FOUND);
         if (instance.SubmitterId != userId)
         {
-            throw new BusinessException("仅发起人可催办");
+            throw new BusinessException("仅发起人可催办", ErrorCodes.FLOW_URGE_FORBIDDEN);
         }
         EnsureRunning(instance);
 
@@ -398,14 +399,14 @@ public class FlowEngine(
             && r.Action == "urge" && r.ActTime >= DateTime.Now.AddHours(-4));
         if (recent)
         {
-            throw new BusinessException("4 小时内已催办过，请稍后再试");
+            throw new BusinessException("4 小时内已催办过，请稍后再试", ErrorCodes.FLOW_URGE_RATE_LIMITED);
         }
 
         var pending = await taskRepository.GetListAsync(
             t => t.InstanceId == instanceId && t.Status == FlowTaskStatus.Pending);
         if (pending.Count == 0)
         {
-            throw new BusinessException("当前没有待处理的审批任务");
+            throw new BusinessException("当前没有待处理的审批任务", ErrorCodes.FLOW_URGE_NO_PENDING_TASK);
         }
 
         var approverIds = pending.Select(t => t.ApproverUserId).Distinct().ToList();
@@ -491,7 +492,7 @@ public class FlowEngine(
         {
             if (!visited.Add(current))
             {
-                throw new BusinessException("流程节点配置成环，请检查流程设计");
+                throw new BusinessException("流程节点配置成环，请检查流程设计", ErrorCodes.FLOW_DEF_CYCLE);
             }
             var node = current == extraNode?.Code ? extraNode : graph.Index[current];
 
@@ -705,7 +706,7 @@ public class FlowEngine(
             .FirstOrDefault(b => ConditionEvaluator.Evaluate(b.Conditions, variables));
         var next = hit?.Next ?? node.DefaultNext;
         return next ?? throw new BusinessException(
-            $"条件节点 {node.Name ?? node.Code} 无命中分支且未配置默认分支");
+            $"条件节点 {node.Name ?? node.Code} 无命中分支且未配置默认分支", ErrorCodes.FLOW_CONDITION_NO_BRANCH);
     }
 
     private async Task HandleCcAsync(SysFlowInstance instance, FlowNode node)
@@ -794,18 +795,18 @@ public class FlowEngine(
     {
         if (graph.Index.Count == 0 || !graph.Index.ContainsKey(graph.Entry))
         {
-            throw new BusinessException("流程缺少入口节点");
+            throw new BusinessException("流程缺少入口节点", ErrorCodes.FLOW_DEF_NO_ENTRY);
         }
         var dup = graph.Nodes.GroupBy(n => n.Code).FirstOrDefault(g => g.Count() > 1);
         if (dup != null)
         {
-            throw new BusinessException($"节点编码重复: {dup.Key}");
+            throw new BusinessException($"节点编码重复: {dup.Key}", ErrorCodes.FLOW_DEF_NODE_CODE_DUP);
         }
         foreach (var node in graph.Nodes)
         {
             if (node.Type == FlowNodeType.Approval && (node.Approvers == null || node.Approvers.Count == 0))
             {
-                throw new BusinessException($"审批节点 {node.Name ?? node.Code} 未配置审批人规则");
+                throw new BusinessException($"审批节点 {node.Name ?? node.Code} 未配置审批人规则", ErrorCodes.FLOW_DEF_APPROVER_MISSING);
             }
         }
     }
@@ -813,9 +814,9 @@ public class FlowEngine(
     private async Task<FlowGraph> LoadGraphAsync(SysFlowInstance instance)
     {
         var definition = await definitionRepository.GetByIdAsync(instance.DefinitionId)
-                         ?? throw new BusinessException("流程定义已删除");
+                         ?? throw new BusinessException("流程定义已删除", ErrorCodes.FLOW_DEF_DELETED);
         return FlowGraph.Parse(definition.NodeJson)
-               ?? throw new BusinessException("流程节点配置无效");
+               ?? throw new BusinessException("流程节点配置无效", ErrorCodes.FLOW_DEF_NODES_INVALID);
     }
 
     private static string BuildVariablesJson(FlowSubmitRequest request)
@@ -974,11 +975,11 @@ public class FlowEngine(
     {
         if (task.ApproverUserId != userId)
         {
-            throw new BusinessException("仅任务归属人可处理");
+            throw new BusinessException("仅任务归属人可处理", ErrorCodes.FLOW_TASK_OWNER_ONLY);
         }
         if (task.Status != FlowTaskStatus.Pending)
         {
-            throw new BusinessException("该任务已处理或已失效");
+            throw new BusinessException("该任务已处理或已失效", ErrorCodes.FLOW_TASK_ALREADY_HANDLED);
         }
     }
 
@@ -986,7 +987,7 @@ public class FlowEngine(
     {
         if (instance.Status != FlowInstanceStatus.Running)
         {
-            throw new BusinessException("流程已结束");
+            throw new BusinessException("流程已结束", ErrorCodes.FLOW_INSTANCE_FINISHED);
         }
     }
 

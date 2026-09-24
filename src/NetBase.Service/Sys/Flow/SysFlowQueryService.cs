@@ -221,7 +221,7 @@ ORDER BY SUM(CASE WHEN t.Status IN (2,3,8) THEN 1 ELSE 0 END) DESC
     public async Task<FlowInstanceDetailDto> GetDetailAsync(long instanceId)
     {
         var instance = await instanceRepository.GetByIdAsync(instanceId)
-                       ?? throw new BusinessException("流程实例不存在");
+                       ?? throw new BusinessException("流程实例不存在", ErrorCodes.FLOW_INSTANCE_NOT_FOUND);
 
         var records = await db.Queryable<SysFlowRecord>()
             .Where(r => r.InstanceId == instanceId)

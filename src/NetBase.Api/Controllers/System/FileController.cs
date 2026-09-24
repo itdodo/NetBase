@@ -19,7 +19,7 @@ public class FileController(ISysFileService fileService, ICurrentUserService cur
     {
         if (file == null || file.Length == 0)
         {
-            return ApiResult<FileUploadResult>.Fail("请选择要上传的文件", ApiResultCode.BadRequest);
+            return ApiResult<FileUploadResult>.Fail("请选择要上传的文件", ApiResultCode.BadRequest, ErrorCodes.COMMON_FILE_REQUIRED);
         }
 
         await using var stream = file.OpenReadStream();

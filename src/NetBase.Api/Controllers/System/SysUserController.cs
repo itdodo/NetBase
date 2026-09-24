@@ -80,19 +80,19 @@ public class SysUserController(
     {
         if (file == null || file.Length == 0)
         {
-            return ApiResult<UserImportResultDto>.Fail("请选择导入文件", ApiResultCode.BadRequest);
+            return ApiResult<UserImportResultDto>.Fail("请选择导入文件", ApiResultCode.BadRequest, ErrorCodes.SYS_USER_IMPORT_FILE_REQUIRED);
         }
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (ext is not (".xlsx" or ".xls"))
         {
-            return ApiResult<UserImportResultDto>.Fail("仅支持 xlsx/xls 文件", ApiResultCode.BadRequest);
+            return ApiResult<UserImportResultDto>.Fail("仅支持 xlsx/xls 文件", ApiResultCode.BadRequest, ErrorCodes.SYS_USER_IMPORT_TYPE_INVALID);
         }
 
         await using var stream = file.OpenReadStream();
         var rows = stream.Query<UserImportRow>().Where(r => !(r.UserName == null && r.NickName == null)).ToList();
         if (rows.Count == 0)
         {
-            return ApiResult<UserImportResultDto>.Fail("导入文件中没有数据行", ApiResultCode.BadRequest);
+            return ApiResult<UserImportResultDto>.Fail("导入文件中没有数据行", ApiResultCode.BadRequest, ErrorCodes.SYS_USER_IMPORT_EMPTY);
         }
 
         var (successCount, errors) = await userService.ImportAsync(rows, OperatorName);

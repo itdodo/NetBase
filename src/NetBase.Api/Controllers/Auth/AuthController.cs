@@ -89,7 +89,7 @@ public class AuthController(
     {
         if (file == null || file.Length == 0)
         {
-            return ApiResult<string>.Fail("请选择头像文件", ApiResultCode.BadRequest);
+            return ApiResult<string>.Fail("请选择头像文件", ApiResultCode.BadRequest, ErrorCodes.COMMON_FILE_REQUIRED);
         }
 
         await using var stream = file.OpenReadStream();

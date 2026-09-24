@@ -102,7 +102,7 @@ public class SysFlowDefinitionService(IRepository<SysFlowDefinition> repository)
     {
         ValidateNodeJson(dto.NodeJson);
         var definition = await repository.GetByIdAsync(id)
-                         ?? throw new BusinessException("流程定义不存在");
+                         ?? throw new BusinessException("流程定义不存在", ErrorCodes.FLOW_DEF_NOT_FOUND);
         definition.FlowName = dto.FlowName;
         definition.Category = dto.Category;
         definition.NodeJson = dto.NodeJson;
@@ -113,10 +113,10 @@ public class SysFlowDefinitionService(IRepository<SysFlowDefinition> repository)
     public async Task DeleteAsync(long id)
     {
         var definition = await repository.GetByIdAsync(id)
-                         ?? throw new BusinessException("流程定义不存在");
+                         ?? throw new BusinessException("流程定义不存在", ErrorCodes.FLOW_DEF_NOT_FOUND);
         if (definition.Status == 1)
         {
-            throw new BusinessException("启用中的流程不允许删除，请先停用");
+            throw new BusinessException("启用中的流程不允许删除，请先停用", ErrorCodes.FLOW_DEF_DELETE_ENABLED_FORBIDDEN);
         }
         await repository.DeleteAsync(definition);
     }
@@ -124,7 +124,7 @@ public class SysFlowDefinitionService(IRepository<SysFlowDefinition> repository)
     public async Task EnableAsync(long id)
     {
         var definition = await repository.GetByIdAsync(id)
-                         ?? throw new BusinessException("流程定义不存在");
+                         ?? throw new BusinessException("流程定义不存在", ErrorCodes.FLOW_DEF_NOT_FOUND);
         // 同编码其他版本全部停用（事务保证任一时刻至多一个启用版本）
         await repository.TransactionAsync(async () =>
         {
@@ -143,21 +143,21 @@ public class SysFlowDefinitionService(IRepository<SysFlowDefinition> repository)
     public void ValidateNodeJson(string nodeJson)
     {
         var graph = FlowGraph.Parse(nodeJson)
-                    ?? throw new BusinessException("节点配置 JSON 解析失败");
+                    ?? throw new BusinessException("节点配置 JSON 解析失败", ErrorCodes.FLOW_DEF_JSON_INVALID);
         if (graph.Index.Count == 0 || !graph.Index.ContainsKey(graph.Entry))
         {
-            throw new BusinessException("节点配置缺少入口节点");
+            throw new BusinessException("节点配置缺少入口节点", ErrorCodes.FLOW_DEF_NO_ENTRY);
         }
         var dup = graph.Nodes.GroupBy(n => n.Code).FirstOrDefault(g => g.Count() > 1);
         if (dup != null)
         {
-            throw new BusinessException($"节点编码重复: {dup.Key}");
+            throw new BusinessException($"节点编码重复: {dup.Key}", ErrorCodes.FLOW_DEF_NODE_CODE_DUP);
         }
         foreach (var node in graph.Nodes)
         {
             if (node.Type == FlowNodeType.Approval && (node.Approvers == null || node.Approvers.Count == 0))
             {
-                throw new BusinessException($"审批节点「{node.Name ?? node.Code}」未配置审批人规则");
+                throw new BusinessException($"审批节点「{node.Name ?? node.Code}」未配置审批人规则", ErrorCodes.FLOW_DEF_APPROVER_MISSING);
             }
         }
     }
@@ -176,7 +176,7 @@ public class SysFlowDefinitionService(IRepository<SysFlowDefinition> repository)
         newName = newName?.Trim() ?? string.Empty;
         if (oldName.IsNullOrEmpty() || newName.IsNullOrEmpty())
         {
-            throw new BusinessException("分类名不能为空");
+            throw new BusinessException("分类名不能为空", ErrorCodes.FLOW_CATEGORY_NAME_REQUIRED);
         }
         if (oldName == newName)
         {
@@ -196,7 +196,7 @@ public class SysFlowDefinitionService(IRepository<SysFlowDefinition> repository)
         var used = await repository.CountAsync(x => x.Category == name);
         if (used > 0)
         {
-            throw new BusinessException($"分类「{name}」下还有 {used} 个流程，请先在流程上移出该分类");
+            throw new BusinessException($"分类「{name}」下还有 {used} 个流程，请先在流程上移出该分类", ErrorCodes.FLOW_CATEGORY_IN_USE);
         }
     }
 

@@ -83,20 +83,22 @@ public class SysRoleController(
         return Success();
     }
 
-    /// <summary>查询角色已分配的菜单ID</summary>
+    /// <summary>查询角色已分配的菜单ID（字符串化防前端精度丢失）</summary>
     [HasPermission("sys:role:list")]
         [HttpGet("{id:long}/menu-ids")]
-    public async Task<ApiResult<List<long>>> GetMenuIds(long id)
+    public async Task<ApiResult<List<string>>> GetMenuIds(long id)
     {
-        return Success(await roleService.GetMenuIdsAsync(id));
+        var ids = await roleService.GetMenuIdsAsync(id);
+        return Success(ids.Select(x => x.ToString()).ToList());
     }
 
-    /// <summary>查询角色自定义数据权限的部门ID</summary>
+    /// <summary>查询角色自定义数据权限的部门ID（字符串化防前端精度丢失）</summary>
     [HasPermission("sys:role:list")]
     [HttpGet("{id:long}/dept-ids")]
-    public async Task<ApiResult<List<long>>> GetDeptIds(long id)
+    public async Task<ApiResult<List<string>>> GetDeptIds(long id)
     {
-        return Success(await roleService.GetRoleDeptIdsAsync(id));
+        var ids = await roleService.GetRoleDeptIdsAsync(id);
+        return Success(ids.Select(x => x.ToString()).ToList());
     }
 
     /// <summary>为角色分配菜单（全量重设）</summary>

@@ -104,7 +104,7 @@ export interface RoleSave {
   status: number
   sort: number
   dataScope: number
-  deptIds?: number[]
+  deptIds?: (number | string)[]
   /** 编辑时读取的并发版本（回传校验，不传则跳过；创建时无需传） */
   version?: number
 }
@@ -113,8 +113,9 @@ export interface RoleSave {
 export const MENU_TYPE = { DIRECTORY: 1, MENU: 2, BUTTON: 3 } as const
 
 export interface MenuTree {
-  id: number
-  parentId: number
+  /** 雪花 ID 序列化为字符串（后端 LongToStringConverter），前端一律按 string 处理 */
+  id: string
+  parentId: string
   menuName: string
   menuType: number
   path?: string

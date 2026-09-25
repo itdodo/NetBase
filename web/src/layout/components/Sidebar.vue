@@ -14,7 +14,7 @@ const permissionStore = usePermissionStore()
 
 const visibleMenus = computed(() =>
   permissionStore.menus
-    .filter((m) => m.parentId === 0 && m.visible && m.status === 1 && m.menuType !== 3)
+    .filter((m) => Number(m.parentId) === 0 && m.visible && m.status === 1 && m.menuType !== 3)
     .sort((a, b) => a.sort - b.sort)
 )
 

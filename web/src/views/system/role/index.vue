@@ -74,7 +74,7 @@ const form = reactive({
   status: 1,
   sort: 0,
   dataScope: 1,
-  deptIds: [] as number[],
+  deptIds: [] as (number | string)[],
   version: 0
 })
 
@@ -158,15 +158,15 @@ async function openAssignMenus(row: Role) {
   menuTree.value = tree
 
   // 勾选：叶子节点直接勾选，父节点交给 halfChecked，避免 el-tree 全选联动
-  const leafIds = new Set<number>()
-  const walk = (nodes: MenuTree[], parentChecked: Set<number>) => {
+  const leafIds = new Set<string>()
+  const walk = (nodes: MenuTree[], parentChecked: Set<string>) => {
     nodes.forEach((node) => {
       if (checkedIds.includes(node.id)) parentChecked.add(node.id)
       walk(node.children, parentChecked)
       if (!node.children.length && parentChecked.has(node.id)) leafIds.add(node.id)
     })
   }
-  const parentOfChecked = new Set<number>()
+  const parentOfChecked = new Set<string>()
   walk(tree, parentOfChecked)
   await nextTick()
   menuTreeRef.value?.setCheckedKeys([...leafIds])

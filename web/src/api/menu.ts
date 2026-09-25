@@ -18,8 +18,8 @@ export const getMenuDetail = (id: number) => request.get<never, MenuTree>(`/sys/
 export const createMenu = (data: MenuSave) => request.post<never, string>('/sys/menu', data)
 
 /** 更新菜单 */
-export const updateMenu = (id: number, data: MenuSave) =>
+export const updateMenu = (id: string, data: MenuSave) =>
   request.put<never, void>(`/sys/menu/${id}`, data)
 
 /** 删除菜单（存在子节点或被角色引用时后端拒绝） */
-export const deleteMenu = (id: number) => request.delete<never, void>(`/sys/menu/${id}`)
+export const deleteMenu = (id: string) => request.delete<never, void>(`/sys/menu/${id}`)

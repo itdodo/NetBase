@@ -42,7 +42,7 @@ async function loadData() {
 
 // ---------- 新增 / 编辑 ----------
 const dialogVisible = ref(false)
-const editingId = ref<number | null>(null)
+const editingId = ref<string | null>(null)
 const formRef = ref<FormInstance>()
 const form = reactive<MenuSave>({
   parentId: 0,
@@ -72,12 +72,12 @@ const parentOptions = computed(() => {
   return [{ id: 0, menuName: '顶级菜单', children: tree.value.map(toNode) } as never]
 })
 
-function openCreate(parentId = 0) {
+function openCreate(parentId: string | number = 0) {
   editingId.value = null
   Object.assign(form, {
     parentId,
     menuName: '',
-    menuType: parentId === 0 ? MENU_TYPE.DIRECTORY : MENU_TYPE.MENU,
+    menuType: Number(parentId) === 0 ? MENU_TYPE.DIRECTORY : MENU_TYPE.MENU,
     path: '',
     component: '',
     permission: '',

@@ -22,10 +22,10 @@ export const updateRole = (id: number, data: RoleSave) =>
 export const deleteRole = (id: number) => request.delete<never, void>(`/sys/role/${id}`)
 
 /** 查询角色已分配的菜单ID */
-export const getRoleMenuIds = (id: number) => request.get<never, number[]>(`/sys/role/${id}/menu-ids`)
+export const getRoleMenuIds = (id: number) => request.get<never, string[]>(`/sys/role/${id}/menu-ids`)
 
 /** 查询角色自定义数据权限的部门ID */
-export const getRoleDeptIds = (id: number) => request.get<never, number[]>(`/sys/role/${id}/dept-ids`)
+export const getRoleDeptIds = (id: number) => request.get<never, string[]>(`/sys/role/${id}/dept-ids`)
 
 /** 为角色分配菜单（全量重设） */
 export const assignRoleMenus = (id: number, menuIds: number[]) =>

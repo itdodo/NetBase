@@ -3,6 +3,10 @@ import { ElMessage } from 'element-plus'
 import { clearToken, getRefreshToken, getToken, setRefreshToken, setToken } from '@/utils/auth'
 import { refreshTokenApi } from '@/api/auth'
 import type { ApiResult } from '@/types/api'
+import { ERROR_CODES } from '@/types/errorCodes'
+
+/** 乐观锁并发冲突事件名：request.ts 在收到 COMMON_CONCURRENCY_CONFLICT 时派发，usePageList 监听自动刷新 */
+export const CONCURRENCY_CONFLICT_EVENT = 'nb:concurrency-conflict'
 
 /** 业务错误：携带统一返回的 code 与全局 errorCode，页面可按码分支（码表 types/errorCodes.ts） */
 export class ApiError extends Error {
@@ -91,6 +95,10 @@ request.interceptors.response.use(
     }
     const result = response.data as ApiResult
     if (result.code !== 200) {
+      // 乐观锁并发冲突：广播事件，挂载中的列表页自动刷新到最新版本
+      if (result.errorCode === ERROR_CODES.COMMON_CONCURRENCY_CONFLICT) {
+        window.dispatchEvent(new CustomEvent(CONCURRENCY_CONFLICT_EVENT))
+      }
       if (!isSilent(response.config, result.errorCode)) {
         ElMessage.error(result.message || '操作失败')
       }

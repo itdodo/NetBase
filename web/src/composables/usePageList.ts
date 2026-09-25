@@ -3,8 +3,8 @@
  * Q 为查询条件类型（含 pageIndex/pageSize），T 为行类型。
  * 迁移示例见 views/monitor/operlog、views/monitor/loginlog。
  */
-import { reactive, ref, type Ref } from 'vue'
-import request from '@/api/request'
+import { onScopeDispose, reactive, ref, type Ref } from 'vue'
+import request, { CONCURRENCY_CONFLICT_EVENT } from '@/api/request'
 
 export interface UsePageListOptions<T, Q> {
   /** 接口地址（GET 分页） */
@@ -47,6 +47,13 @@ export function usePageList<T = unknown, Q extends { pageIndex: number; pageSize
     Object.assign(query, options.defaultQuery, { pageIndex: 1 })
     loadData()
   }
+
+  // 乐观锁并发冲突：任意接口返回 COMMON_CONCURRENCY_CONFLICT 时刷新本列表（拿到他人修改后的最新版本）
+  const onConcurrencyConflict = (): void => {
+    void loadData()
+  }
+  window.addEventListener(CONCURRENCY_CONFLICT_EVENT, onConcurrencyConflict as EventListener)
+  onScopeDispose(() => window.removeEventListener(CONCURRENCY_CONFLICT_EVENT, onConcurrencyConflict as EventListener))
 
   return { loading, list, total, query, loadData, handleSearch, handleReset }
 }

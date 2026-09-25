@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: "YourStrong@Password1"
       POSTGRES_DB: "netbase"
     ports:
-      - "5432:5432"   # 宿主机 5432 已占用时改为 "5433:5432" 并同步修改 api 连接串端口
+      - "${NETBASE_DB_PORT:-5432}:5432"   # 宿主机端口可用环境变量覆盖（如本机 5432 被占：NETBASE_DB_PORT=5434），容器间通信不受影响
     volumes:
       - netbase-db:/var/lib/postgresql/data
     healthcheck:
@@ -30,7 +30,7 @@ services:
       # 备份目录指向挂载卷（pg_dump 在 api 容器内执行，镜像已内置 postgresql-client-17）
       Backup__Directory: "/app/backup"
     ports:
-      - "8080:8080"
+      - "${NETBASE_API_PORT:-8080}:8080"   # 宿主机端口可用环境变量覆盖（如本机 8080 被占：NETBASE_API_PORT=8081）
     volumes:
       - netbase-backup:/app/backup
     depends_on:

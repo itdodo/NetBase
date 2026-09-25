@@ -1,6 +1,6 @@
 # NetBase 通用基础框架
 
-基于 **.NET 10 (C#)** 的企业级 Web 开发基础框架，采用传统三层架构（Service + Repository）并引入泛型化设计，内置 RBAC 权限数据模型，ORM 使用 SqlSugarCore（最新稳定版），数据库为 SqlServer。满足中小型企业 Web 开发需求；前端采用 Vue 3 + Element Plus（`web/` 目录），开箱即得完整的管理系统骨架。
+基于 **.NET 10 (C#)** 的企业级 Web 开发基础框架，采用传统三层架构（Service + Repository）并引入泛型化设计，内置 RBAC 权限数据模型，ORM 使用 SqlSugarCore（最新稳定版），数据库为 PostgreSQL 17。满足中小型企业 Web 开发需求；前端采用 Vue 3 + Element Plus（`web/` 目录），开箱即得完整的管理系统骨架。
 
 ## 技术栈
 
@@ -8,7 +8,7 @@
 |---|---|---|
 | 运行时 | .NET 10 | C# 最新语言特性 |
 | ORM | SqlSugarCore 5.1.4.x | CodeFirst、全局软删除过滤器、AOP SQL 日志 |
-| 数据库 | SqlServer | 连接串在 appsettings.json 配置 |
+| 数据库 | PostgreSQL 17 | 连接串在 appsettings.json 配置（Npgsql） |
 | 缓存 | MemoryCache（默认）/ Redis（备用） | 配置一键切换 |
 | 消息队列 | RabbitMQ（备用，默认关闭） | RabbitMQ.Client 7.x 异步 API |
 | 日志 | Serilog | 控制台 + 按日滚动文件（Logs/） |
@@ -16,7 +16,7 @@
 | 认证 | JWT Bearer + RefreshToken 轮换 + 会话表 | 登录锁定/强制下线/在线用户 |
 | 审计 | 操作日志 + 登录日志（参数脱敏） | 等保要求 |
 | Excel | MiniExcel | 列表导出 |
-| 部署 | Dockerfile + docker-compose | 两容器（api + SqlServer），前端静态文件由 API 托管 |
+| 部署 | Dockerfile + docker-compose | 两容器（api + PostgreSQL），前端静态文件由 API 托管 |
 | 文件上传 | 本地存储（白名单/大小校验），预留 OSS 切换 | 头像等 |
 | 安全增强 | 登录图形验证码（可参数开关）+ 防重复提交（2 秒窗口判重） | |
 | 通知公告 | 发布/铃铛提醒/详情查看 | |
@@ -46,7 +46,7 @@ NetBase.slnx
 
 ```json
 "Db": {
-  "ConnectionString": "Server=localhost;Database=NetBase;Uid=sa;Pwd=你的密码;TrustServerCertificate=True;",
+  "ConnectionString": "Host=localhost;Port=5433;Database=netbase;Username=netbase;Password=你的密码",
   "InitEnabled": true
 }
 ```
@@ -63,7 +63,7 @@ dotnet run          # 默认 http://localhost:5306；Swagger 见 /swagger
 - 角色：`超级管理员（admin）`
 - 菜单：系统管理（用户/角色/菜单 + 增删改按钮权限）、系统监控
 
-> 注意：本机无 SqlServer 时应用仍可启动（初始化失败仅记录错误日志），但数据库接口不可用。
+> 注意：本机无 PostgreSQL 时应用仍可启动（初始化失败仅记录错误日志），但数据库接口不可用。开发环境建议直接用 docker compose 里的 netbase-db 容器（映射 5433 端口）。
 
 ### 2. 启动前端
 
@@ -124,7 +124,7 @@ SysUser ──< SysUserRole >── SysRole ──< SysRoleMenu >── SysMenu(
 
 | 节点 | 说明 | 默认 |
 |---|---|---|
-| `Db:ConnectionString` | SqlServer 连接串 | localhost 示例值，必须修改 |
+| `Db:ConnectionString` | PostgreSQL 连接串 | localhost 示例值，必须修改 |
 | `Db:InitEnabled` | 启动时建表+种子数据 | `true` |
 | `Db:LogSql` / `Db:SlowSqlThresholdMs` | SQL 日志 / 慢查询阈值 | `true` / `3000` |
 | `Cache:Provider` | `Memory`（默认）或 `Redis` | `Memory` |
@@ -158,7 +158,7 @@ web/src/
 ## Docker 部署
 
 ```bash
-docker compose up -d        # 两容器：netbase-api（.NET + 前端静态）+ netbase-db（SqlServer 2022），自动建表种子
+docker compose up -d        # 两容器：netbase-api（.NET + 前端静态 + pg_dump）+ netbase-db（PostgreSQL 17），自动建表种子
 # 访问 http://localhost:8080（生产环境务必覆盖 Jwt__SecretKey 与数据库密码环境变量）
 ```
 

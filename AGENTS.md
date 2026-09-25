@@ -16,15 +16,16 @@
 4. **事务**：多表操作必须 `Repository.TransactionAsync` 包裹
 5. **权限**：每个接口 `[HasPermission("biz:{模块}:{动作}")]`；创建类接口加 `[NoRepeatSubmit]`
 6. **验证**：DTO 必须带 DataAnnotations 特性；密码强度走 `PasswordPolicy.Validate`
-7. **错误码**：业务异常必须查码表赋码 `throw new BusinessException("文案", ErrorCodes.XXX)`（码表 `NetBase.Common/Results/ErrorCodes.cs`，总表 [docs/错误码.md](docs/错误码.md)）；码只增不改不删；后端加码后运行 `node scripts/gen-error-codes-ts.cjs` 同步前端镜像
-8. **数据库变更**：实体加列走 CodeFirst 自动同步；数据回填/索引调优/需评审的 DDL 必须新增 `src/NetBase.Repository/db/migrations/NNNN_描述.sql`（幂等、禁改历史脚本）
-9. **交付自检**：`dotnet build` 0 错误 → `dotnet test`（单元 54 + 集成 56）全过 → `npm run type-check` 零错误 → 关键路径实测 → 同步更新 docs
+7. **数据库 = PostgreSQL**：连接串 `Host=...;Database=...;Username=...;Password=...`；原生 SQL 用 PG 方言+小写物理列名；裸 Insertable 必须显式 `Id = NewId()`（PG 下 AOP 对主键不生效）
+8. **错误码**：业务异常必须查码表赋码 `throw new BusinessException("文案", ErrorCodes.XXX)`（码表 `NetBase.Common/Results/ErrorCodes.cs`，总表 [docs/错误码.md](docs/错误码.md)）；码只增不改不删；后端加码后运行 `node scripts/gen-error-codes-ts.cjs` 同步前端镜像
+9. **数据库变更**：实体加列走 CodeFirst 自动同步；数据回填/索引调优/需评审的 DDL 必须新增 `src/NetBase.Repository/db/migrations/NNNN_描述.sql`（幂等、禁改历史脚本）
+10. **交付自检**：`dotnet build` 0 错误 → `dotnet test`（单元 54 + 集成 56）全过 → `npm run type-check` 零错误 → 关键路径实测 → 同步更新 docs
 
 ## 常用命令
 
 ```bash
 dotnet build                                # 后端构建（0 警告 0 错误基线）
-dotnet test                                 # 全部测试（37 单元 + 43 集成）
+dotnet test                                 # 全部测试（54 单元 + 56 集成）
 cd web && npm run type-check                # 前端类型检查
 cd web && npm run dev                       # 启动前端（5173，代理 5306）
 cd src/NetBase.Api && dotnet run            # 启动后端（5306）
@@ -32,5 +33,5 @@ cd src/NetBase.Api && dotnet run            # 启动后端（5306）
 
 ## 提醒
 
-- 集成测试连专用库 `NetBase_Test`（自动建库建表）；CI 中用 `NETBASE_TEST_CONNECTIONSTRING` 覆盖
+- 集成测试连专用 PostgreSQL 库 `netbase_test`（netbase-pg 容器 5433，自动建库建表）；CI 中用 `NETBASE_TEST_CONNECTIONSTRING` 覆盖
 - 新增/修改/删除功能、表、接口时，同步更新 `docs/技术文档.md` 变更记录

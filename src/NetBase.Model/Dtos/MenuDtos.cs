@@ -6,8 +6,10 @@ namespace NetBase.Model.Dtos;
 /// <summary>菜单树节点</summary>
 public class MenuTreeDto
 {
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     public long Id { get; set; }
 
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     public long ParentId { get; set; }
 
     public string MenuName { get; set; } = string.Empty;

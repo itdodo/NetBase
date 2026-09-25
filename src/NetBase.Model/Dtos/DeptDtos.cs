@@ -53,6 +53,7 @@ public class DeptSaveDto
     public string? Leader { get; set; }
 
     /// <summary>负责人用户ID（审批流"部门主管"解析用；0=未设置）</summary>
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
     public long LeaderUserId { get; set; }
 
     /// <summary>排序号</summary>

@@ -41,6 +41,7 @@ public class DbSeeder
         {
             var role = new SysRole
             {
+    Id = NewId(),
                 RoleName = "超级管理员",
                 RoleCode = "admin",
                 Status = (int)StatusEnum.Enabled,
@@ -58,6 +59,7 @@ public class DbSeeder
         {
             var admin = new SysUser
             {
+    Id = NewId(),
                 UserName = "admin",
                 Password = PasswordHelper.Encrypt(PasswordHelper.DefaultPassword),
                 NickName = "系统管理员",
@@ -114,7 +116,7 @@ public class DbSeeder
 
         // 存量用户数据归属人回填（幂等；表达式路径免方言）
         db.Updateable<SysUser>()
-            .SetColumns(x => new SysUser { OwnerUserId = x.Id })
+            .SetColumns(x => new SysUser {     Id = NewId(), OwnerUserId = x.Id })
             .Where(x => x.OwnerUserId == 0)
             .ExecuteCommand();
 
@@ -126,7 +128,7 @@ public class DbSeeder
         foreach (var menu in iconless)
         {
             db.Updateable<SysMenu>()
-                .SetColumns(x => new SysMenu { Icon = "Document" })
+                .SetColumns(x => new SysMenu {     Id = NewId(), Icon = "Document" })
                 .Where(x => x.Id == menu.Id)
                 .ExecuteCommand();
             _logger?.LogWarning("菜单「{Name}」未配置图标，已补默认图标 Document，请尽快在菜单管理中调整", menu.MenuName);
@@ -141,7 +143,7 @@ public class DbSeeder
         if (ccMenu != null)
         {
             db.Updateable<SysMenu>()
-                .SetColumns(x => new SysMenu { Icon = "Promotion" })
+                .SetColumns(x => new SysMenu {     Id = NewId(), Icon = "Promotion" })
                 .Where(x => x.Id == ccMenu.Id)
                 .ExecuteCommand();
         }
@@ -186,6 +188,7 @@ public class DbSeeder
 
             var menu = db.Insertable(new SysMenu
             {
+    Id = NewId(),
                 ParentId = monitorDir.Id,
                 MenuName = spec.Name,
                 MenuType = (int)MenuTypeEnum.Menu,
@@ -247,6 +250,7 @@ public class DbSeeder
         // 逐层插入：目录 -> 菜单 -> 按钮，子级依赖父级自增ID
         var systemDir = db.Insertable(new SysMenu
         {
+    Id = NewId(),
             ParentId = 0,
             MenuName = "系统管理",
             MenuType = (int)MenuTypeEnum.Directory,
@@ -259,6 +263,7 @@ public class DbSeeder
 
         var monitorDir = db.Insertable(new SysMenu
         {
+    Id = NewId(),
             ParentId = 0,
             MenuName = "系统监控",
             MenuType = (int)MenuTypeEnum.Directory,
@@ -271,6 +276,7 @@ public class DbSeeder
 
         var userMenu = db.Insertable(new SysMenu
         {
+    Id = NewId(),
             ParentId = systemDir.Id,
             MenuName = "用户管理",
             MenuType = (int)MenuTypeEnum.Menu,
@@ -284,6 +290,7 @@ public class DbSeeder
 
         var roleMenu = db.Insertable(new SysMenu
         {
+    Id = NewId(),
             ParentId = systemDir.Id,
             MenuName = "角色管理",
             MenuType = (int)MenuTypeEnum.Menu,
@@ -297,6 +304,7 @@ public class DbSeeder
 
         var menuMenu = db.Insertable(new SysMenu
         {
+    Id = NewId(),
             ParentId = systemDir.Id,
             MenuName = "菜单管理",
             MenuType = (int)MenuTypeEnum.Menu,
@@ -437,6 +445,7 @@ public class DbSeeder
         }
         var menu = db.Insertable(new SysMenu
         {
+    Id = NewId(),
             ParentId = systemDir.Id,
             MenuName = "部门管理",
             MenuType = (int)MenuTypeEnum.Menu,
@@ -526,6 +535,7 @@ public class DbSeeder
         {
             bizDir = db.Insertable(new SysMenu
             {
+    Id = NewId(),
                 ParentId = 0,
                 MenuName = "业务办公",
                 MenuType = (int)MenuTypeEnum.Directory,
@@ -552,6 +562,7 @@ public class DbSeeder
 
             var menu = db.Insertable(new SysMenu
             {
+    Id = NewId(),
                 ParentId = bizDir.Id,
                 MenuName = spec.Name,
                 MenuType = (int)MenuTypeEnum.Menu,
@@ -593,6 +604,7 @@ public class DbSeeder
 
             auditMenu = db.Insertable(new SysMenu
             {
+    Id = NewId(),
                 ParentId = monitorDir.Id,
                 MenuName = "审计日志",
                 MenuType = (int)MenuTypeEnum.Menu,
@@ -628,6 +640,7 @@ public class DbSeeder
             db.Updateable<SysMenu>()
                 .SetColumns(x => new SysMenu
                 {
+    Id = NewId(),
                     MenuType = (int)MenuTypeEnum.Button,
                     ParentId = auditMenu.Id,
                     Path = string.Empty,
@@ -675,7 +688,7 @@ public class DbSeeder
             }
 
             db.Updateable<SysMenu>()
-                .SetColumns(x => new SysMenu { Icon = icon })
+                .SetColumns(x => new SysMenu {     Id = NewId(), Icon = icon })
                 .Where(x => x.Id == menu.Id)
                 .ExecuteCommand();
         }
@@ -694,6 +707,7 @@ public class DbSeeder
 
         var menu = db.Insertable(new SysMenu
         {
+    Id = NewId(),
             ParentId = systemDir.Id,
             MenuName = "岗位管理",
             MenuType = (int)MenuTypeEnum.Menu,
@@ -725,6 +739,7 @@ public class DbSeeder
 
         var menu = db.Insertable(new SysMenu
         {
+    Id = NewId(),
             ParentId = monitorDir.Id,
             MenuName = "审批统计",
             MenuType = (int)MenuTypeEnum.Menu,
@@ -784,6 +799,7 @@ public class DbSeeder
         {
             personalDir = db.Insertable(new SysMenu
             {
+    Id = NewId(),
                 ParentId = 0,
                 MenuName = "个人办公",
                 MenuType = (int)MenuTypeEnum.Directory,
@@ -822,6 +838,7 @@ public class DbSeeder
 
             var menu = db.Insertable(new SysMenu
             {
+    Id = NewId(),
                 ParentId = personalDir.Id,
                 MenuName = spec.Name,
                 MenuType = (int)MenuTypeEnum.Menu,
@@ -859,6 +876,7 @@ public class DbSeeder
 
         var menu = db.Insertable(new SysMenu
         {
+    Id = NewId(),
             ParentId = systemDir.Id,
             MenuName = "流程管理",
             MenuType = (int)MenuTypeEnum.Menu,
@@ -888,6 +906,7 @@ public class DbSeeder
 
         var menu = db.Insertable(new SysMenu
         {
+    Id = NewId(),
             ParentId = monitorDir.Id,
             MenuName = "服务监控",
             MenuType = (int)MenuTypeEnum.Menu,
@@ -954,6 +973,7 @@ public class DbSeeder
 
         var menu = db.Insertable(new SysMenu
         {
+    Id = NewId(),
             ParentId = systemDir.Id,
             MenuName = "通知公告",
             MenuType = (int)MenuTypeEnum.Menu,
@@ -1018,6 +1038,7 @@ public class DbSeeder
 
             var type = db.Insertable(new SysDictType
             {
+    Id = NewId(),
                 DictCode = dict.Code,
                 DictName = dict.Name,
                 Status = 1,
@@ -1051,6 +1072,7 @@ public class DbSeeder
 
         var type = db.Insertable(new SysDictType
         {
+    Id = NewId(),
             DictCode = "demo_priority",
             DictName = "优先级（示例）",
             Status = 1,
@@ -1103,6 +1125,7 @@ public class DbSeeder
 
             var menu = db.Insertable(new SysMenu
             {
+    Id = NewId(),
                 ParentId = systemDir.Id,
                 MenuName = spec.Name,
                 MenuType = (int)MenuTypeEnum.Menu,

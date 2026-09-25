@@ -96,7 +96,7 @@ public class SqlSugarContext
                 {
                     case DataFilterType.InsertByObject when entityInfo.PropertyName == nameof(BaseEntity.Id)
                                                              && oldValue is 0 or null:
-                        // 雪花ID：主键为默认值时由生成器填充
+                        // 雪花ID：主键为默认值时由生成器填充（种子/批量直连路径不依赖此 AOP，须显式 Id=NewId()）
                         entityInfo.SetValue(Yitter.IdGenerator.YitIdHelper.NextId());
                         break;
                     case DataFilterType.InsertByObject when entityInfo.PropertyName == nameof(BaseEntity.CreateTime):

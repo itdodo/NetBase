@@ -45,6 +45,13 @@ public class SqlSugarContext
     private readonly SqlSugarScope? _client;
     private readonly ILogger<SqlSugarContext>? _logger;
 
+    static SqlSugarContext()
+    {
+        // Npgsql 6+ 默认 timestamptz 仅接受 UTC DateTime；本框架审计/业务时间全程 DateTime.Now（Local Kind），
+        // 开启 legacy 行为后 timestamptz/timestamp 均按本地时间直写直读（Npgsql 5 语义），全链路无需改代码
+        AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+    }
+
     public SqlSugarContext(SqlSugarOptions options, IOperatorProvider? operatorProvider, ILogger<SqlSugarContext>? logger = null)
     {
         Options = options;
@@ -64,9 +71,17 @@ public class SqlSugarContext
         {
             ConfigId = ConfigId,
             ConnectionString = options.ConnectionString,
-            DbType = DbType.SqlServer,
+            DbType = DbType.PostgreSQL,
             IsAutoCloseConnection = true,
-            InitKeyType = InitKeyType.Attribute
+            InitKeyType = InitKeyType.Attribute,
+            // PostgreSQL 标识符大小写对齐：表达式生成与 CodeFirst 建表统一转小写
+            // （PG 把不带引号的标识符折叠为小写；不开会造成 CodeFirst 建 PascalCase 列、
+            //  查询按小写找列的 "column does not exist" 错位。物理列名 = 属性名小写，如 isdeleted）
+            MoreSettings = new ConnMoreSettings
+            {
+                PgSqlIsAutoToLower = true,           // 查询/更新表达式列名转小写
+                PgSqlIsAutoToLowerCodeFirst = true   // CodeFirst 建表列名转小写
+            }
         }, db =>
         {
             // 全局软删除过滤器：ISoftDelete 实体自动追加 IsDeleted = 0 条件

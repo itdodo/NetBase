@@ -13,6 +13,14 @@ using Xunit;
 
 namespace NetBase.IntegrationTests;
 
+/// <summary>进程级初始化：Npgsql legacy 时间戳开关须早于一切 Npgsql 使用（见 SqlSugarContext 同名开关）</summary>
+internal static class TestAssemblyInit
+{
+    [System.Runtime.CompilerServices.ModuleInitializer]
+    internal static void Init() =>
+        AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+}
+
 /// <summary>
 /// 集成测试 Fixture：连接专用测试库 NetBase_Test（与开发库隔离），
 /// 容器组装与生产一致的仓储/服务管道（含软删除过滤器、审计 AOP）。
@@ -26,7 +34,7 @@ public sealed class IntegrationFixture
     public const string ConnectionStringEnvVar = "NETBASE_TEST_CONNECTIONSTRING";
 
     private static readonly string DefaultConnectionString =
-        "Server=localhost;Database=NetBase_Test;Uid=sa;Pwd=Abcd1234;TrustServerCertificate=True;";
+        "Host=localhost;Port=5433;Database=netbase_test;Username=netbase;Password=netbase123";
 
     /// <summary>测试库连接串：环境变量 NETBASE_TEST_CONNECTIONSTRING 优先，缺省本机库</summary>
     public static string ConnectionString { get; } =
@@ -76,14 +84,21 @@ public sealed class IntegrationFixture
 
         Services = services.BuildServiceProvider();
 
-        // 先连 master 确保测试库存在（应用连接指向测试库本身，库不存在时无法自建），再 CodeFirst 建表
-        using (var master = new Microsoft.Data.SqlClient.SqlConnection(
-            "Server=localhost;Database=master;Uid=sa;Pwd=Abcd1234;TrustServerCertificate=True;"))
+        // 先连 postgres 系统库确保测试库存在（应用连接指向测试库本身，库不存在时无法自建），再 CodeFirst 建表
+        var adminConn = "Host=localhost;Port=5433;Database=postgres;Username=netbase;Password=netbase123";
+        using (var system = new Npgsql.NpgsqlConnection(adminConn))
         {
-            master.Open();
-            using var cmd = master.CreateCommand();
-            cmd.CommandText = "IF DB_ID('NetBase_Test') IS NULL CREATE DATABASE NetBase_Test";
-            cmd.ExecuteNonQuery();
+            system.Open();
+            using (var cmd = system.CreateCommand())
+            {
+                cmd.CommandText = "SELECT COUNT(1) FROM pg_database WHERE datname = 'netbase_test'";
+                var exists = Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+                if (!exists)
+                {
+                    cmd.CommandText = "CREATE DATABASE netbase_test";
+                    cmd.ExecuteNonQuery();
+                }
+            }
         }
 
         var context = Services.GetRequiredService<SqlSugarContext>();
@@ -91,18 +106,17 @@ public sealed class IntegrationFixture
         new NetBase.Repository.DbContexts.DbMigrationRunner(context).Run();
 
         // 过滤唯一索引：RoleCode 唯一性约束（跨运行的陈旧行不占用编码，与生产 DbSeeder 一致）
-        using (var conn = new Microsoft.Data.SqlClient.SqlConnection(ConnectionString))
+        using (var conn = new Npgsql.NpgsqlConnection(ConnectionString))
         {
             conn.Open();
             foreach (var (table, index, column) in new[]
                      {
-                         ("sys_role", "uk_sys_role_rolecode", "RoleCode"),
-                         ("sys_user", "uk_sys_user_username", "UserName")
+                         ("sys_role", "uk_sys_role_rolecode", "rolecode"),
+                         ("sys_user", "uk_sys_user_username", "username")
                      })
             {
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = $"IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = '{index}' AND object_id = OBJECT_ID('{table}')) " +
-                                  $"CREATE UNIQUE INDEX [{index}] ON [{table}] ([{column}]) WHERE [IsDeleted] = 0";
+                cmd.CommandText = $"CREATE UNIQUE INDEX IF NOT EXISTS {index} ON {table} ({column}) WHERE isdeleted = false";
                 cmd.ExecuteNonQuery();
             }
         }

@@ -58,7 +58,7 @@ public class RepositoryIntegrationTests
 
         // 行还在且 IsDeleted=1（软删除可追溯）
         var raw = await _roleRepo.Db.Ado.SqlQuerySingleAsync<int>(
-            $"SELECT COUNT(1) FROM sys_role WHERE RoleCode = '{code}' AND IsDeleted = 1");
+            $"SELECT COUNT(1)::int FROM sys_role WHERE rolecode = '{code}' AND isdeleted = true");
         Assert.Equal(1, raw);
     }
 

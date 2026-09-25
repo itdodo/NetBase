@@ -19,14 +19,14 @@ public class DbMigrationRunner(SqlSugarContext context, ILogger? logger = null)
     {
         var db = context.Client;
 
-        // 执行记录表自举
+        // 执行记录表自举（PG：CREATE TABLE IF NOT EXISTS 天然幂等）
         db.Ado.ExecuteCommand(
-            $"""IF OBJECT_ID(N'dbo.{TableName}') IS NULL CREATE TABLE dbo.{TableName} ("""
-            + " Version VARCHAR(20) NOT NULL PRIMARY KEY,"
-            + " Name NVARCHAR(200) NOT NULL,"
-            + " AppliedTime DATETIME2 NOT NULL DEFAULT SYSDATETIME())");
+            $"""CREATE TABLE IF NOT EXISTS {TableName} ("""
+            + " version VARCHAR(20) NOT NULL PRIMARY KEY,"
+            + " name VARCHAR(200) NOT NULL,"
+            + " appliedtime TIMESTAMP NOT NULL DEFAULT now())");
 
-        var applied = db.Ado.SqlQuery<string>($"SELECT Version FROM {TableName}").ToHashSet();
+        var applied = db.Ado.SqlQuery<string>($"SELECT version FROM {TableName}").ToHashSet();
 
         var assembly = Assembly.GetExecutingAssembly();
         var scripts = assembly.GetManifestResourceNames()
@@ -52,7 +52,7 @@ public class DbMigrationRunner(SqlSugarContext context, ILogger? logger = null)
             {
                 db.Ado.ExecuteCommand(sql);
                 db.Ado.ExecuteCommand(
-                    $"INSERT INTO {TableName} (Version, Name) VALUES (@v, @n)",
+                    $"INSERT INTO {TableName} (version, name) VALUES (@v, @n)",
                     new SugarParameter[] { new("@v", version), new("@n", name) });
             });
             if (!result.IsSuccess)

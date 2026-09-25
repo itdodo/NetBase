@@ -33,7 +33,7 @@ public class SysOperationLog : BaseEntity
     public string? Path { get; set; }
 
     /// <summary>请求参数（JSON，密码字段脱敏，超长截断）</summary>
-    [SugarColumn(ColumnDataType = "nvarchar(max)", ColumnDescription = "请求参数")]
+    [SugarColumn(ColumnDataType = "text", ColumnDescription = "请求参数")]
     public string? Params { get; set; }
 
     /// <summary>是否成功</summary>

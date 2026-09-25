@@ -15,7 +15,7 @@ public class SysNotice : BaseEntity
     public int NoticeType { get; set; } = 1;
 
     /// <summary>内容（富文本/纯文本）</summary>
-    [SugarColumn(ColumnDataType = "nvarchar(max)", ColumnDescription = "内容")]
+    [SugarColumn(ColumnDataType = "text", ColumnDescription = "内容")]
     public string Content { get; set; } = string.Empty;
 
     /// <summary>状态：0-停用 1-发布 2-定时发布（到 PublishTime 由分钟级作业自动翻转为发布）</summary>

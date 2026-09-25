@@ -36,11 +36,11 @@ public class SysFlowInstance : BaseEntity
     public FlowInstanceStatus Status { get; set; } = FlowInstanceStatus.Running;
 
     /// <summary>流程变量 JSON（条件分支求值依据，提交时由业务传入）</summary>
-    [SugarColumn(ColumnDataType = "nvarchar(max)", ColumnDescription = "流程变量")]
+    [SugarColumn(ColumnDataType = "text", ColumnDescription = "流程变量")]
     public string VariablesJson { get; set; } = "{}";
 
     /// <summary>后加签追加节点 JSON（节点通过后先走追加节点再前进，不回写流程定义）</summary>
-    [SugarColumn(IsNullable = true, ColumnDataType = "nvarchar(max)", ColumnDescription = "追加节点")]
+    [SugarColumn(IsNullable = true, ColumnDataType = "text", ColumnDescription = "追加节点")]
     public string? AppendNodesJson { get; set; }
 
     /// <summary>发起人ID</summary>

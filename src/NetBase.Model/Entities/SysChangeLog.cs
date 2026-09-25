@@ -15,7 +15,7 @@ public class SysChangeLog : BaseEntity
     public string RecordId { get; set; } = string.Empty;
 
     /// <summary>变更明细 JSON：{ "字段": { "old": 旧值, "new": 新值 } }（密码类字段已脱敏）</summary>
-    [SugarColumn(ColumnDataType = "nvarchar(max)", ColumnDescription = "变更明细")]
+    [SugarColumn(ColumnDataType = "text", ColumnDescription = "变更明细")]
     public string Changes { get; set; } = string.Empty;
 
     /// <summary>操作人ID</summary>

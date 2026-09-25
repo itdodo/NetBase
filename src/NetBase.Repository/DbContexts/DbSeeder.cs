@@ -112,8 +112,11 @@ public class DbSeeder
         // 审批流单据绑定初始值（可运行时在流程管理-单据绑定中调整）
         EnsureFlowBindings(db, now);
 
-        // 存量用户数据归属人回填（幂等）
-        db.Ado.ExecuteCommand("UPDATE sys_user SET OwnerUserId = Id WHERE OwnerUserId = 0");
+        // 存量用户数据归属人回填（幂等；表达式路径免方言）
+        db.Updateable<SysUser>()
+            .SetColumns(x => new SysUser { OwnerUserId = x.Id })
+            .Where(x => x.OwnerUserId == 0)
+            .ExecuteCommand();
 
         // 菜单图标兜底：漏配图标的目录/菜单补默认图标并告警（新增菜单务必在种子清单中带图标）
         var iconless = db.Queryable<SysMenu>()
@@ -232,16 +235,11 @@ public class DbSeeder
         }
     }
 
-    /// <summary>确保普通（非唯一）索引存在，幂等</summary>
+    /// <summary>确保普通（非唯一）索引存在，幂等（PG：CREATE INDEX IF NOT EXISTS）</summary>
     private static void EnsureIndex(ISqlSugarClient db, string table, string indexName, string column)
     {
         // 表名/列名为代码内常量，无注入风险
-        var exists = db.Ado.SqlQuery<int>(
-            $"SELECT COUNT(1) FROM sys.indexes WHERE name = '{indexName}' AND object_id = OBJECT_ID('{table}')").First();
-        if (exists == 0)
-        {
-            db.Ado.ExecuteCommand($"CREATE INDEX [{indexName}] ON [{table}] ([{column}])");
-        }
+        db.Ado.ExecuteCommand($"CREATE INDEX IF NOT EXISTS {indexName} ON {table} ({column})");
     }
 
     private void SeedMenus(ISqlSugarClient db, long adminRoleId, DateTime now)
@@ -348,13 +346,9 @@ public class DbSeeder
 
     private static void EnsureFilteredUniqueIndex(ISqlSugarClient db, string table, string indexName, string column)
     {
-        // 表名/列名为代码内常量，无注入风险
-        var exists = db.Ado.SqlQuery<int>(
-            $"SELECT COUNT(1) FROM sys.indexes WHERE name = '{indexName}' AND object_id = OBJECT_ID('{table}')").First();
-        if (exists == 0)
-        {
-            db.Ado.ExecuteCommand($"CREATE UNIQUE INDEX [{indexName}] ON [{table}] ([{column}]) WHERE [IsDeleted] = 0");
-        }
+        // 表名/列名为代码内常量，无注入风险；PG 部分唯一索引 + 软删除过滤（列名经 PgSqlIsAutoToLower 为小写）
+        db.Ado.ExecuteCommand(
+            $"CREATE UNIQUE INDEX IF NOT EXISTS {indexName} ON {table} ({column}) WHERE isdeleted = false");
     }
 
     private static List<SysMenu> BuildCrudButtons(long parentId, string permissionPrefix, DateTime now) =>

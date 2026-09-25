@@ -164,48 +164,49 @@ public class SysFlowQueryService(
         var end = query.EndTime ?? new DateTime(2099, 1, 1);
         var args = new SugarParameter[] { new("@b", begin), new("@e", end) };
 
-        // 汇总（实例级；超期待办为运行中实例的 3 天以上待办）
+        // 汇总（实例级；超期待办为运行中实例的 3 天以上待办）。PG 方言：
+        // DATEDIFF(MINUTE,a,b)→EXTRACT(EPOCH FROM b-a)/60；SUM→bigint、AVG→numeric 须显式转型
         var summary = (await db.Ado.SqlQueryAsync<FlowStatsSummaryDto>("""
-SELECT COUNT(1) AS Total,
-       SUM(CASE WHEN Status = 1 THEN 1 ELSE 0 END) AS Running,
-       SUM(CASE WHEN Status = 2 THEN 1 ELSE 0 END) AS Approved,
-       SUM(CASE WHEN Status = 3 THEN 1 ELSE 0 END) AS Rejected,
-       ISNULL(AVG(CASE WHEN Status = 2 THEN DATEDIFF(MINUTE, SubmitTime, EndTime) END), -60) / 60.0 AS AvgApproveHours,
-       (SELECT COUNT(1) FROM sys_flow_task t
-          JOIN sys_flow_instance i2 ON t.InstanceId = i2.Id AND i2.Status = 1
-         WHERE t.Status = 1 AND t.IsDeleted = 0
-           AND t.CreateTime <= DATEADD(DAY, -3, GETDATE())) AS OverduePending
+SELECT COUNT(1)::int AS "Total",
+       SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END)::int AS "Running",
+       SUM(CASE WHEN status = 2 THEN 1 ELSE 0 END)::int AS "Approved",
+       SUM(CASE WHEN status = 3 THEN 1 ELSE 0 END)::int AS "Rejected",
+       COALESCE(AVG(CASE WHEN status = 2 THEN EXTRACT(EPOCH FROM (endtime - submittime)) / 60 END)::double precision, -60) / 60.0 AS "AvgApproveHours",
+       (SELECT COUNT(1)::int FROM sys_flow_task t
+          JOIN sys_flow_instance i2 ON t.instanceid = i2.id AND i2.status = 1
+         WHERE t.status = 1 AND t.isdeleted = false
+           AND t.createtime <= now() - INTERVAL '3 days') AS "OverduePending"
 FROM sys_flow_instance
-WHERE IsDeleted = 0 AND SubmitTime >= @b AND SubmitTime <= @e
+WHERE isdeleted = false AND submittime >= @b AND submittime <= @e
 """, args))[0];
 
         // 按流程
         var byFlow = await db.Ado.SqlQueryAsync<FlowStatsByFlowDto>("""
-SELECT FlowCode,
-       COUNT(1) AS Total,
-       SUM(CASE WHEN Status = 1 THEN 1 ELSE 0 END) AS Running,
-       SUM(CASE WHEN Status = 2 THEN 1 ELSE 0 END) AS Approved,
-       SUM(CASE WHEN Status = 3 THEN 1 ELSE 0 END) AS Rejected,
-       ISNULL(AVG(CASE WHEN Status = 2 THEN DATEDIFF(MINUTE, SubmitTime, EndTime) END), -60) / 60.0 AS AvgApproveHours
+SELECT flowcode AS "FlowCode",
+       COUNT(1)::int AS "Total",
+       SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END)::int AS "Running",
+       SUM(CASE WHEN status = 2 THEN 1 ELSE 0 END)::int AS "Approved",
+       SUM(CASE WHEN status = 3 THEN 1 ELSE 0 END)::int AS "Rejected",
+       COALESCE(AVG(CASE WHEN status = 2 THEN EXTRACT(EPOCH FROM (endtime - submittime)) / 60 END)::double precision, -60) / 60.0 AS "AvgApproveHours"
 FROM sys_flow_instance
-WHERE IsDeleted = 0 AND SubmitTime >= @b AND SubmitTime <= @e
-GROUP BY FlowCode
+WHERE isdeleted = false AND submittime >= @b AND submittime <= @e
+GROUP BY flowcode
 ORDER BY COUNT(1) DESC
 """, args);
 
         // 按审批人（任务级；时间范围按任务归属实例的提交时间过滤）
         var byApprover = await db.Ado.SqlQueryAsync<FlowStatsByApproverDto>("""
-SELECT t.ApproverName AS UserName,
-       SUM(CASE WHEN t.Status IN (2,8) THEN 1 ELSE 0 END) AS Handled,
-       SUM(CASE WHEN t.Status = 2 THEN 1 ELSE 0 END) AS Approved,
-       SUM(CASE WHEN t.Status = 3 THEN 1 ELSE 0 END) AS Rejected,
-       SUM(CASE WHEN t.Status = 1 THEN 1 ELSE 0 END) AS Pending,
-       ISNULL(AVG(CASE WHEN t.ActTime IS NOT NULL THEN DATEDIFF(MINUTE, t.CreateTime, t.ActTime) END), -60) / 60.0 AS AvgHandleHours
+SELECT t.approvername AS "UserName",
+       SUM(CASE WHEN t.status IN (2,8) THEN 1 ELSE 0 END)::int AS "Handled",
+       SUM(CASE WHEN t.status = 2 THEN 1 ELSE 0 END)::int AS "Approved",
+       SUM(CASE WHEN t.status = 3 THEN 1 ELSE 0 END)::int AS "Rejected",
+       SUM(CASE WHEN t.status = 1 THEN 1 ELSE 0 END)::int AS "Pending",
+       COALESCE(AVG(CASE WHEN t.acttime IS NOT NULL THEN EXTRACT(EPOCH FROM (t.acttime - t.createtime)) / 60 END)::double precision, -60) / 60.0 AS "AvgHandleHours"
 FROM sys_flow_task t
-JOIN sys_flow_instance i ON t.InstanceId = i.Id
-WHERE t.IsDeleted = 0 AND i.IsDeleted = 0 AND i.SubmitTime >= @b AND i.SubmitTime <= @e
-GROUP BY t.ApproverName
-ORDER BY SUM(CASE WHEN t.Status IN (2,3,8) THEN 1 ELSE 0 END) DESC
+JOIN sys_flow_instance i ON t.instanceid = i.id
+WHERE t.isdeleted = false AND i.isdeleted = false AND i.submittime >= @b AND i.submittime <= @e
+GROUP BY t.approvername
+ORDER BY SUM(CASE WHEN t.status IN (2,3,8) THEN 1 ELSE 0 END) DESC
 """, args);
 
         return new FlowStatsDto { Summary = summary, ByFlow = byFlow, ByApprover = byApprover };

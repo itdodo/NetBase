@@ -11,20 +11,21 @@ jobs:
     name: 后端构建与测试
     runs-on: ubuntu-latest
     services:
-      sqlserver:
-        image: mcr.microsoft.com/mssql/server:2022-latest
+      postgres:
+        image: postgres:17-alpine
         env:
-          ACCEPT_EULA: "Y"
-          MSSQL_SA_PASSWORD: "YourStrong@Password1"
+          POSTGRES_USER: "netbase"
+          POSTGRES_PASSWORD: "YourStrong@Password1"
+          POSTGRES_DB: "netbase"
         ports:
-          - "1433:1433"
+          - "5433:5432"
         options: >-
-          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'YourStrong@Password1' -Q 'SELECT 1' || exit 1"
+          --health-cmd "pg_isready -U netbase -d netbase"
           --health-interval 10s
           --health-retries 10
-          --health-start-period 30s
+          --health-start-period 15s
     env:
-      NETBASE_TEST_CONNECTIONSTRING: "Server=localhost;Database=NetBase_Test;User Id=sa;Password=YourStrong@Password1;TrustServerCertificate=True;"
+      NETBASE_TEST_CONNECTIONSTRING: "Host=localhost;Port=5433;Database=netbase_test;Username=netbase;Password=YourStrong@Password1"
     steps:
       - uses: actions/checkout@v4
 
@@ -32,6 +33,11 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
+
+      - name: 安装 PostgreSQL 客户端（备份测试用 pg_dump）
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
 
       - name: 还原依赖
         run: dotnet restore

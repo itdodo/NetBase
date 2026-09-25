@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -16,13 +17,15 @@ public class BackupOptions
 
     /// <summary>
     /// 备份目录（相对 ContentRoot 或绝对路径）。生产建议指向另一块磁盘/挂载的网络共享——
-    /// 备份与数据同盘只防误删/损坏，不防磁盘故障。注意 BACKUP DATABASE 以 SqlServer
-    /// 服务账号写文件：该目录须同时授予应用进程与 SqlServer 服务账号读写权限。
+    /// 备份与数据同盘只防误删/损坏，不防磁盘故障。
     /// </summary>
     public string Directory { get; set; } = "backup";
 
-    /// <summary>备份文件保留天数（过期 .bak 每次备份时清理）</summary>
+    /// <summary>备份文件保留天数（过期 .backup 每次备份时清理）</summary>
     public int RetentionDays { get; set; } = 7;
+
+    /// <summary>pg_dump 可执行文件路径（Docker 镜像内已装 postgresql-client-17）</summary>
+    public string PgDumpPath { get; set; } = "pg_dump";
 }
 
 /// <summary>备份结果</summary>
@@ -31,12 +34,12 @@ public class BackupOptions
 /// <param name="MirroredFiles">本次镜像复制的文件数（未变化的不计）</param>
 public sealed record BackupResult(string BakFile, long BakSizeBytes, int MirroredFiles);
 
-/// <summary>数据备份：SqlServer 全量备份 + 上传文件增量镜像 + 保留期清理</summary>
+/// <summary>数据备份：PostgreSQL 全量备份（pg_dump custom 格式）+ 上传文件增量镜像 + 保留期清理</summary>
 public interface IBackupService
 {
     /// <summary>
-    /// 执行备份。注意 BACKUP DATABASE 的目标路径是数据库服务器本机路径——
-    /// 单机部署（应用与 SqlServer 同机）天然成立；远程库需配置共享目录。数据库账号需具备备份权限。
+    /// 执行备份。pg_dump 在应用进程所在机器/容器执行（网络拉取到备份目录），
+    /// 需 PgDumpPath 可执行（Docker 镜像内置）；不可用时抛异常，由作业层通知管理员。
     /// </summary>
     Task<BackupResult> RunAsync(CancellationToken ct = default);
 }
@@ -57,16 +60,12 @@ public class BackupService(
             : Path.Combine(environment?.ContentRootPath ?? AppContext.BaseDirectory, opt.Directory);
         Directory.CreateDirectory(baseDir);
 
-        // ① SqlServer 全量备份（当前连接库，文件名带时间戳，WITH INIT 覆盖同名残留）
-        var dbName = db.Ado.GetString("SELECT DB_NAME()");
-        var bakFile = Path.Combine(baseDir, $"{dbName}_{DateTime.Now:yyyyMMdd_HHmmss}.bak");
-        await db.Ado.ExecuteCommandAsync(
-            $"BACKUP DATABASE [{dbName.Replace("]", "]]")}] TO DISK = @path WITH INIT",
-            new SugarParameter("@path", bakFile));
+        // ① pg_dump 全量备份（custom 格式，压缩且可 pg_restore 恢复；文件名带时间戳）
+        var bakFile = await DumpDatabaseAsync(baseDir, opt, ct);
 
-        // ② 保留期：删除过期 .bak（本次刚生成的跳过）
+        // ② 保留期：删除过期 .backup（本次刚生成的跳过）
         var cutoff = DateTime.Now.AddDays(-opt.RetentionDays);
-        foreach (var expired in Directory.GetFiles(baseDir, "*.bak"))
+        foreach (var expired in Directory.GetFiles(baseDir, "*.backup"))
         {
             if (!string.Equals(expired, bakFile, StringComparison.OrdinalIgnoreCase)
                 && File.GetLastWriteTime(expired) < cutoff)
@@ -87,6 +86,56 @@ public class BackupService(
         logger.LogInformation("备份完成: {File}（{Size:F1}MB）, 文件镜像 {Count} 个",
             bakFile, size / 1024.0 / 1024, mirrored);
         return new BackupResult(bakFile, size, mirrored);
+    }
+
+    /// <summary>调用 pg_dump 导出当前连接库（连接参数从连接串解析，密码经 PGPASSWORD 传递）</summary>
+    private async Task<string> DumpDatabaseAsync(string baseDir, BackupOptions opt, CancellationToken ct)
+    {
+        var builder = new Npgsql.NpgsqlConnectionStringBuilder(db.Ado.Connection.ConnectionString);
+        var dbName = builder.Database ?? throw new InvalidOperationException("连接串缺少 Database，无法确定备份目标");
+        var bakFile = Path.Combine(baseDir, $"{dbName}_{DateTime.Now:yyyyMMdd_HHmmss}.backup");
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = opt.PgDumpPath,
+            // --no-password：凭据不可用时立即失败而非挂起等待输入；custom 格式经 pg_restore 恢复
+            ArgumentList =
+            {
+                "--host", builder.Host ?? "localhost",
+                "--port", builder.Port.ToString(),
+                "--username", builder.Username ?? "",
+                "--dbname", dbName,
+                "--format=custom",
+                "--no-password",
+                "--file", bakFile
+            },
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        if (!string.IsNullOrEmpty(builder.Password))
+        {
+            psi.Environment["PGPASSWORD"] = builder.Password;
+        }
+
+        Process process;
+        try
+        {
+            process = Process.Start(psi)
+                ?? throw new InvalidOperationException($"无法启动 {opt.PgDumpPath}，请检查 Backup:PgDumpPath 配置");
+        }
+        catch (System.ComponentModel.Win32Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"无法启动 {opt.PgDumpPath}（{ex.Message}），请确认已安装 PostgreSQL 客户端或修正 Backup:PgDumpPath 配置", ex);
+        }
+        var stderr = await process.StandardError.ReadToEndAsync(ct);
+        await process.WaitForExitAsync(ct);
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"pg_dump 退出码 {process.ExitCode}：{stderr.Trim()}");
+        }
+        return bakFile;
     }
 
     /// <summary>递归镜像：仅复制新增/变更文件，返回本次复制数</summary>

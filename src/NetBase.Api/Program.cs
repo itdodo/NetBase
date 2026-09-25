@@ -16,6 +16,7 @@ using NetBase.Api.Realtime;
 using NetBase.Model.Entities;
 using NetBase.Service.Sys;
 using Hangfire;
+using Hangfire.PostgreSql;
 using NetBase.Api.Services;
 using NetBase.Common.Realtime;
 using NetBase.Common.Results;
@@ -25,6 +26,10 @@ using NetBase.Repository;
 using NetBase.Repository.DbContexts;
 using NetBase.Service;
 using Serilog;
+
+// Npgsql timestamptz 兼容：本框架时间字段全程 DateTime.Now（Local Kind），开启 legacy 时间戳语义
+// （Npgsql 6+ 默认 timestamptz 仅接受 UTC；此开关必须在进程内首次使用 Npgsql 之前设置，故置于文件首）
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -100,25 +105,26 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database");
 
-// 定时任务：Hangfire（SqlServer 存储，免费版核心组件）
+// 定时任务：Hangfire（PostgreSQL 存储，免费版核心组件）
 builder.Services.Configure<NetBase.Api.Jobs.HangfireOptions>(builder.Configuration.GetSection(NetBase.Api.Jobs.HangfireOptions.SectionName));
 var hangfireOptions = builder.Configuration.GetSection(NetBase.Api.Jobs.HangfireOptions.SectionName).Get<NetBase.Api.Jobs.HangfireOptions>() ?? new NetBase.Api.Jobs.HangfireOptions();
 var hangfireConnectionString = builder.Configuration.GetConnectionString("Hangfire")
     ?? builder.Configuration.GetSection("Db:ConnectionString").Value
-    ?? "Server=localhost;Database=NetBase;Uid=sa;Pwd=Abcd1234;TrustServerCertificate=True;";
+    ?? "Host=localhost;Port=5433;Database=netbase;Username=netbase;Password=netbase123";
 builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
     .UseSimpleAssemblyNameTypeSerializer()
     .UseRecommendedSerializerSettings()
-    .UseSqlServerStorage(hangfireConnectionString, new Hangfire.SqlServer.SqlServerStorageOptions
+    .UsePostgreSqlStorage(hangfireConnectionString, new Hangfire.PostgreSql.PostgreSqlStorageOptions
     {
-        CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
-        SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
-        QueuePollInterval = TimeSpan.FromSeconds(15)
+        SchemaName = "hangfire",
+        QueuePollInterval = TimeSpan.FromSeconds(15),
+        InvisibilityTimeout = TimeSpan.FromMinutes(5),
+        UseSlidingInvisibilityTimeout = true
     }));
 builder.Services.AddHangfireServer();
 builder.Services.AddScoped<NetBase.Api.Jobs.ISystemJobService, NetBase.Api.Jobs.SystemJobService>();
-// 数据备份：SqlServer 全量 + 上传文件镜像（Backup 节点配置，失败经站内信通知管理员）
+// 数据备份：pg_dump 全量 + 上传文件镜像（Backup 节点配置，失败经站内信通知管理员）
 builder.Services.Configure<NetBase.Api.Jobs.BackupOptions>(builder.Configuration.GetSection(NetBase.Api.Jobs.BackupOptions.SectionName));
 builder.Services.AddScoped<NetBase.Api.Jobs.IBackupService, NetBase.Api.Jobs.BackupService>();
 

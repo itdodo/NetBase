@@ -1,32 +1,33 @@
-# NetBase 单容器部署：应用 + SqlServer
+# NetBase 两容器部署：应用 + PostgreSQL 17
 # 用法：docker compose up -d
 # 注意：生产环境务必通过环境变量覆盖 Jwt__SecretKey 与数据库密码
 services:
   db:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: postgres:17-alpine
     container_name: netbase-db
     environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "YourStrong@Password1"
+      POSTGRES_USER: "netbase"
+      POSTGRES_PASSWORD: "YourStrong@Password1"
+      POSTGRES_DB: "netbase"
     ports:
-      - "1433:1433"
+      - "5432:5432"   # 宿主机 5432 已占用时改为 "5433:5432" 并同步修改 api 连接串端口
     volumes:
-      - netbase-db:/var/opt/mssql
+      - netbase-db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Password1' -C -Q 'SELECT 1' || exit 1"]
+      test: ["CMD-SHELL", "pg_isready -U netbase -d netbase || exit 1"]
       interval: 10s
       retries: 10
-      start_period: 30s
+      start_period: 15s
 
   api:
     build: .
     container_name: netbase-api
     environment:
       ASPNETCORE_ENVIRONMENT: "Production"
-      Db__ConnectionString: "Server=db;Database=NetBase;User Id=sa;Password=YourStrong@Password1;TrustServerCertificate=True;"
+      Db__ConnectionString: "Host=db;Port=5432;Database=netbase;Username=netbase;Password=YourStrong@Password1"
+      ConnectionStrings__Hangfire: "Host=db;Port=5432;Database=netbase;Username=netbase;Password=YourStrong@Password1"
       Jwt__SecretKey: "CHANGE_ME_Please-Use-A-Random-Key-At-Least-32-Chars-Long!"
-      # 备份目录指向挂载卷（注意：BACKUP DATABASE 在 DB 容器内执行，
-      # 生产建议把备份目录同时挂到 db 容器或改用共享存储）
+      # 备份目录指向挂载卷（pg_dump 在 api 容器内执行，镜像已内置 postgresql-client-17）
       Backup__Directory: "/app/backup"
     ports:
       - "8080:8080"

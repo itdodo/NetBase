@@ -165,8 +165,8 @@ public class SysFlowDefinitionService(IRepository<SysFlowDefinition> repository)
     public async Task<List<FlowCategoryDto>> GetCategoriesAsync()
     {
         var rows = await repository.Db.Ado.SqlQueryAsync<FlowCategoryDto>(
-            "SELECT Category AS Name, COUNT(1) AS Count FROM sys_flow_definition " +
-            "WHERE Category IS NOT NULL AND Category <> '' AND IsDeleted = 0 GROUP BY Category ORDER BY Category");
+            "SELECT category AS \"Name\", COUNT(1)::int AS \"Count\" FROM sys_flow_definition " +
+            "WHERE category IS NOT NULL AND category <> '' AND isdeleted = false GROUP BY category ORDER BY category");
         return rows;
     }
 
@@ -203,8 +203,9 @@ public class SysFlowDefinitionService(IRepository<SysFlowDefinition> repository)
     /// <summary>生成下一个数字流程编号（100 起自增；兼容历史非数字编码不参与计数）</summary>
     private async Task<string> GenerateNextCodeAsync()
     {
+        // PG：正则守卫纯数字编码后整型转型（等价 ISNUMERIC + TRY_CAST，且更严格）
         var max = await repository.Db.Ado.GetIntAsync(
-            "SELECT ISNULL(MAX(TRY_CAST(FlowCode AS INT)), 99) FROM sys_flow_definition WHERE ISNUMERIC(FlowCode) = 1");
+            "SELECT COALESCE(MAX(flowcode::int), 99) FROM sys_flow_definition WHERE flowcode ~ '^[0-9]+$'");
         return (max + 1).ToString();
     }
 

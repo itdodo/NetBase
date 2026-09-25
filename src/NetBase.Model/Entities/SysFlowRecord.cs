@@ -34,7 +34,7 @@ public class SysFlowRecord : BaseEntity
     public string? Comment { get; set; }
 
     /// <summary>扩展信息 JSON（如转办目标人、加签人列表）</summary>
-    [SugarColumn(IsNullable = true, ColumnDataType = "nvarchar(max)", ColumnDescription = "扩展JSON")]
+    [SugarColumn(IsNullable = true, ColumnDataType = "text", ColumnDescription = "扩展JSON")]
     public string? ExtraJson { get; set; }
 
     /// <summary>操作时间</summary>

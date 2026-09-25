@@ -27,7 +27,7 @@ public class SysFlowDefinition : BaseEntity
     public int Version { get; set; } = 1;
 
     /// <summary>节点树 JSON（设计器产物，见 FlowGraph 模型）</summary>
-    [SugarColumn(ColumnDataType = "nvarchar(max)", ColumnDescription = "节点树JSON")]
+    [SugarColumn(ColumnDataType = "text", ColumnDescription = "节点树JSON")]
     public string NodeJson { get; set; } = string.Empty;
 
     /// <summary>状态：0-草稿/停用 1-启用（同编码仅一个启用版本）</summary>

@@ -16,7 +16,7 @@
 | 认证 | JWT Bearer + RefreshToken 轮换 + 会话表 | 登录锁定/强制下线/在线用户 |
 | 审计 | 操作日志 + 登录日志（参数脱敏） | 等保要求 |
 | Excel | MiniExcel | 列表导出 |
-| 部署 | Dockerfile + docker-compose | 前端静态文件由 API 托管，单容器 |
+| 部署 | Dockerfile + docker-compose | 两容器（api + SqlServer），前端静态文件由 API 托管 |
 | 文件上传 | 本地存储（白名单/大小校验），预留 OSS 切换 | 头像等 |
 | 安全增强 | 登录图形验证码（可参数开关）+ 防重复提交（2 秒窗口判重） | |
 | 通知公告 | 发布/铃铛提醒/详情查看 | |
@@ -53,12 +53,12 @@ NetBase.slnx
 
 ```bash
 cd src/NetBase.Api
-dotnet run          # 默认 http://localhost:5026；Swagger 见 /swagger
+dotnet run          # 默认 http://localhost:5306；Swagger 见 /swagger
 ```
 
 首次启动会自动 **CodeFirst 建表并写入种子数据**（`Db:InitEnabled=false` 可关闭）：
 
-- 账号：`admin` / 密码：`123456`（历史库存量账号；新建用户默认密码为系统参数 `sys.pwd.defaultPassword`，当前值 `Net123456`，满足密码策略）
+- 账号：`admin` / 密码：`Net123456`（系统种子值，登录后请修改；新建用户默认密码走系统参数 `sys.pwd.defaultPassword`，管理员可调）
 - 登录保护：连续失败 5 次锁定 10 分钟（系统参数可调），每 IP 每分钟限 10 次尝试
 - 角色：`超级管理员（admin）`
 - 菜单：系统管理（用户/角色/菜单 + 增删改按钮权限）、系统监控
@@ -72,11 +72,11 @@ dotnet run          # 默认 http://localhost:5026；Swagger 见 /swagger
 ```bash
 cd web
 npm install
-npm run dev         # http://localhost:5173，已配置 /api 代理到后端 5026
+npm run dev         # http://localhost:5173，已配置 /api 与 /hubs 代理到后端 5306
 ```
 
-登录页当前为**本地模拟登录**（任意账号密码可进入，JWT 待接入），登录后自动拉取
-`/api/sys/menu/tree` 生成侧边栏与动态路由，用户/角色/菜单三个管理页直接联调真实接口。
+登录页为真实 JWT 登录（图形验证码 + 失败锁定 + RefreshToken 静默续期），登录后拉取
+`/api/v1/sys/menu/tree/my` 生成侧边栏与动态路由（无角色账号引导至 403 友好页）。
 
 ## RBAC 数据模型
 
@@ -88,7 +88,7 @@ SysUser ──< SysUserRole >── SysRole ──< SysRoleMenu >── SysMenu(
 
 - 用户/角色均内置保护：`admin` 账号与 `admin` 角色不允许删除、停用
 - 菜单按钮类型带 `Permission` 权限码（如 `sys:user:add`），为后续接口鉴权预留
-- 所有业务表继承 `BaseEntity`：自增主键、创建/更新审计字段、`ISoftDelete` 软删除（查询自动过滤）
+- 所有业务表继承 `BaseEntity`：雪花 long 主键（非自增）、创建/更新审计字段、乐观锁 `Version`、`ISoftDelete` 软删除（查询自动过滤）
 
 ## API 版本
 
@@ -105,20 +105,11 @@ SysUser ──< SysUserRole >── SysRole ──< SysRoleMenu >── SysMenu(
 
 ## API 一览（/api/v1）
 
-| 模块 | 方法与路由 | 说明 |
-|---|---|---|
-| 用户 | `GET /user/page`、`GET /user/list`、`GET /user/{id}` | 分页（关键字/状态过滤）、下拉、详情（含角色） |
-| 用户 | `POST /user`、`PUT /user/{id}`、`DELETE /user/{id}` | 增改删（创建传 RoleIds 即分配角色） |
-| 用户 | `PUT /user/{id}/password/reset`、`PUT /user/{id}/roles` | 重置密码、分配角色（全量重设） |
-| 角色 | `GET /role/page`、`GET /role/list`、`GET /role/{id}` | 分页、下拉、详情 |
-| 角色 | `POST /role`、`PUT /role/{id}`、`DELETE /role/{id}` | 增改删（RoleCode 唯一） |
-| 角色 | `GET /role/{id}/menu-ids`、`PUT /role/{id}/menus` | 查询已授权菜单、分配菜单 |
-| 菜单 | `GET /menu/tree`、`GET /menu/tree/role/{roleId}` | 全量菜单树、指定角色菜单树 |
-| 菜单 | `GET /menu/{id}`、`POST /menu`、`PUT /menu/{id}`、`DELETE /menu/{id}` | 详情、增改删（父级/子节点/引用校验） |
-| 系统 | `GET /health` | 健康检查 |
+完整接口清单见 [docs/技术文档.md](docs/技术文档.md) 第 4.5 节：认证/用户/角色/菜单/部门/岗位/字典/参数/公告/站内信/日志/审批流/监控/仪表盘/文件等 10 组域。
 
-统一返回格式：`{ "code": 200, "message": "操作成功", "data": ..., "timestamp": ... }`；
-业务错误由 `BusinessException` 抛出，全局异常过滤器统一转换为 ApiResult（不泄露堆栈）。
+统一返回格式：`{ "code": 200, "message": "操作成功", "errorCode": null, "data": ..., "timestamp": ... }`——
+业务错误由 `BusinessException` 抛出，全局异常过滤器统一转换为 ApiResult（不泄露堆栈）；
+失败时携带全局业务错误码 `errorCode`（117 个，总表见 [docs/错误码.md](docs/错误码.md)），前端按码分支。
 
 ## 扩展新业务模块（三层样板）
 
@@ -160,14 +151,14 @@ web/src/
 - **动态菜单路由**：登录后拉取菜单树，`component` 字段（如 `system/user/index`）通过
   `import.meta.glob` 映射到 `views/` 下同名页面组件，新页面只需按约定建目录 + 在菜单管理里配菜单
 - **权限码**：菜单树中所有 `permission` 收集为集合，`v-permission="'sys:user:add'"` 控制按钮显隐
-- **认证预留**：token 由 request.ts 统一注入 `Authorization: Bearer`，401 自动跳登录；
-  接入 JWT 时仅需替换 `stores/user.ts` 中 login 的 mock 实现
+- **认证**：token 由 request.ts 统一注入 `Authorization: Bearer`，401 单飞刷新重放、失败提示后跳登录；
+  业务错误 reject `ApiError`（携带 code/errorCode，可按 [错误码](docs/错误码.md) 分支，`silentErrorCodes` 可静默）
 - **降级策略**：菜单接口不可用时提示并以基础模式进入（仅首页），不白屏
 
 ## Docker 部署
 
 ```bash
-docker compose up -d        # 单容器：API 托管前端静态文件 + SqlServer，自动建表种子
+docker compose up -d        # 两容器：netbase-api（.NET + 前端静态）+ netbase-db（SqlServer 2022），自动建表种子
 # 访问 http://localhost:8080（生产环境务必覆盖 Jwt__SecretKey 与数据库密码环境变量）
 ```
 

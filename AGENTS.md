@@ -16,8 +16,9 @@
 4. **事务**：多表操作必须 `Repository.TransactionAsync` 包裹
 5. **权限**：每个接口 `[HasPermission("biz:{模块}:{动作}")]`；创建类接口加 `[NoRepeatSubmit]`
 6. **验证**：DTO 必须带 DataAnnotations 特性；密码强度走 `PasswordPolicy.Validate`
-7. **数据库变更**：实体加列走 CodeFirst 自动同步；数据回填/索引调优/需评审的 DDL 必须新增 `src/NetBase.Repository/db/migrations/NNNN_描述.sql`（幂等、禁改历史脚本）
-8. **交付自检**：`dotnet build` 0 错误 → `dotnet test`（单元 37 + 集成 43）全过 → `npm run type-check` 零错误 → 关键路径实测 → 同步更新 docs
+7. **错误码**：业务异常必须查码表赋码 `throw new BusinessException("文案", ErrorCodes.XXX)`（码表 `NetBase.Common/Results/ErrorCodes.cs`，总表 [docs/错误码.md](docs/错误码.md)）；码只增不改不删；后端加码后运行 `node scripts/gen-error-codes-ts.cjs` 同步前端镜像
+8. **数据库变更**：实体加列走 CodeFirst 自动同步；数据回填/索引调优/需评审的 DDL 必须新增 `src/NetBase.Repository/db/migrations/NNNN_描述.sql`（幂等、禁改历史脚本）
+9. **交付自检**：`dotnet build` 0 错误 → `dotnet test`（单元 54 + 集成 56）全过 → `npm run type-check` 零错误 → 关键路径实测 → 同步更新 docs
 
 ## 常用命令
 

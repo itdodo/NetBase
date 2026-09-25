@@ -170,7 +170,7 @@ public class SystemJobService(
         }
     }
 
-    /// <summary>数据备份作业：SqlServer 全量备份 + 上传文件增量镜像（见 BackupService），保留期外 .bak 自动清理</summary>
+    /// <summary>数据备份作业：pg_dump 全量备份（custom 格式）+ 上传文件增量镜像（见 BackupService），保留期外 .backup 自动清理</summary>
     [DisableConcurrentExecution(timeoutInSeconds: 1800)]
     public async Task RunBackupAsync()
     {

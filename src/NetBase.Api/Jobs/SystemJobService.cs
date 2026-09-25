@@ -47,7 +47,7 @@ public class JobInstanceDto
 
 /// <summary>
 /// 内置定时任务：注册、执行与运行时管理（修改 Cron/触发/暂停）。
-/// 基于 Hangfire RecurringJob（免费版，SqlServer 存储）。
+/// 基于 Hangfire RecurringJob（免费版，PostgreSQL 存储）。
 /// </summary>
 public interface ISystemJobService
 {
@@ -93,7 +93,7 @@ public class SystemJobService(
     [
         ("sys.log.cleanup", "日志与过期会话清理（日志保留期 sys.log.retentionDays）", "0 2 * * *",
             svc => svc.RunLogCleanupAsync(null)),
-        (BackupJobId, "数据备份（SqlServer 全量 + 上传文件镜像）", "0 3 * * *",
+        (BackupJobId, "数据备份（pg_dump 全量 + 上传文件镜像）", "0 3 * * *",
             svc => svc.RunBackupAsync()),
         ("sys.notice.publish", "公告定时发布（每分钟检查到期定时公告）", "* * * * *",
             svc => svc.RunNoticePublishAsync()),

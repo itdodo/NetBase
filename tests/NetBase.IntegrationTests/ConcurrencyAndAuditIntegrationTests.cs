@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using NetBase.Common.Auditing;
 using NetBase.Common.Exceptions;
+using NetBase.Common.Results;
 using NetBase.Model.Dtos;
 using NetBase.Model.Entities;
 using NetBase.Repository.Repositories;
@@ -74,6 +75,9 @@ public class ConcurrencyAndAuditIntegrationTests
             RoleName = "会话B的修改", RoleCode = code, Status = 1, DataScope = 1, Version = 0
         }));
         Assert.Contains("他人修改", stale.Message);
+        // 错误码契约：乐观锁冲突必须 code=409 + COMMON_CONCURRENCY_CONFLICT（前端按此分支）
+        Assert.Equal(ApiResultCode.Conflict, stale.Code);
+        Assert.Equal(ErrorCodes.COMMON_CONCURRENCY_CONFLICT, stale.ErrorCode);
 
         var afterConflict = await _roleRepo.GetByIdAsync(id);
         Assert.Equal("会话A的修改", afterConflict!.RoleName);

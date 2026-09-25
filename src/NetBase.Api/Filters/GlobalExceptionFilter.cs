@@ -43,6 +43,12 @@ public class GlobalExceptionFilter : IExceptionFilter
                 context.ExceptionHandled = true;
                 return;
 
+            case UnauthorizedAccessException:
+                // 权限语义异常按 401 归类（如会话失效后的越权访问），不混入"系统繁忙 500"
+                _logger.LogWarning("未授权访问: {Message}", exception.Message);
+                context.Result = new JsonResult(ApiResult.Fail("未登录或登录已过期，请重新登录", ApiResultCode.Unauthorized, ErrorCodes.AUTH_SESSION_EXPIRED));
+                break;
+
             default:
                 _logger.LogError(exception, "未处理异常: {Message}", exception.Message);
                 context.Result = new JsonResult(ApiResult.Fail("系统繁忙，请稍后重试", ApiResultCode.Fail, ErrorCodes.COMMON_SYSTEM_ERROR));

@@ -39,6 +39,11 @@ public class ApiResult
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ErrorCode { get; set; }
 
+    /// <summary>逐字段校验错误（仅模型验证失败时携带，字段名: 错误文案）</summary>
+    [JsonPropertyOrder(4)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? Errors { get; set; }
+
     /// <summary>提示信息</summary>
     [JsonPropertyOrder(1)]
     public string Message { get; set; } = "操作成功";

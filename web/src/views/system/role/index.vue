@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { getRoleDetail } from '@/api/role'
 import { nextTick, onMounted, reactive, ref } from 'vue'
 defineOptions({ name: 'SystemRoleView' })
 
@@ -89,16 +90,18 @@ function openCreate() {
   dialogVisible.value = true
 }
 
-function openEdit(row: Role) {
+async function openEdit(row: Role) {
   editingId.value = row.id
+  // 打开编辑即拉最新详情缩小并发冲突窗口；详情失败回退行数据
+  const src = await getRoleDetail(row.id).catch(() => row)
   Object.assign(form, {
-    roleName: row.roleName,
-    roleCode: row.roleCode,
-    status: row.status,
-    sort: row.sort,
-    dataScope: row.dataScope,
+    roleName: src.roleName,
+    roleCode: src.roleCode,
+    status: src.status,
+    sort: src.sort,
+    dataScope: src.dataScope,
     deptIds: [],
-    version: row.version
+    version: src.version
   })
   dialogVisible.value = true
   // 自定义范围时加载已勾选部门

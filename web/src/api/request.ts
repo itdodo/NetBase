@@ -88,9 +88,30 @@ function isSilent(config: { silentErrorCodes?: string[] }, errorCode?: string): 
 }
 
 request.interceptors.response.use(
-  (response) => {
-    // 二进制响应（文件导出）直接透传
+  async (response) => {
+    // 二进制响应（文件导出）：正常直接透传；报错时 content-type 为 json，
+    // 还原为统一错误提示（避免把错误 JSON 当文件下载成坏文件）
     if (response.config.responseType === 'blob') {
+      const contentType = String(response.headers['content-type'] ?? '')
+      if (contentType.includes('application/json')) {
+        const text = await (response.data as Blob).text()
+        let result: ApiResult
+        try {
+          result = JSON.parse(text) as ApiResult
+        } catch {
+          ElMessage.error('导出失败，请稍后重试')
+          return Promise.reject(new ApiError('导出失败', 500))
+        }
+        if (result.code !== 200) {
+          if (result.errorCode === ERROR_CODES.COMMON_CONCURRENCY_CONFLICT) {
+            window.dispatchEvent(new CustomEvent(CONCURRENCY_CONFLICT_EVENT))
+          }
+          if (!isSilent(response.config, result.errorCode)) {
+            ElMessage.error(result.message || '导出失败')
+          }
+          return Promise.reject(new ApiError(result.message || '导出失败', result.code, result.errorCode))
+        }
+      }
       return response.data as never
     }
     const result = response.data as ApiResult

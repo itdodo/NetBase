@@ -101,12 +101,15 @@ public class AuthController(
     /// <summary>当前用户信息 + 权限码（前端刷新后恢复用）</summary>
     [Authorize]
     [HttpGet("profile")]
-    public async Task<ApiResult<object>> Profile()
+    public async Task<ApiResult<ProfileDto>> Profile()
     {
         var userId = OperatorUserId ?? 0;
-        var user = userId > 0 ? await authService.GetUserProfileAsync(userId) : null;
-        var permissions = userId > 0 ? await permissionService.GetUserPermissionsAsync(userId) : [];
-        return Success(new { user, permissions } as object);
+        var profile = new ProfileDto
+        {
+            User = userId > 0 ? await authService.GetUserProfileAsync(userId) : null,
+            Permissions = userId > 0 ? [.. await permissionService.GetUserPermissionsAsync(userId)] : []
+        };
+        return Success(profile);
     }
 
     /// <summary>在线会话分页</summary>

@@ -110,6 +110,7 @@ public class DbSeeder
         SeedSampleDicts(db, now);
         SeedCommonDicts(db, now);
         SeedSampleNotice(db, now);
+        SeedSamplePositions(db, now);
 
         // 审批流单据绑定初始值（可运行时在流程管理-单据绑定中调整）
         EnsureFlowBindings(db, now);
@@ -1002,6 +1003,40 @@ public class DbSeeder
     }
 
     /// <summary>示例公告（幂等）</summary>
+    /// <summary>示例岗位：审批流审批人规则（指定岗位）的演示数据，幂等按编码跳过；可在岗位管理页维护</summary>
+    private void SeedSamplePositions(ISqlSugarClient db, DateTime now)
+    {
+        (string Code, string Name, int Sort)[] positions =
+        [
+            ("GM", "总经理", 1),
+            ("DGM", "副总经理", 2),
+            ("DEPT_LEADER", "部门主管", 3),
+            ("PM", "项目经理", 4),
+            ("FINANCE", "财务负责人", 5),
+            ("HR", "人事专员", 6),
+            ("STAFF", "普通员工", 99)
+        ];
+
+        foreach (var pos in positions)
+        {
+            if (db.Queryable<SysPosition>().Any(x => x.PositionCode == pos.Code))
+            {
+                continue;
+            }
+            db.Insertable(new SysPosition
+            {
+                Id = NewId(),
+                PositionCode = pos.Code,
+                PositionName = pos.Name,
+                Sort = pos.Sort,
+                Status = 1,
+                CreateTime = now,
+                CreateBy = "system"
+            }).ExecuteCommand();
+        }
+        _logger?.LogInformation("种子数据：示例岗位已写入（{Count} 个）", positions.Length);
+    }
+
     private void SeedSampleNotice(ISqlSugarClient db, DateTime now)
     {
         if (db.Queryable<SysNotice>().Any())

@@ -1003,7 +1003,7 @@ public class DbSeeder
         {
     Id = NewId(),
             ParentId = systemDir.Id,
-            MenuName = "通知公告",
+            MenuName = "消息中心",
             MenuType = (int)MenuTypeEnum.Menu,
             Path = "/system/notice",
             Component = "system/notice/index",

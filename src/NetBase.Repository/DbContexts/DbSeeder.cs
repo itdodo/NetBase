@@ -82,8 +82,6 @@ public class DbSeeder
         EnsureLogMenus(db, adminRoleId, now);
         // 三日志合并为「审计日志」单菜单（三旧菜单转为按钮型权限载体挂在其下）
         EnsureAuditLogMenu(db, adminRoleId, now);
-        // 二级菜单图标（仅补空值，管理员自定义不覆盖）
-        SeedCommonMenuIcons(db, now);
         EnsureSystemMenus(db, adminRoleId, now);
         EnsureNoticeMenu(db, adminRoleId, now);
         SeedDepts(db, adminRoleId, now);
@@ -121,6 +119,19 @@ public class DbSeeder
             .Where(x => x.OwnerUserId == 0)
             .ExecuteCommand();
 
+        // 二级菜单图标映射：必须在全部增量菜单创建之后执行（否则后建菜单错过映射、被兜底定格 Document）
+        SeedCommonMenuIcons(db, now);
+
+        // 特例：抄送我的 用 Promotion（比默认 Document 更贴切；须在兜底之前，否则空值先被兜底吃掉）
+        var ccMenu = db.Queryable<SysMenu>().First(x => x.Permission == "menu:flow:cc" && (x.Icon == null || x.Icon == ""));
+        if (ccMenu != null)
+        {
+            db.Updateable<SysMenu>()
+                .SetColumns(x => new SysMenu { Icon = "Promotion" })
+                .Where(x => x.Id == ccMenu.Id)
+                .ExecuteCommand();
+        }
+
         // 菜单图标兜底：漏配图标的目录/菜单补默认图标并告警（新增菜单务必在种子清单中带图标）
         var iconless = db.Queryable<SysMenu>()
             .Where(x => x.MenuType != (int)MenuTypeEnum.Button
@@ -129,7 +140,7 @@ public class DbSeeder
         foreach (var menu in iconless)
         {
             db.Updateable<SysMenu>()
-                .SetColumns(x => new SysMenu {     Id = NewId(), Icon = "Document" })
+                .SetColumns(x => new SysMenu { Icon = "Document" })
                 .Where(x => x.Id == menu.Id)
                 .ExecuteCommand();
             _logger?.LogWarning("菜单「{Name}」未配置图标，已补默认图标 Document，请尽快在菜单管理中调整", menu.MenuName);
@@ -137,16 +148,6 @@ public class DbSeeder
         if (iconless.Count > 0)
         {
             _logger?.LogWarning("共 {Count} 个菜单图标为空已兜底，请检查种子清单", iconless.Count);
-        }
-
-        // 特例：抄送我的 用 Promotion（比默认 Document 更贴切）
-        var ccMenu = db.Queryable<SysMenu>().First(x => x.Permission == "menu:flow:cc" && (x.Icon == null || x.Icon == ""));
-        if (ccMenu != null)
-        {
-            db.Updateable<SysMenu>()
-                .SetColumns(x => new SysMenu {     Id = NewId(), Icon = "Promotion" })
-                .Where(x => x.Id == ccMenu.Id)
-                .ExecuteCommand();
         }
 
         // 外键列索引：权限查询/会话校验/菜单树是高频路径，避免全表扫描
@@ -704,7 +705,7 @@ public class DbSeeder
             }
 
             db.Updateable<SysMenu>()
-                .SetColumns(x => new SysMenu {     Id = NewId(), Icon = icon })
+                .SetColumns(x => new SysMenu { Icon = icon })
                 .Where(x => x.Id == menu.Id)
                 .ExecuteCommand();
         }

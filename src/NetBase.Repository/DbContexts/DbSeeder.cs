@@ -520,12 +520,25 @@ public class DbSeeder
         _logger?.LogInformation("种子数据：增量菜单「定时任务」已写入");
     }
 
+
+    /// <summary>确保目录菜单已授权给 admin 角色（幂等；超级管理员全量语义）</summary>
+    private void EnsureDirGranted(ISqlSugarClient db, string dirName, long adminRoleId, DateTime now)
+    {
+        var dir = db.Queryable<SysMenu>().First(x => x.MenuName == dirName && x.MenuType == (int)MenuTypeEnum.Directory);
+        if (dir != null && !db.Queryable<SysRoleMenu>().Any(x => x.RoleId == adminRoleId && x.MenuId == dir.Id))
+        {
+            db.Insertable(new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = dir.Id, CreateTime = now }).ExecuteCommand();
+        }
+    }
+
     /// <summary>增量补充「业务办公」目录与报销/采购申请页（审批流业务样板，幂等）</summary>
     private void EnsureBizSampleMenus(ISqlSugarClient db, long adminRoleId, DateTime now)
     {
         const string expensePermission = "biz:expense:list";
         if (db.Queryable<SysMenu>().Any(x => x.Permission == expensePermission))
         {
+            // 幂等早退路径同样要保证目录授权（存量库目录可能尚未挂角色）
+            EnsureDirGranted(db, "业务办公", adminRoleId, now);
             EnsureCrudButtons(db, "biz:expense:list", adminRoleId, now);
             EnsureCrudButtons(db, "biz:purchase:list", adminRoleId, now);
             return;
@@ -547,6 +560,8 @@ public class DbSeeder
                 CreateBy = "system"
             }).ExecuteReturnEntity();
         }
+
+        EnsureDirGranted(db, "业务办公", adminRoleId, now);
 
         (string Name, string Path, string Component, string Permission, int Sort)[] pages =
         [
@@ -820,6 +835,8 @@ public class DbSeeder
                 .Where(x => x.Id == personalDir.Id)
                 .ExecuteCommand();
         }
+
+        EnsureDirGranted(db, "个人办公", adminRoleId, now);
 
         (string Name, string Path, string Component, string Permission, int Sort)[] pages =
         [

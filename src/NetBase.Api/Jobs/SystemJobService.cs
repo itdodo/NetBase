@@ -76,8 +76,10 @@ public class SystemJobService(
     ISysConfigService configService,
     ISysNoticeService noticeService,
     INotifyService notifyService,
+    NetBase.Common.Email.IEmailService emailService,
     IRepository<SysRole> roleRepository,
     IRepository<SysUserRole> userRoleRepository,
+    IRepository<SysUser> userRepository,
     IRepository<SysUserSession> userSessionRepository,
     NetBase.Service.Sys.Flow.IFlowEngine flowEngine,
     IBackupService backupService,
@@ -208,6 +210,18 @@ public class SystemJobService(
                 {
                     MsgType = 1, Title = title, Content = content, SenderName = "system"
                 });
+
+                // 邮件告警（sys.email.notifyJobAlerts=true 时）：站内信在系统故障时同样不可达，邮件是独立通道
+                if (await configService.GetConfigValueAsync("sys.email.notifyJobAlerts") == "true")
+                {
+                    var adminEmails = (await userRepository.GetListAsync(x => adminUserIds.Contains(x.Id) && x.IsDeleted == false && x.Status == 1))
+                        .Where(u => !string.IsNullOrWhiteSpace(u.Email))
+                        .Select(u => u.Email!.Trim()).Distinct();
+                    foreach (var to in adminEmails)
+                    {
+                        await emailService.SendAsync(to, title, $"<p>{content}</p>");
+                    }
+                }
             }
         }
         catch (Exception ex)

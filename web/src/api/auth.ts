@@ -29,6 +29,14 @@ export interface LoginPayload {
   captchaCode?: string
 }
 
+/** 忘记密码：发送重置验证码到账号预留邮箱（后端防枚举，统一提示） */
+export const forgotPassword = (data: { userName: string; email: string }) =>
+  request.post<never, string>('/auth/forgot-password', data)
+
+/** 忘记密码：凭邮箱验证码重置密码（成功后全端下线） */
+export const resetPasswordByCode = (data: { userName: string; email: string; code: string; newPassword: string }) =>
+  request.post<never, string>('/auth/reset-password', data)
+
 /** 获取图形验证码（返回 SVG 字符串） */
 export const getCaptcha = () =>
   request.get<never, { captchaId: string; svg: string }>('/auth/captcha')

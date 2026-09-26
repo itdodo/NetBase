@@ -47,6 +47,12 @@ export const ERROR_CODES = {
   AUTH_PWD_SAME_AS_OLD: 'AUTH_PWD_SAME_AS_OLD',
   /** 无权限访问（管道 403） */
   AUTH_FORBIDDEN: 'AUTH_FORBIDDEN',
+  /** 忘记密码：发码限频（60 秒内重复请求） */
+  AUTH_RESET_CODE_RATE_LIMITED: 'AUTH_RESET_CODE_RATE_LIMITED',
+  /** 忘记密码：验证码错误或已过期 */
+  AUTH_RESET_CODE_INVALID: 'AUTH_RESET_CODE_INVALID',
+  /** 忘记密码：重置尝试过于频繁 */
+  AUTH_RESET_ATTEMPT_RATE_LIMITED: 'AUTH_RESET_ATTEMPT_RATE_LIMITED',
 
   // ---------- SYS ----------
   /** 用户不存在 */

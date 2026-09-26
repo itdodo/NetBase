@@ -3,7 +3,7 @@ import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, FormInstance, FormRules } from 'element-plus'
 import { Lock, User, Refresh } from '@element-plus/icons-vue'
-import { getCaptcha } from '@/api/auth'
+import { getCaptcha, forgotPassword, resetPasswordByCode } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
@@ -35,6 +35,87 @@ const rules: FormRules = {
     { min: 6, message: '密码至少 6 位', trigger: 'blur' }
   ],
   captchaCode: [{ required: true, message: '请输入验证码', trigger: 'blur' }]
+}
+
+// ---------- 忘记密码（两步：发码 → 验证码+新密码） ----------
+const forgotVisible = ref(false)
+const forgotRef = ref<FormInstance>()
+const forgotLoading = ref(false)
+const forgotSent = ref(false)
+const forgotCountdown = ref(0)
+const forgotForm = reactive({ userName: '', email: '', code: '', newPassword: '', confirmPassword: '' })
+let forgotTimer: ReturnType<typeof setInterval> | null = null
+
+const forgotRules: FormRules = {
+  userName: [{ required: true, message: '请输入账号', trigger: 'blur' }],
+  email: [
+    { required: true, message: '请输入预留邮箱', trigger: 'blur' },
+    { type: 'email', message: '邮箱格式不正确', trigger: 'blur' }
+  ],
+  code: [{ required: forgotSent, message: '请输入验证码', trigger: 'blur' }],
+  newPassword: [
+    { required: forgotSent, message: '请输入新密码', trigger: 'blur' },
+    { min: 6, message: '密码至少 6 位', trigger: 'blur' }
+  ],
+  confirmPassword: [
+    {
+      validator: (_r, v, cb) =>
+        !forgotSent.value || v === forgotForm.newPassword ? cb() : cb(new Error('两次输入的密码不一致')),
+      trigger: 'blur'
+    }
+  ]
+}
+
+function openForgot(): void {
+  forgotVisible.value = true
+  forgotSent.value = false
+  forgotForm.userName = form.userName // 预填账号，减少输入
+}
+
+async function handleSendCode(): Promise<void> {
+  if (!forgotForm.userName || !forgotForm.email) {
+    ElMessage.warning('请先填写账号与预留邮箱')
+    return
+  }
+  forgotLoading.value = true
+  try {
+    await forgotPassword({ userName: forgotForm.userName, email: forgotForm.email })
+    ElMessage.success('若账号与邮箱匹配，验证码已发送，请查收')
+    forgotSent.value = true
+    forgotCountdown.value = 60
+    forgotTimer = setInterval(() => {
+      forgotCountdown.value -= 1
+      if (forgotCountdown.value <= 0 && forgotTimer) {
+        clearInterval(forgotTimer)
+        forgotTimer = null
+      }
+    }, 1000)
+  } catch {
+    // 错误提示由 request 拦截器统一处理
+  } finally {
+    forgotLoading.value = false
+  }
+}
+
+async function handleResetPassword(): Promise<void> {
+  const valid = await forgotRef.value?.validate().catch(() => false)
+  if (!valid) return
+  forgotLoading.value = true
+  try {
+    await resetPasswordByCode({
+      userName: forgotForm.userName,
+      email: forgotForm.email,
+      code: forgotForm.code,
+      newPassword: forgotForm.newPassword
+    })
+    ElMessage.success('密码已重置，请使用新密码登录')
+    forgotVisible.value = false
+    form.password = ''
+  } catch {
+    // 错误提示由 request 拦截器统一处理
+  } finally {
+    forgotLoading.value = false
+  }
 }
 
 async function handleLogin() {
@@ -147,7 +228,42 @@ const features = [
               登 录
             </el-button>
           </el-form-item>
+          <div class="login-extras">
+            <el-link type="primary" :underline="false" @click="openForgot">忘记密码？</el-link>
+          </div>
         </el-form>
+
+        <el-dialog v-model="forgotVisible" title="忘记密码" width="420px" append-to-body>
+          <el-form ref="forgotRef" :model="forgotForm" :rules="forgotRules" label-width="82px">
+            <el-form-item label="账号" prop="userName">
+              <el-input v-model="forgotForm.userName" placeholder="登录账号" />
+            </el-form-item>
+            <el-form-item label="预留邮箱" prop="email">
+              <el-input v-model="forgotForm.email" placeholder="账号绑定的邮箱" />
+            </el-form-item>
+            <template v-if="forgotSent">
+              <el-form-item label="验证码" prop="code">
+                <div class="code-row">
+                  <el-input v-model="forgotForm.code" maxlength="6" placeholder="6 位邮箱验证码" />
+                  <el-button :disabled="forgotCountdown > 0" @click="handleSendCode">
+                    {{ forgotCountdown > 0 ? forgotCountdown + 's' : '重新发送' }}
+                  </el-button>
+                </div>
+              </el-form-item>
+              <el-form-item label="新密码" prop="newPassword">
+                <el-input v-model="forgotForm.newPassword" type="password" show-password placeholder="新密码" />
+              </el-form-item>
+              <el-form-item label="确认密码" prop="confirmPassword">
+                <el-input v-model="forgotForm.confirmPassword" type="password" show-password placeholder="再次输入新密码" />
+              </el-form-item>
+            </template>
+          </el-form>
+          <template #footer>
+            <el-button @click="forgotVisible = false">取消</el-button>
+            <el-button v-if="!forgotSent" type="primary" :loading="forgotLoading" @click="handleSendCode">发送验证码</el-button>
+            <el-button v-else type="primary" :loading="forgotLoading" @click="handleResetPassword">重置密码</el-button>
+          </template>
+        </el-dialog>
       </div>
 
       <p class="copyright">© 2026 NetBase · NetBase 管理系统</p>
@@ -156,6 +272,16 @@ const features = [
 </template>
 
 <style scoped>
+.login-extras {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -6px;
+}
+.code-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
 .login-page {
   height: 100vh;
   display: flex;

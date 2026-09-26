@@ -25,6 +25,7 @@ public class SysAuthService(
     ICacheService cacheService,
     ISysConfigService configService,
     ICaptchaService captchaService,
+    NetBase.Common.Email.IEmailService emailService,
     NetBase.Common.Realtime.INotifyService notifyService,
     IOptions<JwtOptions> jwtOptions) : ISysAuthService
 {
@@ -220,6 +221,113 @@ public class SysAuthService(
 
         // 改密后清除全部会话（含当前），强制重新登录
         await sessionRepository.DeletePhysicalWhereAsync(x => x.UserId == userId);
+    }
+
+    private const string ResetCodeKey = "netbase:pwdreset:code:";
+    private const string ResetFreqKey = "netbase:pwdreset:freq:";
+    private const string ResetTryKey = "netbase:pwdreset:try:";
+
+    /// <inheritdoc />
+    public async Task SendResetCodeAsync(string userName, string email, string? ip)
+    {
+        if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(email))
+        {
+            return; // 缺参按"未命中"静默处理（对外统一成功，防枚举）
+        }
+
+        // 发码限频：同账号 60 秒一次（防轰炸；正常用户重发间隔足够）
+        var freqKey = ResetFreqKey + userName;
+        if (cacheService.Get<bool>(freqKey))
+        {
+            throw new BusinessException("验证码发送过于频繁，请稍后再试", ApiResultCode.BadRequest, ErrorCodes.AUTH_RESET_CODE_RATE_LIMITED);
+        }
+
+        var user = await userRepository.GetFirstAsync(x => x.UserName == userName && x.IsDeleted == false);
+        var matched = user != null
+            && user.Status == (int)StatusEnum.Enabled
+            && !string.IsNullOrWhiteSpace(user.Email)
+            && string.Equals(user.Email.Trim(), email.Trim(), StringComparison.OrdinalIgnoreCase);
+
+        if (!matched)
+        {
+            // 防枚举：账号不存在/停用/邮箱不匹配 → 静默返回，前端统一提示"若信息匹配将发送"
+            return;
+        }
+
+        var code = Random.Shared.Next(100000, 999999).ToString();
+        cacheService.Set(ResetCodeKey + userName, code, TimeSpan.FromMinutes(5));
+        var sent = await emailService.SendAsync(
+            user!.Email!.Trim(),
+            "NetBase 密码重置验证码",
+            $"<p>您正在重置账号 <b>{userName}</b> 的密码，验证码：</p>" +
+            $"<p style=\"font-size:22px;font-weight:bold;letter-spacing:4px\">{code}</p>" +
+            "<p>验证码 5 分钟内有效且一次使用。若非本人操作，请忽略本邮件。</p>");
+        if (sent)
+        {
+            cacheService.Set(freqKey, true, TimeSpan.FromSeconds(60));
+            return;
+        }
+
+        // 邮件通道故障（未配置 SMTP/发送失败）：清码并明确报错——静默成功会让用户干等一封永远不来的邮件
+        cacheService.Remove(ResetCodeKey + userName);
+        throw new BusinessException("邮件发送失败，请联系管理员检查系统邮件配置", ApiResultCode.BadRequest, ErrorCodes.AUTH_RESET_CODE_INVALID);
+    }
+
+    /// <inheritdoc />
+    public async Task ResetPasswordByCodeAsync(string userName, string email, string code, string newPassword, string? ip)
+    {
+        // 重置尝试限频：同账号每小时 10 次（验证码空间 10^6，防穷举）
+        var tryKey = ResetTryKey + userName;
+        var tries = cacheService.Get<int>(tryKey);
+        if (tries >= 10)
+        {
+            throw new BusinessException("重置尝试过于频繁，请稍后再试", ApiResultCode.BadRequest, ErrorCodes.AUTH_RESET_ATTEMPT_RATE_LIMITED);
+        }
+        cacheService.Set(tryKey, tries + 1, TimeSpan.FromHours(1));
+
+        // 验证码一次性：取后即删（无论对错都消耗本次尝试）
+        var codeKey = ResetCodeKey + userName;
+        var cached = cacheService.Get<string>(codeKey);
+        cacheService.Remove(codeKey);
+        if (cached == null || cached != code.Trim())
+        {
+            throw new BusinessException("验证码错误或已过期", ApiResultCode.BadRequest, ErrorCodes.AUTH_RESET_CODE_INVALID);
+        }
+
+        // 邮箱二次校验（发码与重置须同一邮箱，防拿到码后换邮箱语义混乱）
+        var user = await userRepository.GetFirstAsync(x => x.UserName == userName && x.IsDeleted == false);
+        if (user == null
+            || user.Status != (int)StatusEnum.Enabled
+            || !string.Equals(user.Email?.Trim(), email.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new BusinessException("验证码错误或已过期", ApiResultCode.BadRequest, ErrorCodes.AUTH_RESET_CODE_INVALID);
+        }
+
+        var policyError = PasswordPolicy.Validate(newPassword);
+        if (policyError != null)
+        {
+            throw new BusinessException(policyError, ApiResultCode.BadRequest, ErrorCodes.AUTH_PWD_POLICY_VIOLATION);
+        }
+        if (PasswordHelper.Verify(newPassword, user.Password))
+        {
+            throw new BusinessException("新密码不能与旧密码相同", ApiResultCode.BadRequest, ErrorCodes.AUTH_PWD_SAME_AS_OLD);
+        }
+
+        // 注意：此处不复用受信默认密码豁免——自助重置的密码必须满足完整复杂度策略
+        var hashed = PasswordHelper.Encrypt(newPassword);
+        await userRepository.UpdateWhereAsync(
+            x => x.Id == user.Id,
+            x => new SysUser { Password = hashed, PwdUpdateTime = DateTime.Now, UpdateTime = DateTime.Now, UpdateBy = "password-reset" });
+
+        // 全端踢线：旧会话立即失效
+        await sessionRepository.DeletePhysicalWhereAsync(x => x.UserId == user.Id);
+
+        await notifyService.PushToUsersAsync([user.Id], new NetBase.Common.Realtime.NoticePayload
+        {
+            Title = "密码已重置",
+            Content = "您的账号密码已通过「忘记密码」自助重置，请使用新密码重新登录。若非本人操作，请立即联系管理员。",
+            MsgType = 1
+        });
     }
 
     #region 内部

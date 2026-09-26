@@ -33,6 +33,11 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
+// 敏感配置可逆加密主密钥（SMTP 授权码等）：派生自 Jwt:SecretKey，须早于任何加解密使用
+NetBase.Common.Security.SensitiveCrypto.Init(
+    builder.Configuration.GetSection("Jwt:SecretKey").Value
+    ?? throw new InvalidOperationException("缺少 Jwt:SecretKey 配置（SensitiveCrypto 主密钥来源）"));
+
 // 日志：Serilog（配置见 appsettings.json 的 Serilog 节点）
 builder.Host.UseSerilog((context, configuration) => configuration.ReadFrom.Configuration(context.Configuration));
 

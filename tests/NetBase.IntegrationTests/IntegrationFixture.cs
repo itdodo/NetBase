@@ -58,10 +58,17 @@ public sealed class IntegrationFixture
         services.AddSingleton<SqlSugarContext>();
         services.AddSingleton<ISqlSugarClient>(sp => sp.GetRequiredService<SqlSugarContext>().Client);
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+        // JWT 签发配置（密码重置全流程用例会走到 LoginAsync 签发 token）
+        services.AddSingleton(Microsoft.Extensions.Options.Options.Create(
+            new NetBase.Service.Sys.JwtOptions { SecretKey = "integration-test-secret-key-0123456789abcdef!" }));
 
         // 服务层依赖（与生产注册一致的手动组装）
         services.AddScoped<ICacheService, MemoryCacheService>();
         services.AddSingleton<ISysConfigService, SysConfigService>();
+        services.AddSingleton<TestEmailService>();
+        services.AddSingleton<NetBase.Common.Email.IEmailService>(sp => sp.GetRequiredService<TestEmailService>());
+        services.AddScoped<NetBase.Service.Sys.ICaptchaService, FakeCaptchaService>();
+        services.AddScoped<NetBase.Service.Sys.ISysAuthService, NetBase.Service.Sys.SysAuthService>();
         services.AddScoped<ISysDeptService, SysDeptService>();
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddScoped<IDataScopeService, DataScopeService>();

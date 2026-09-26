@@ -62,6 +62,15 @@ public interface ISysAuthService
     /// <summary>修改自己密码（验证旧密码），成功后清除该用户全部会话强制重新登录</summary>
     Task ChangePasswordAsync(long userId, string oldPassword, string newPassword, string? operatorName);
 
+    /// <summary>
+    /// 忘记密码：发送重置验证码到账号预留邮箱。
+    /// 防枚举——账号不存在/停用/邮箱不匹配/邮件未启用时对外行为保持一致（除邮件通道本身故障）。
+    /// </summary>
+    Task SendResetCodeAsync(string userName, string email, string? ip);
+
+    /// <summary>忘记密码：凭邮箱验证码重置密码（验证码一次性），成功后踢下线全部会话</summary>
+    Task ResetPasswordByCodeAsync(string userName, string email, string code, string newPassword, string? ip);
+
     /// <summary>查询用户资料（profile 接口）</summary>
     Task<UserDto?> GetUserProfileAsync(long userId);
 

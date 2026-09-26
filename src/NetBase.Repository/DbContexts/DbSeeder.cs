@@ -938,7 +938,16 @@ public class DbSeeder
             ("sys.captcha.enabled", "true", "登录图形验证码开关", "设为 false 关闭验证码（内网场景）"),
             ("sys.flow.remindDays", "3", "审批超时提醒天数", "0=不启用；待办超期自动站内信提醒审批人"),
             ("sys.login.kickSameUser", "1", "同账号互踢", "1=新登录踢旧端（单点在线）；0=允许多端在线"),
-            ("sys.pwd.expireDays", "0", "密码有效期（天）", "0=不启用；启用后登录时超期将要求强制修改密码")
+            ("sys.pwd.expireDays", "0", "密码有效期（天）", "0=不启用；启用后登录时超期将要求强制修改密码"),
+            ("sys.email.enabled", "false", "邮件通道开关", "启用前须完成 SMTP 配置（host/port/account/password/from）"),
+            ("sys.email.smtpHost", "", "SMTP 服务器", "如 smtp.exmail.qq.com"),
+            ("sys.email.smtpPort", "465", "SMTP 端口", "465=SSL；587=STARTTLS"),
+            ("sys.email.smtpSsl", "true", "SMTP SSL", "true=隐式 SSL(465)；false=STARTTLS(587)"),
+            ("sys.email.smtpAccount", "", "SMTP 账号", "通常为发件邮箱"),
+            ("sys.email.smtpPassword", "", "SMTP 授权码（密文）", "保存时由系统加密存储（SensitiveCrypto）"),
+            ("sys.email.from", "", "发件人显示地址", "如 NetBase <noreply@example.com>"),
+            ("sys.email.notifyBizTypes", "", "审批事件邮件白名单", "逗号分隔的 BizType（如 approval）；空=不发审批邮件"),
+            ("sys.email.notifyJobAlerts", "false", "作业失败邮件告警", "true=定时作业失败时邮件通知管理员")
         ];
 
         foreach (var spec in configs)

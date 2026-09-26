@@ -29,6 +29,7 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<IDashboardService, DashboardService>();
         services.TryAddScoped<ISystemMonitorService, SystemMonitorService>();
         services.TryAddScoped<ISysFileService, SysFileService>();
+        services.TryAddScoped<NetBase.Common.Email.IEmailService, EmailService>();
 
         // 审批流引擎（业务单据经 IFlowBusinessHandler + FlowEngine.SubmitAsync 接入）
         services.TryAddScoped<ApproverResolver>();

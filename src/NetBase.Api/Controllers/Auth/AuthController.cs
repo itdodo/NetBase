@@ -23,6 +23,27 @@ public class AuthController(
 {
     private const string TokenIdClaim = "jti";
 
+    /// <summary>忘记密码：发送重置验证码到账号预留邮箱（限频：同账号 60 秒一次）</summary>
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [HttpPost("forgot-password")]
+    public async Task<ApiResult> SendResetCode([FromBody] ForgotPasswordDto request)
+    {
+        await authService.SendResetCodeAsync(request.UserName, request.Email, HttpContext.GetClientIp());
+        // 统一提示防枚举：不暴露账号/邮箱是否匹配
+        return Success("若账号与邮箱匹配，验证码已发送，请查收");
+    }
+
+    /// <summary>忘记密码：凭邮箱验证码重置密码（验证码一次性，成功后全端下线）</summary>
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [HttpPost("reset-password")]
+    public async Task<ApiResult> ResetPassword([FromBody] SelfResetPasswordDto request)
+    {
+        await authService.ResetPasswordByCodeAsync(request.UserName, request.Email, request.Code, request.NewPassword, HttpContext.GetClientIp());
+        return Success("密码已重置，请使用新密码登录");
+    }
+
     /// <summary>登录（每 IP 每分钟限流 10 次；连续失败 5 次锁定 10 分钟）</summary>
     [AllowAnonymous]
     [EnableRateLimiting("login")]

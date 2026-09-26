@@ -69,6 +69,15 @@ public static class ErrorCodes
     /// <summary>无权限访问（管道 403）</summary>
     public const string AUTH_FORBIDDEN = "AUTH_FORBIDDEN";
 
+    /// <summary>忘记密码：发码限频（60 秒内重复请求）</summary>
+    public const string AUTH_RESET_CODE_RATE_LIMITED = "AUTH_RESET_CODE_RATE_LIMITED";
+
+    /// <summary>忘记密码：验证码错误或已过期</summary>
+    public const string AUTH_RESET_CODE_INVALID = "AUTH_RESET_CODE_INVALID";
+
+    /// <summary>忘记密码：重置尝试过于频繁</summary>
+    public const string AUTH_RESET_ATTEMPT_RATE_LIMITED = "AUTH_RESET_ATTEMPT_RATE_LIMITED";
+
     // ---------- 用户（sys_user） ----------
     /// <summary>用户不存在</summary>
     public const string SYS_USER_NOT_FOUND = "SYS_USER_NOT_FOUND";

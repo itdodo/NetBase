@@ -15,6 +15,7 @@ import { Checked } from '@element-plus/icons-vue'
 import type { NoticeInfo, MessageInfo } from '@/api/notice'
 import { onForceLogout, onNotice, startRealtime, stopRealtime } from '@/composables/useRealtime'
 import { forceLogout } from '@/api/request'
+import { formatTime } from '@/utils/format'
 import { useUserStore } from '@/stores/user'
 import { usePermissionStore } from '@/stores/permission'
 import { useTabsStore } from '@/stores/tabs'
@@ -317,7 +318,7 @@ async function handleChangePassword(): Promise<void> {
               </el-tag>
               {{ item.title }}
             </div>
-            <div class="notice-time">{{ item.createTime }}</div>
+            <div class="notice-time">{{ formatTime(item.createTime) }}</div>
           </div>
         </el-tab-pane>
         <el-tab-pane name="message">
@@ -339,14 +340,14 @@ async function handleChangePassword(): Promise<void> {
             @click="openMessage(item)"
           >
             <div class="notice-title">{{ item.title }}</div>
-            <div class="notice-time">{{ item.senderName }} · {{ item.createTime }}</div>
+            <div class="notice-time">{{ item.senderName }} · {{ formatTime(item.createTime) }}</div>
           </div>
         </el-tab-pane>
       </el-tabs>
     </el-drawer>
 
     <el-dialog v-model="noticeDetailVisible" :title="viewingNotice?.title" width="560px" @closed="viewingNotice = null">
-      <div class="notice-time">{{ viewingNotice?.createTime }}</div>
+      <div class="notice-time">{{ formatTime(viewingNotice?.createTime) }}</div>
       <div class="view-content" v-html="sanitizeHtml(viewingNotice?.content ?? '')" />
     </el-dialog>
 

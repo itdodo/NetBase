@@ -164,4 +164,40 @@ public class ConcurrencyAndAuditIntegrationTests
         Assert.DoesNotContain("Old123", diff);
         Assert.DoesNotContain("New456", diff);
     }
+
+    [Fact]
+    public async Task DeptChangeAudit_UpdateLeader_ShouldRecordAndConsecutiveEditsPass()
+    {
+        var deptSvc = _fixture.GetService<ISysDeptService>();
+        var changeRepo = _fixture.GetRepository<SysChangeLog>();
+        var code = IntegrationFixture.Uid("deptaudit");
+
+        // 创建部门（无负责人）→ 编辑设置负责人 → 变更日志应记录字段级 diff
+        var id = await deptSvc.CreateAsync(new DeptSaveDto
+        {
+            DeptName = "审计部门" + code, DeptCode = code, ParentId = 0, Sort = 1, Status = 1
+        });
+
+        var baseCount = await changeRepo.CountAsync(
+            x => x.TableName == "SysDept" && x.RecordId == id.ToString());
+        await deptSvc.UpdateAsync(id, new DeptSaveDto
+        {
+            DeptName = "审计部门" + code, DeptCode = code, ParentId = 0, Sort = 1, Status = 1,
+            Leader = "负责人甲", LeaderUserId = 852698478059589
+        });
+        var afterFirst = await changeRepo.CountAsync(
+            x => x.TableName == "SysDept" && x.RecordId == id.ToString());
+        Assert.Equal(baseCount + 1, afterFirst); // 负责人变更落审计
+
+        // 连续第二次编辑（服务端读时版本）：不冲突、正常保存
+        await deptSvc.UpdateAsync(id, new DeptSaveDto
+        {
+            DeptName = "审计部门" + code, DeptCode = code, ParentId = 0, Sort = 2, Status = 1,
+            Leader = "负责人甲", LeaderUserId = 852698478059589
+        });
+        var afterSecond = await changeRepo.CountAsync(
+            x => x.TableName == "SysDept" && x.RecordId == id.ToString());
+        Assert.Equal(afterFirst + 1, afterSecond); // Sort 变更也落审计
+    }
+
 }

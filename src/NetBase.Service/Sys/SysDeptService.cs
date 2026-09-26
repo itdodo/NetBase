@@ -12,7 +12,7 @@ namespace NetBase.Service.Sys;
 /// <summary>部门服务实现</summary>
 public class SysDeptService(
     IRepository<SysDept> repository,
-    IRepository<SysUser> userRepository) : ISysDeptService
+    IRepository<SysUser> userRepository) : NetBase.Service.Base.BaseService<SysDept>(repository), ISysDeptService
 {
     public Task<List<SysDept>> GetAllDeptsAsync() => repository.GetListAsync();
 
@@ -90,7 +90,8 @@ public class SysDeptService(
         dept.Status = dto.Status;
         dept.UpdateTime = DateTime.Now;
         dept.UpdateBy = operatorName;
-        await repository.UpdateAsync(dept);
+        // 编辑统一入口：字段级变更审计（部门负责人/编码等关键配置变更须留痕）+ 并发保护
+        await UpdateWithConcurrencyCheckAsync(dept);
     }
 
     public async Task DeleteAsync(long id)

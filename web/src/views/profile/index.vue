@@ -4,10 +4,13 @@ import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules, UploadRequestOptions } from 'element-plus'
 import { User as UserIcon } from '@element-plus/icons-vue'
 import { getProfile, updateProfile, uploadAvatar } from '@/api/auth'
+import { useUserStore } from '@/stores/user'
 import type { LoginResponse } from '@/api/auth'
 import { formatDateTime } from '@/utils/format'
 
 defineOptions({ name: 'ProfileView' })
+
+const userStore = useUserStore()
 
 const profile = ref<LoginResponse['user'] | null>(null)
 
@@ -46,6 +49,7 @@ async function handleSave(): Promise<void> {
 async function handleAvatarUpload(options: UploadRequestOptions): Promise<unknown> {
   const url = await uploadAvatar(options.file)
   ElMessage.success('头像已更新')
+  userStore.setAvatar(url) // 顶栏等全站位置即时生效
   if (profile.value) {
     profile.value.avatar = url
   }

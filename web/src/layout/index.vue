@@ -277,6 +277,9 @@ async function handleChangePassword(): Promise<void> {
 
           <el-dropdown>
             <span class="user-info">
+              <el-avatar :size="26" :src="userStore.avatar || undefined" class="user-avatar">
+                {{ (userName || '?').charAt(0).toUpperCase() }}
+              </el-avatar>
               {{ userName }}
               <el-icon><ArrowDown /></el-icon>
             </span>

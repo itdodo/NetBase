@@ -230,6 +230,17 @@ ORDER BY SUM(CASE WHEN t.status IN (2,3,8) THEN 1 ELSE 0 END) DESC
             .ToListAsync();
 
         var nodeNames = await LoadNodeNamesAsync(instance);
+
+        // 操作人头像：按 OperatorId 批量关联（历史操作人可能已删除，缺失为 null 由前端降级）
+        var operatorIds = records.Where(r => r.OperatorId > 0).Select(r => r.OperatorId).Distinct().ToList();
+        var avatarMap = operatorIds.Count == 0
+            ? new Dictionary<long, string?>()
+            : (await db.Queryable<NetBase.Model.Entities.SysUser>()
+                    .Where(u => operatorIds.Contains(u.Id))
+                    .Select(u => new { u.Id, u.Avatar })
+                    .ToListAsync())
+                .ToDictionary(x => x.Id, x => x.Avatar);
+
         var timeline = records.Select(r =>
         {
             var nodeName = r.NodeCode != null && nodeNames.TryGetValue(r.NodeCode, out var name) ? name : r.NodeCode ?? string.Empty;
@@ -239,6 +250,7 @@ ORDER BY SUM(CASE WHEN t.status IN (2,3,8) THEN 1 ELSE 0 END) DESC
                 NodeName = nodeName,
                 Action = r.Action,
                 OperatorName = r.OperatorName,
+                Avatar = r.OperatorId > 0 && avatarMap.TryGetValue(r.OperatorId, out var avatar) ? avatar : null,
                 Comment = r.Comment,
                 Time = r.ActTime
             };

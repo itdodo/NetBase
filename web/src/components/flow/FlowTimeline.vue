@@ -65,6 +65,9 @@ onMounted(load)
           <div class="item-head">
             <el-icon :color="metaOf(item).color" class="item-icon"><component :is="metaOf(item).icon" /></el-icon>
             <span class="node-name">{{ item.nodeName ? `${item.nodeName} · ` : '' }}{{ metaOf(item).label }}</span>
+            <el-avatar :size="20" :src="item.avatar || undefined" class="operator-avatar">
+              {{ item.operatorName.charAt(0).toUpperCase() }}
+            </el-avatar>
             <span class="operator">{{ item.operatorName }}</span>
           </div>
           <div v-if="item.comment" class="comment">{{ item.comment }}</div>

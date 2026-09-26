@@ -72,6 +72,8 @@ export interface FlowTimelineItem {
   nodeName: string
   action: string
   operatorName: string
+  /** 操作人头像（无则前端降级首字） */
+  avatar?: string
   comment?: string
   time: string
 }

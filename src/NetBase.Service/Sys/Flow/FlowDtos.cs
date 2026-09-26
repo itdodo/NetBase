@@ -195,6 +195,9 @@ public class FlowTimelineItem
     /// <summary>操作人</summary>
     public string OperatorName { get; set; } = string.Empty;
 
+    /// <summary>操作人头像（按 OperatorId 关联 sys_user，无则空由前端降级首字）</summary>
+    public string? Avatar { get; set; }
+
     /// <summary>意见/说明</summary>
     public string? Comment { get; set; }
 

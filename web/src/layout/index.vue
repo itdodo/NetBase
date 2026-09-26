@@ -14,6 +14,7 @@ import { sanitizeHtml } from '@/utils/sanitize'
 import { Checked } from '@element-plus/icons-vue'
 import type { NoticeInfo, MessageInfo } from '@/api/notice'
 import { onForceLogout, onNotice, startRealtime, stopRealtime } from '@/composables/useRealtime'
+import { forceLogout } from '@/api/request'
 import { useUserStore } from '@/stores/user'
 import { usePermissionStore } from '@/stores/permission'
 import { useTabsStore } from '@/stores/tabs'
@@ -141,20 +142,11 @@ onNotice(function (notice) {
   loadMessages()
 })
 
-// 强制下线（互踢/管理端踢人/停用）：友好提示后 2000ms 自动回登录页
-let forceLogoutHandled = false
+// 强制下线（互踢/管理端踢人/停用）：统一走 forceLogout——与 401 兜底共用去重，
+// 无论 SignalR 事件与请求 401 谁先到达都只提示一条、跳转一次；整页跳转自动重置全部前端状态
 onForceLogout(function (reason) {
-  if (forceLogoutHandled) return
-  forceLogoutHandled = true
   stopRealtime()
-  userStore.logout()
-  permissionStore.reset()
-  tabsStore.closeAll()
-  ElMessage.warning(reason || '您的账号已在其他设备登录')
-  setTimeout(() => {
-    forceLogoutHandled = false
-    router.push('/login')
-  }, 2000)
+  forceLogout(reason || '您的账号已在其他设备登录')
 })
 
 startRealtime()

@@ -68,10 +68,10 @@ async function doRefresh(): Promise<boolean> {
   }
 }
 
-/** 刷新失败统一登出：友好提示 + 2000ms 自动跳登录页（并发 401 仅提示一次） */
+/** 统一登出（401 兜底 / SignalR 强制下线共用）：提示 + 2000ms 跳登录页（并发触发仅提示一次） */
 let forceLogoutTimer: ReturnType<typeof setTimeout> | null = null
 
-function forceLogout(reason?: string): void {
+export function forceLogout(reason?: string): void {
   clearToken()
   if (forceLogoutTimer !== null || location.pathname === '/login') {
     return

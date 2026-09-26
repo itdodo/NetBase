@@ -1,5 +1,6 @@
 import { ElMessage } from 'element-plus'
 import type { Router } from 'vue-router'
+import { ApiError } from '@/api/request'
 import { usePermissionStore } from '@/stores/permission'
 import { useUserStore } from '@/stores/user'
 
@@ -31,6 +32,10 @@ export function setupRouterGuard(router: Router): void {
         routes.forEach((route) => router.addRoute(route))
         return { path: to.path, query: to.query, replace: true }
       } catch (error) {
+        // 401（登录过期/未登录）：forceLogout 已统一提示并跳转登录页，此处不再叠加提示
+        if (error instanceof ApiError && error.code === 401) {
+          return true
+        }
         // 菜单加载失败（如后端未启动/数据库未初始化）：提示后降级进入，仅有静态路由
         ElMessage.error(`菜单加载失败，系统将以基础模式运行：${(error as Error).message}`)
         return true

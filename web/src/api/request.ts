@@ -29,6 +29,8 @@ declare module 'axios' {
     silentErrorCodes?: string[]
     /** 401 刷新重放标记（内部使用） */
     _retried?: boolean
+    /** 认证类内部请求（refresh）静默标记：失败统一由 forceLogout 提示，拦截器不再叠加 toast */
+    _silentAuth?: boolean
   }
 }
 
@@ -120,7 +122,8 @@ request.interceptors.response.use(
       if (result.errorCode === ERROR_CODES.COMMON_CONCURRENCY_CONFLICT) {
         window.dispatchEvent(new CustomEvent(CONCURRENCY_CONFLICT_EVENT))
       }
-      if (!isSilent(response.config, result.errorCode)) {
+      // 认证内部请求（refresh）静默：失败由 forceLogout 统一提示，避免 error+warning 双弹窗
+      if (!response.config._silentAuth && !isSilent(response.config, result.errorCode)) {
         ElMessage.error(result.message || '操作失败')
       }
       return Promise.reject(new ApiError(result.message || '操作失败', result.code, result.errorCode))
@@ -133,6 +136,8 @@ request.interceptors.response.use(
     const status: number | undefined = error.response?.status
     const body = (error.response?.data ?? {}) as Partial<ApiResult>
     const message = body.message
+    // 认证内部请求（refresh）全程静默：失败统一由 forceLogout 提示，不叠加任何 error toast
+    const silentAuth = !!config._silentAuth
 
     // 401：排除登录/刷新接口本身，尝试静默续期并重放一次
     if (status === 401 && !config._retried && !config.url?.includes('/auth/login') && !config.url?.includes('/auth/refresh')) {
@@ -156,23 +161,29 @@ request.interceptors.response.use(
 
     // 403：授权失败（响应体带统一结构，优先读后端文案）
     if (status === 403) {
-      ElMessage.error(message || '没有操作权限，请联系管理员')
+      if (!silentAuth) {
+        ElMessage.error(message || '没有操作权限，请联系管理员')
+      }
       return Promise.reject(new ApiError(message || '没有操作权限', 403, body.errorCode))
     }
 
     // 429：限流（登录尝试过于频繁）
     if (status === 429) {
-      ElMessage.error('操作过于频繁，请稍后再试')
+      if (!silentAuth) {
+        ElMessage.error('操作过于频繁，请稍后再试')
+      }
       return Promise.reject(new ApiError('操作过于频繁', 429, body.errorCode))
     }
 
     // 5xx/网络层失败（后端不可达、代理断连）：与业务错误区分提示
     if (!error.response || (status !== undefined && status >= 500)) {
-      ElMessage.error('服务暂时不可用，请稍后重试；若持续失败请联系管理员')
+      if (!silentAuth) {
+        ElMessage.error('服务暂时不可用，请稍后重试；若持续失败请联系管理员')
+      }
       return Promise.reject(new ApiError('服务暂时不可用', status ?? 0, body.errorCode))
     }
 
-    if (!isSilent(config, body.errorCode)) {
+    if (!silentAuth && !isSilent(config, body.errorCode)) {
       ElMessage.error(message || error.message || '网络异常，请稍后重试')
     }
     return Promise.reject(new ApiError(message || error.message || '网络异常', status ?? 0, body.errorCode))

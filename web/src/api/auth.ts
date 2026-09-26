@@ -57,9 +57,9 @@ export const uploadAvatar = (file: File) => {
   return request.post<never, string>('/auth/avatar', form)
 }
 
-/** 刷新令牌（轮换） */
+/** 刷新令牌（轮换）。失败由 request.ts 的 forceLogout 统一提示，请求标记 _silentAuth 全程静默 */
 export const refreshTokenApi = (refreshToken: string) =>
-  request.post<never, LoginResponse>('/auth/refresh', { refreshToken })
+  request.post<never, LoginResponse>('/auth/refresh', { refreshToken }, { _silentAuth: true })
 
 /** 登出 */
 export const logoutApi = () => request.post<never, void>('/auth/logout')

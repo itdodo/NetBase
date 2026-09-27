@@ -5,6 +5,7 @@ services:
   db:
     image: postgres:17-alpine
     container_name: netbase-db
+    command: ["postgres", "-N", "200"]   # max_connections=200（默认 100 会被 api 连接池占满）
     environment:
       POSTGRES_USER: "netbase"
       POSTGRES_PASSWORD: "YourStrong@Password1"
@@ -25,8 +26,8 @@ services:
     container_name: netbase-api
     environment:
       ASPNETCORE_ENVIRONMENT: "Production"
-      Db__ConnectionString: "Host=db;Port=5432;Database=netbase;Username=netbase;Password=YourStrong@Password1"
-      ConnectionStrings__Hangfire: "Host=db;Port=5432;Database=netbase;Username=netbase;Password=YourStrong@Password1"
+      Db__ConnectionString: "Host=db;Port=5432;Database=netbase;Username=netbase;Password=YourStrong@Password1;Maximum Pool Size=50"
+      ConnectionStrings__Hangfire: "Host=db;Port=5432;Database=netbase;Username=netbase;Password=YourStrong@Password1;Maximum Pool Size=10"
       Jwt__SecretKey: "CHANGE_ME_Please-Use-A-Random-Key-At-Least-32-Chars-Long!"
       # 备份目录指向挂载卷（pg_dump 在 api 容器内执行，镜像已内置 postgresql-client-17）
       Backup__Directory: "/app/backup"

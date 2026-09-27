@@ -200,4 +200,72 @@ public class ConcurrencyAndAuditIntegrationTests
         Assert.Equal(afterFirst + 1, afterSecond); // Sort 变更也落审计
     }
 
+
+    [Fact]
+    public async Task RepositoryAudit_OrdinaryUpdate_ShouldAutoRecord()
+    {
+        // 底层统一审计：未经服务层显式接入的模块，普通仓储更新也自动落变更日志
+        var dictRepo = _fixture.GetRepository<SysDictType>();
+        var changeRepo = _fixture.GetRepository<SysChangeLog>();
+        var code = IntegrationFixture.Uid("repoaudit");
+        var dict = await dictRepo.InsertAsync(new SysDictType
+        {
+            DictName = "底层审计字典" + code, DictCode = code, Status = 1
+        });
+
+        var baseCount = await changeRepo.CountAsync(x => x.TableName == "SysDictType" && x.RecordId == dict.Id.ToString());
+        dict.Remark = "底层审计验证";
+        await dictRepo.UpdateAsync(dict);
+
+        var after = await changeRepo.CountAsync(x => x.TableName == "SysDictType" && x.RecordId == dict.Id.ToString());
+        Assert.Equal(baseCount + 1, after);
+    }
+
+    [Fact]
+    public async Task RepositoryAudit_BatchUpdateWhere_ShouldRecordEachRow()
+    {
+        var dictRepo = _fixture.GetRepository<SysDictType>();
+        var changeRepo = _fixture.GetRepository<SysChangeLog>();
+        var code = IntegrationFixture.Uid("repobatch");
+        var d1 = await dictRepo.InsertAsync(new SysDictType { DictName = "批审一" + code, DictCode = code + "a", Status = 1 });
+        var d2 = await dictRepo.InsertAsync(new SysDictType { DictName = "批审二" + code, DictCode = code + "b", Status = 1 });
+
+        var baseCount = await changeRepo.CountAsync(x => x.TableName == "SysDictType");
+        await dictRepo.UpdateWhereAsync(
+            x => x.DictCode == code + "a" || x.DictCode == code + "b",
+            x => new SysDictType { Status = 0 });
+        var after = await changeRepo.CountAsync(x => x.TableName == "SysDictType");
+
+        Assert.Equal(baseCount + 2, after); // 两行各落一条（批量审计逐行）
+    }
+
+    [Fact]
+    public async Task RepositoryAudit_SoftDelete_ShouldRecordDeletion()
+    {
+        var dictRepo = _fixture.GetRepository<SysDictType>();
+        var changeRepo = _fixture.GetRepository<SysChangeLog>();
+        var code = IntegrationFixture.Uid("repodel");
+        var dict = await dictRepo.InsertAsync(new SysDictType
+        {
+            DictName = "删除审计" + code, DictCode = code, Status = 1
+        });
+
+        await dictRepo.DeleteWhereAsync(x => x.DictCode == code);
+
+        var logs = await changeRepo.GetListAsync(x => x.TableName == "SysDictType" && x.RecordId == dict.Id.ToString());
+        var last = logs.OrderByDescending(l => l.Id).First();
+        Assert.Contains("IsDeleted", last.Changes); // 软删以 diff 形态留痕
+    }
+
+
+;
+
+        // 路径 A：批量 UpdateWhere（审计路径）
+        // A 已注释
+
+        // 路径 B：单实体 UpdateAsync（审计路径）
+        def.Status = 1;
+        await repo.UpdateAsync(def);
+    }
+
 }

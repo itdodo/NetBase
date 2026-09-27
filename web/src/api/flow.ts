@@ -10,7 +10,8 @@ export interface FlowDefinition {
   flowCode: string
   category?: string
   flowName: string
-  version: number
+  /** 业务版本号（同编码多版本；非乐观锁字段） */
+  flowVersion: number
   nodeJson: string
   status: number
   remark?: string

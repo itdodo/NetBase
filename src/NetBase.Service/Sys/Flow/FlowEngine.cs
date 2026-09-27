@@ -112,7 +112,7 @@ public class FlowEngine(
 
         var definition = (await definitionRepository.GetListAsync(
                 d => d.FlowCode == flowCode && d.Status == 1))
-            .OrderByDescending(d => d.Version).FirstOrDefault()
+            .OrderByDescending(d => d.FlowVersion).FirstOrDefault()
             ?? throw new BusinessException($"流程 {flowCode} 未配置或未启用", ErrorCodes.FLOW_DEF_NOT_ENABLED);
 
         var graph = FlowGraph.Parse(definition.NodeJson)

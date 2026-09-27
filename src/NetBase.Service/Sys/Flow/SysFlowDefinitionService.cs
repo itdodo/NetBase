@@ -82,14 +82,14 @@ public class SysFlowDefinitionService(IRepository<SysFlowDefinition> repository)
             : dto.FlowCode.Trim();
 
         var maxVersion = (await repository.GetListAsync(x => x.FlowCode == flowCode))
-            .Select(x => x.Version).DefaultIfEmpty(0).Max();
+            .Select(x => x.FlowVersion).DefaultIfEmpty(0).Max();
 
         var definition = new SysFlowDefinition
         {
             FlowCode = flowCode,
             Category = dto.Category,
             FlowName = dto.FlowName,
-            Version = maxVersion + 1,
+            FlowVersion = maxVersion + 1,
             NodeJson = dto.NodeJson,
             Status = 0, // 新版本默认停用，确认启用走 Enable
             Remark = dto.Remark
@@ -215,7 +215,7 @@ public class SysFlowDefinitionService(IRepository<SysFlowDefinition> repository)
         FlowCode = x.FlowCode,
         Category = x.Category,
         FlowName = x.FlowName,
-        Version = x.Version,
+        FlowVersion = x.FlowVersion,
         NodeJson = x.NodeJson,
         Status = x.Status,
         Remark = x.Remark,

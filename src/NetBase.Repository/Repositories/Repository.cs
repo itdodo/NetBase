@@ -163,10 +163,47 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
         return list;
     }
 
-    public bool Update(T entity) => Db.Updateable(entity).ExecuteCommand() > 0;
+    public bool Update(T entity)
+    {
+        string? diff = null;
+        if (_auditEnabled)
+        {
+            var before = Db.Queryable<T>().InSingle(entity.Id);
+            if (before != null)
+            {
+                diff = AuditDiff.Diff(before, entity);
+            }
+        }
 
-    public async Task<bool> UpdateAsync(T entity) =>
-        await Db.Updateable(entity).ExecuteCommandAsync() > 0;
+        var ok = Db.Updateable(entity).ExecuteCommand() > 0;
+        if (ok && diff != null)
+        {
+            WriteChangeLog(entity.Id, diff);
+        }
+        return ok;
+    }
+
+    public async Task<bool> UpdateAsync(T entity)
+    {
+        // 底层统一审计：所有实体的普通更新自动落变更日志（无需各服务显式接入）。
+        // 已接乐观锁+审计的模块（UpdateWithAuditAsync 路径）不经本方法，不会双写。
+        string? diff = null;
+        if (_auditEnabled)
+        {
+            var before = await Db.Queryable<T>().InSingleAsync(entity.Id);
+            if (before != null)
+            {
+                diff = AuditDiff.Diff(before, entity);
+            }
+        }
+
+        var ok = await Db.Updateable(entity).ExecuteCommandAsync() > 0;
+        if (ok && diff != null)
+        {
+            await WriteChangeLogAsync(entity.Id, diff);
+        }
+        return ok;
+    }
 
     /// <summary>
     /// 乐观锁更新：单条 SQL 原子完成——SET 业务列 + Version=旧值+1，WHERE 主键 + Version=旧值，
@@ -212,25 +249,141 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
 
         if (diff != null)
         {
-            var log = new SysChangeLog
-            {
-                TableName = typeof(T).Name,
-                RecordId = entity.Id.ToString(),
-                Changes = diff,
-                UserId = _operatorProvider?.OperatorUserId ?? 0,
-                UserName = _operatorProvider?.OperatorName ?? "system"
-            };
-            FillSnowflakeId(log); // ExecuteCommand 路径 AOP 雪花不触发
-            await Db.Insertable(log).ExecuteCommandAsync();
+            await WriteChangeLogAsync(entity.Id, diff);
         }
         return true;
     }
 
-    public int UpdateWhere(Expression<Func<T, bool>> predicate, Expression<Func<T, T>> updateExpression) =>
-        Db.Updateable<T>().SetColumns(updateExpression).Where(predicate).ExecuteCommand();
+    /// <summary>写变更日志（统一出口；操作人取 IOperatorProvider，调用方保证 diff 非空）</summary>
+    private async Task WriteChangeLogAsync(long recordId, string diff)
+    {
+        var log = new SysChangeLog
+        {
+            TableName = typeof(T).Name,
+            RecordId = recordId.ToString(),
+            Changes = diff,
+            UserId = _operatorProvider?.OperatorUserId ?? 0,
+            UserName = _operatorProvider?.OperatorName ?? "system"
+        };
+        FillSnowflakeId(log); // ExecuteCommand 路径 AOP 雪花不触发
+        await Db.Insertable(log).ExecuteCommandAsync();
+    }
 
-    public async Task<int> UpdateWhereAsync(Expression<Func<T, bool>> predicate, Expression<Func<T, T>> updateExpression) =>
-        await Db.Updateable<T>().SetColumns(updateExpression).Where(predicate).ExecuteCommandAsync();
+    /// <summary>WriteChangeLogAsync 同步版（同步 Update 路径）</summary>
+    private void WriteChangeLog(long recordId, string diff)
+    {
+        var log = new SysChangeLog
+        {
+            TableName = typeof(T).Name,
+            RecordId = recordId.ToString(),
+            Changes = diff,
+            UserId = _operatorProvider?.OperatorUserId ?? 0,
+            UserName = _operatorProvider?.OperatorName ?? "system"
+        };
+        FillSnowflakeId(log);
+        Db.Insertable(log).ExecuteCommand();
+    }
+
+    public int UpdateWhere(Expression<Func<T, bool>> predicate, Expression<Func<T, T>> updateExpression)
+    {
+        if (!_auditEnabled)
+        {
+            return Db.Updateable<T>().SetColumns(updateExpression).Where(predicate).ExecuteCommand();
+        }
+
+        var setFields = ExtractSetFields(updateExpression);
+        if (setFields == null)
+        {
+            return Db.Updateable<T>().SetColumns(updateExpression).Where(predicate).ExecuteCommand();
+        }
+
+        var beforeList = Db.Queryable<T>().Where(predicate).ToList();
+        var rows = Db.Updateable<T>().SetColumns(updateExpression).Where(predicate).ExecuteCommand();
+        foreach (var before in beforeList)
+        {
+            var diff = BuildSetFieldsDiff(before, setFields);
+            if (diff != null)
+            {
+                WriteChangeLog(before.Id, diff);
+            }
+        }
+        return rows;
+    }
+
+    public async Task<int> UpdateWhereAsync(Expression<Func<T, bool>> predicate, Expression<Func<T, T>> updateExpression)
+    {
+        if (!_auditEnabled)
+        {
+            return await Db.Updateable<T>().SetColumns(updateExpression).Where(predicate).ExecuteCommandAsync();
+        }
+
+        var setFields = ExtractSetFields(updateExpression);
+        if (setFields == null)
+        {
+            return await Db.Updateable<T>().SetColumns(updateExpression).Where(predicate).ExecuteCommandAsync();
+        }
+
+        var beforeList = await Db.Queryable<T>().Where(predicate).ToListAsync();
+        var rows = await Db.Updateable<T>().SetColumns(updateExpression).Where(predicate).ExecuteCommandAsync();
+        foreach (var before in beforeList)
+        {
+            var diff = BuildSetFieldsDiff(before, setFields);
+            if (diff != null)
+            {
+                await WriteChangeLogAsync(before.Id, diff);
+            }
+        }
+        return rows;
+    }
+
+    /// <summary>
+    /// 从 SetColumns 的 MemberInit 表达式提取赋值字段（属性名 + 相对行实体的取值函数）。
+    /// 仅支持 `x => new T { A = ..., B = ... }` 形态（框架内全部如此）；其他形态返回 null 跳过审计。
+    /// </summary>
+    private sealed record SetField(string Name, Func<T, object?> GetValue);
+
+    private static List<SetField>? ExtractSetFields(
+        Expression<Func<T, T>> updateExpression)
+    {
+        if (updateExpression.Body is not MemberInitExpression init)
+        {
+            return null;
+        }
+
+        var fields = new List<SetField>();
+        foreach (var binding in init.Bindings)
+        {
+            if (binding is MemberAssignment assignment && binding.Member is System.Reflection.PropertyInfo prop)
+            {
+                var getter = Expression.Lambda<Func<T, object?>>(
+                    Expression.Convert(assignment.Expression, typeof(object)), updateExpression.Parameters[0]).Compile();
+                fields.Add(new SetField(prop.Name, getter));
+            }
+        }
+        return fields.Count > 0 ? fields : null;
+    }
+
+    /// <summary>按 SetColumns 赋值字段生成行级 diff（仅比较被更新的列，保持与整行 diff 相同的结构）</summary>
+    private static string? BuildSetFieldsDiff(
+        T before, List<SetField> setFields)
+    {
+        var changes = new Dictionary<string, object>();
+        foreach (var (name, getValue) in setFields)
+        {
+            var oldVal = typeof(T).GetProperty(name)?.GetValue(before);
+            var newVal = getValue(before);
+            if (Equals(oldVal, newVal))
+            {
+                continue;
+            }
+            changes[name] = new
+            {
+                old = NetBase.Common.Security.SensitiveData.MaskValue(name, oldVal),
+                @new = NetBase.Common.Security.SensitiveData.MaskValue(name, newVal)
+            };
+        }
+        return changes.Count == 0 ? null : NetBase.Common.Security.SensitiveData.Serialize(changes, maxLength: 8000);
+    }
 
     #endregion
 
@@ -257,6 +410,21 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
         if (IsSoftDelete)
         {
             // 按列名更新指定列，避免泛型 MemberInit 表达式在 SqlSugar 中的翻译不确定性
+            if (_auditEnabled)
+            {
+                var beforeList = Db.Queryable<T>().Where(predicate).ToList();
+                var rows = Db.Updateable<T>()
+                    .SetColumns("IsDeleted", true)
+                    .SetColumns("UpdateTime", DateTime.Now)
+                    .Where(predicate)
+                    .ExecuteCommand();
+                foreach (var before in beforeList)
+                {
+                    WriteChangeLog(before.Id, BuildDeleteDiff());
+                }
+                return rows;
+            }
+
             return Db.Updateable<T>()
                 .SetColumns("IsDeleted", true)
                 .SetColumns("UpdateTime", DateTime.Now)
@@ -271,6 +439,21 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
     {
         if (IsSoftDelete)
         {
+            if (_auditEnabled)
+            {
+                var beforeList = await Db.Queryable<T>().Where(predicate).ToListAsync();
+                var rows = await Db.Updateable<T>()
+                    .SetColumns("IsDeleted", true)
+                    .SetColumns("UpdateTime", DateTime.Now)
+                    .Where(predicate)
+                    .ExecuteCommandAsync();
+                foreach (var before in beforeList)
+                {
+                    await WriteChangeLogAsync(before.Id, BuildDeleteDiff());
+                }
+                return rows;
+            }
+
             return await Db.Updateable<T>()
                 .SetColumns("IsDeleted", true)
                 .SetColumns("UpdateTime", DateTime.Now)
@@ -280,6 +463,12 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
 
         return await Db.Deleteable<T>().Where(predicate).ExecuteCommandAsync();
     }
+
+    /// <summary>软删除的审计 diff 形态（与字段级 diff 结构一致，展示端无需特判）</summary>
+    private static string BuildDeleteDiff() =>
+        NetBase.Common.Security.SensitiveData.Serialize(
+            new Dictionary<string, object> { ["IsDeleted"] = new { old = false, @new = true } },
+            maxLength: 8000);
 
     public int DeletePhysicalWhere(Expression<Func<T, bool>> predicate) =>
         Db.Deleteable<T>().Where(predicate).ExecuteCommand();

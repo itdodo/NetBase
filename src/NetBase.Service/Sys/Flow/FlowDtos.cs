@@ -20,7 +20,7 @@ public class FlowDefinitionDto
 
     public string FlowName { get; set; } = string.Empty;
 
-    public int Version { get; set; }
+    public int FlowVersion { get; set; }
 
     public string NodeJson { get; set; } = string.Empty;
 

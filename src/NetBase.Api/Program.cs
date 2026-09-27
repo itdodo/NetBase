@@ -115,7 +115,7 @@ builder.Services.Configure<NetBase.Api.Jobs.HangfireOptions>(builder.Configurati
 var hangfireOptions = builder.Configuration.GetSection(NetBase.Api.Jobs.HangfireOptions.SectionName).Get<NetBase.Api.Jobs.HangfireOptions>() ?? new NetBase.Api.Jobs.HangfireOptions();
 var hangfireConnectionString = builder.Configuration.GetConnectionString("Hangfire")
     ?? builder.Configuration.GetSection("Db:ConnectionString").Value
-    ?? "Host=localhost;Port=5433;Database=netbase;Username=netbase;Password=netbase123";
+    ?? "Host=localhost;Port=5544;Database=netbase;Username=netbase;Password=netbase123";
 builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
     .UseSimpleAssemblyNameTypeSerializer()

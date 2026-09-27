@@ -22,12 +22,12 @@ export default defineConfig({
     // 开发期代理到 .NET API，生产可由 API 托管静态文件实现同源
     proxy: {
       '/api': {
-        target: 'http://localhost:5306',
+        target: 'http://localhost:5566',
         changeOrigin: true
       },
       // SignalR 实时通道：ws:true 转发 WebSocket 握手与长轮询
       '/hubs': {
-        target: 'http://localhost:5306',
+        target: 'http://localhost:5566',
         changeOrigin: true,
         ws: true
       }

@@ -22,9 +22,9 @@ public class SysFlowDefinition : BaseEntity
     [SugarColumn(Length = 100, ColumnDescription = "流程名称")]
     public string FlowName { get; set; } = string.Empty;
 
-    /// <summary>版本号（同编码多版本并存，同业务单据实例锁定其启动时版本）</summary>
-    [SugarColumn(ColumnDescription = "版本号", DefaultValue = "1")]
-    public int Version { get; set; } = 1;
+    /// <summary>业务版本号（同编码多版本并存；与基类乐观锁 Version 不同列）</summary>
+    [SugarColumn(ColumnDescription = "业务版本号", DefaultValue = "1")]
+    public int FlowVersion { get; set; } = 1;
 
     /// <summary>节点树 JSON（设计器产物，见 FlowGraph 模型）</summary>
     [SugarColumn(ColumnDataType = "text", ColumnDescription = "节点树JSON")]

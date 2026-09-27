@@ -108,7 +108,7 @@ async function handleDisable(row: FlowDefinition): Promise<void> {
 }
 
 async function handleDelete(row: FlowDefinition): Promise<void> {
-  await ElMessageBox.confirm(`确定删除流程「${row.flowName}」v${row.version} 吗？`, '提示', { type: 'warning' })
+  await ElMessageBox.confirm(`确定删除流程「${row.flowName}」v${row.flowVersion} 吗？`, '提示', { type: 'warning' })
   await deleteFlowDef(row.id)
   ElMessage.success('删除成功')
   loadData()
@@ -249,7 +249,7 @@ onMounted(loadData)
       </el-table-column>
       <el-table-column prop="flowName" label="流程名称" min-width="160" />
       <el-table-column prop="version" label="版本" width="70" align="center">
-        <template #default="{ row }">v{{ (row as FlowDefinition).version }}</template>
+        <template #default="{ row }">v{{ (row as FlowDefinition).flowVersion }}</template>
       </el-table-column>
       <el-table-column label="状态" width="90" align="center">
         <template #default="{ row }">

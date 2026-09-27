@@ -27,8 +27,8 @@
 dotnet build                                # 后端构建（0 警告 0 错误基线）
 dotnet test                                 # 全部测试（54 单元 + 56 集成）
 cd web && npm run type-check                # 前端类型检查
-cd web && npm run dev                       # 启动前端（5173，代理 5306）
-cd src/NetBase.Api && dotnet run            # 启动后端（5566；重启后若起不来先查 netsh excludedportrange）
+cd web && npm run dev                       # （仅前端联调时）开发前端；日常走 Docker 形态 8081
+docker compose -p netbase up -d --build    # 日常全栈：前端+API+PG 全在 Docker（UI=8081）
 ```
 
 ## 提醒

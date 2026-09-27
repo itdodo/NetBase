@@ -288,6 +288,7 @@ onMounted(() => {
                 type="primary"
                 @click="handleMarkRead(row as MessageInfo)"
               >标记已读</el-button>
+              <span v-else class="op-muted">—</span>
             </template>
           </el-table-column>
         </el-table>
@@ -377,6 +378,10 @@ onMounted(() => {
   gap: 8px;
   margin-bottom: 12px;
   flex-wrap: wrap;
+}
+
+.op-muted {
+  color: var(--el-text-color-placeholder);
 }
 
 .pagination {

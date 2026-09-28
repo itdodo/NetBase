@@ -19,6 +19,7 @@ public static class BizServiceCollectionExtensions
         services.AddScoped<IFlowBusinessHandler, ExpenseFlowHandler>();
         services.AddScoped<IFlowBusinessHandler, PurchaseRequestFlowHandler>();
 
-        return services;
+            services.TryAddScoped<IBizExpenseTestService, BizExpenseTestService>();
+    return services;
     }
 }

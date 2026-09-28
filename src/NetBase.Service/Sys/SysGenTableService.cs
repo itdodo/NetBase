@@ -490,14 +490,25 @@ public class GenModel
     /// <summary>模板函数：生成 PG 列注释语句</summary>
     public string CommentSql(string tableName, string columnName, string comment) =>
         GenMetaService.BuildCommentSql(tableName, columnName, comment);
-
     public SysGenTable Table { get; set; } = new();
     public List<SysGenTableColumn> Columns { get; set; } = [];
     public List<GenSubModel> SubTables { get; set; } = [];
-    /// <summary>主表业务字段（非主键非审计列）</summary>
-    public List<SysGenTableColumn> FormColumns => Columns.Where(c => c.IsForm).ToList();
-    public List<SysGenTableColumn> ListColumns => Columns.Where(c => c.IsList).ToList();
-    public List<SysGenTableColumn> QueryColumns => Columns.Where(c => c.IsQuery).ToList();
+
+    /// <summary>审计/框架列：不出现在表单/列表/查询</summary>
+    private static readonly HashSet<string> AuditCols = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "id", "createtime", "createby", "updatetime", "updateby", "isdeleted", "version", "deptid", "owneruserid"
+    };
+
+    /// <summary>业务字段（非主键非审计列）</summary>
+    public List<SysGenTableColumn> FormColumns => Columns.Where(c => c.IsForm && !AuditCols.Contains(c.ColumnName)).ToList();
+    public List<SysGenTableColumn> ListColumns => Columns.Where(c => c.IsList && !AuditCols.Contains(c.ColumnName)).ToList();
+    public List<SysGenTableColumn> QueryColumns => Columns.Where(c => c.IsQuery && !AuditCols.Contains(c.ColumnName)).ToList();
+
+    /// <summary>flow_doc 时排除 status（模板已生成专用 Status 列）</summary>
+    public List<SysGenTableColumn> AllBizColumns => Table.FlowDoc
+        ? Columns.Where(c => !AuditCols.Contains(c.ColumnName) && c.ColumnName.ToLowerInvariant() != "status").ToList()
+        : Columns.Where(c => !AuditCols.Contains(c.ColumnName)).ToList();
 }
 
 public class GenSubModel

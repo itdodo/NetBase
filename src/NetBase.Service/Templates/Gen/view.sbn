@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Search } from '@element-plus/icons-vue'
-import type { {{ table.entity_name }}, {{ table.entity_name }}Save } from '@/api/biz/{{ table.module_name }}'
+import type { {{ table.entity_name }} } from '@/api/biz/{{ table.module_name }}'
 import {
   get{{ table.entity_name }}Page,
   get{{ table.entity_name }}Detail,
@@ -40,9 +40,9 @@ const dialogVisible = ref(false)
 const saving = ref(false)
 const editingId = ref<string | null>(null)
 const formRef = ref()
-const form = reactive<{{ table.entity_name }}Save & { version?: number }>({
+const form = reactive<Record<string, any>>({
 {{ for col in form_columns }}
-  {{ col.property_name | downcase_first }}: {{ col.c_sharp_type == "string" ? "''" : "undefined" }},
+  {{ col.property_name | downcase_first }}: {{ col.c_sharp_type == "string" ? "''" : col.c_sharp_type == "decimal" || col.c_sharp_type == "int" || col.c_sharp_type == "long" ? "0" : col.c_sharp_type == "bool" ? "false" : "undefined" }},
 {{ end }}
   version: 0
 })
@@ -50,7 +50,7 @@ const form = reactive<{{ table.entity_name }}Save & { version?: number }>({
 function openCreate(): void {
   editingId.value = null
 {{ for col in form_columns }}
-  form.{{ col.property_name | downcase_first }} = {{ col.c_sharp_type == "string" ? "''" : "undefined" }}
+  form.{{ col.property_name | downcase_first }} = {{ col.c_sharp_type == "string" ? "''" : col.c_sharp_type == "decimal" || col.c_sharp_type == "int" || col.c_sharp_type == "long" ? "0" : col.c_sharp_type == "bool" ? "false" : "undefined" }}
 {{ end }}
   form.version = 0
   dialogVisible.value = true

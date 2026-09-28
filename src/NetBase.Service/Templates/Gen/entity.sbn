@@ -34,9 +34,9 @@ public class Biz{{ table.entity_name }} : BaseEntity{{ if table.data_scope }}, I
 {{ end }}
 }
 {{ for st in sub_tables }}
-/// <summary>{{ st.table.table_comment }}（{{ table.function_name }}明细）</summary>
-[SugarTable("{{ st.table.table_name }}", TableDescription = "{{ st.table.table_comment }}")]
-public class Biz{{ st.table.entity_name }} : BaseEntity
+/// <summary>{{ st.table_comment }}（{{ table.function_name }}明细）</summary>
+[SugarTable("{{ st.table_name }}", TableDescription = "{{ st.table_comment }}")]
+public class Biz{{ st.entity_name }} : BaseEntity
 {
 {{ for col in st.columns }}
 {{ if !col.is_pk && col.column_name != "status" && col.column_name != "createtime" && col.column_name != "createby" && col.column_name != "updatetime" && col.column_name != "updateby" && col.column_name != "isdeleted" && col.column_name != "version" }}

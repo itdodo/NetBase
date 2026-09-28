@@ -1,0 +1,186 @@
+<script setup lang="ts">
+import { reactive, ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Refresh, Search } from '@element-plus/icons-vue'
+import type { {{ table.entity_name }}, {{ table.entity_name }}Save } from '@/api/biz/{{ table.module_name }}'
+import {
+  get{{ table.entity_name }}Page,
+  get{{ table.entity_name }}Detail,
+  create{{ table.entity_name }},
+  update{{ table.entity_name }},
+  delete{{ table.entity_name }}
+} from '@/api/biz/{{ table.module_name }}'
+import { formatDateTime } from '@/utils/format'
+import { usePageList } from '@/composables/usePageList'
+
+defineOptions({ name: 'Biz{{ table.entity_name }}View' })
+
+const {
+  loading,
+  list,
+  total,
+  query,
+  loadData,
+  handleSearch
+} = usePageList<{{ table.entity_name }}, { pageIndex: number; pageSize: number;{{ for col in query_columns }} {{ col.property_name | string.downcase_first }}?: {{ col.c_sharp_type | mapping_ts }};{{ end }} }>({
+  url: '/biz/{{ table.module_name }}/page',
+  defaultQuery: { pageIndex: 1, pageSize: 10{{ for col in query_columns }}, {{ col.property_name | string.downcase_first }}: undefined{{ end }} }
+})
+
+function handleReset(): void {
+{{ for col in query_columns }}
+  query.{{ col.property_name | string.downcase_first }} = undefined
+{{ end }}
+  handleSearch()
+}
+
+// ---------- 新增 / 编辑 ----------
+const dialogVisible = ref(false)
+const saving = ref(false)
+const editingId = ref<string | null>(null)
+const formRef = ref()
+const form = reactive<{{ table.entity_name }}Save & { version?: number }>({
+{{ for col in form_columns }}
+  {{ col.property_name | string.downcase_first }}: {{ col.c_sharp_type == "string" ? "''" : "undefined" }},
+{{ end }}
+  version: 0
+})
+
+function openCreate(): void {
+  editingId.value = null
+{{ for col in form_columns }}
+  form.{{ col.property_name | string.downcase_first }} = {{ col.c_sharp_type == "string" ? "''" : "undefined" }}
+{{ end }}
+  form.version = 0
+  dialogVisible.value = true
+}
+
+async function openEdit(row: {{ table.entity_name }}): Promise<void> {
+  editingId.value = row.id
+  // 打开编辑即拉最新详情：版本取最新值，缩小并发冲突窗口
+  const src = await get{{ table.entity_name }}Detail(row.id).catch(() => row)
+  Object.assign(form, {
+{{ for col in form_columns }}
+    {{ col.property_name | string.downcase_first }}: src.{{ col.property_name | string.downcase_first }},
+{{ end }}
+    version: src.version
+  })
+  dialogVisible.value = true
+}
+
+async function handleSave(): Promise<void> {
+  const valid = await formRef.value?.validate().catch(() => false)
+  if (!valid) return
+  if (editingId.value == null) {
+    await create{{ table.entity_name }}({ ...form })
+    ElMessage.success('创建成功')
+  } else {
+    await update{{ table.entity_name }}(editingId.value, { ...form })
+    ElMessage.success('更新成功')
+  }
+  dialogVisible.value = false
+  loadData()
+}
+
+async function handleDelete(row: {{ table.entity_name }}): Promise<void> {
+  await ElMessageBox.confirm(`确定删除该{{ table.function_name }}记录吗？`, '提示', { type: 'warning' })
+  await delete{{ table.entity_name }}(row.id)
+  ElMessage.success('删除成功')
+  loadData()
+}
+
+onMounted(loadData)
+</script>
+
+<template>
+  <el-card>
+    <div class="toolbar">
+{{ for col in query_columns }}
+{{ if col.query_type == "like" }}
+      <el-input v-model="query.{{ col.property_name | string.downcase_first }}" placeholder="{{ col.column_comment }}" clearable style="width: 200px" :prefix-icon="Search" @keyup.enter="handleSearch" />
+{{ else }}
+      <el-input v-model="query.{{ col.property_name | string.downcase_first }}" placeholder="{{ col.column_comment }}" clearable style="width: 160px" />
+{{ end }}
+{{ end }}
+      <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
+      <el-button :icon="Refresh" @click="handleReset">重置</el-button>
+      <el-button v-permission="'biz:{{ table.module_name }}:add'" type="primary" :icon="Plus" @click="openCreate">新增</el-button>
+    </div>
+
+    <el-table v-loading="loading" :data="list" border stripe>
+{{ for col in list_columns }}
+{{ if col.c_sharp_type == "DateTime" }}
+      <el-table-column prop="{{ col.property_name | string.downcase_first }}" label="{{ col.column_comment }}" width="165" :formatter="formatDateTime" />
+{{ else }}
+      <el-table-column prop="{{ col.property_name | string.downcase_first }}" label="{{ col.column_comment }}" min-width="140" show-overflow-tooltip />
+{{ end }}
+{{ end }}
+      <el-table-column label="操作" width="150" align="center">
+        <template #default="{ row }">
+          <el-button v-permission="'biz:{{ table.module_name }}:edit'" link type="primary" @click="openEdit(row as {{ table.entity_name }})">编辑</el-button>
+          <el-button v-permission="'biz:{{ table.module_name }}:delete'" link type="danger" @click="handleDelete(row as {{ table.entity_name }})">删除</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <el-pagination
+      v-model:current-page="query.pageIndex"
+      v-model:page-size="query.pageSize"
+      class="pagination"
+      background
+      layout="total, prev, pager, next"
+      :total="total"
+      @current-change="loadData"
+    />
+
+    <el-dialog v-model="dialogVisible" :title="editingId == null ? '新增{{ table.function_name }}' : '编辑{{ table.function_name }}'" width="640px" class="dialog-scroll">
+      <el-form ref="formRef" :model="form" label-width="110px">
+{{ for col in form_columns }}
+{{ if col.ui_type == "textarea" }}
+        <el-form-item label="{{ col.column_comment }}">
+          <el-input v-model="form.{{ col.property_name | string.downcase_first }}" type="textarea" :rows="3" />
+        </el-form-item>
+{{ elif col.ui_type == "number" }}
+        <el-form-item label="{{ col.column_comment }}">
+          <el-input-number v-model="form.{{ col.property_name | string.downcase_first }}" :controls="false" style="width: 100%" />
+        </el-form-item>
+{{ elif col.ui_type == "switch" }}
+        <el-form-item label="{{ col.column_comment }}">
+          <el-switch v-model="form.{{ col.property_name | string.downcase_first }}" />
+        </el-form-item>
+{{ elif col.ui_type == "date" }}
+        <el-form-item label="{{ col.column_comment }}">
+          <el-date-picker v-model="form.{{ col.property_name | string.downcase_first }}" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+        </el-form-item>
+{{ elif col.ui_type == "datetime" }}
+        <el-form-item label="{{ col.column_comment }}">
+          <el-date-picker v-model="form.{{ col.property_name | string.downcase_first }}" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" style="width: 100%" />
+        </el-form-item>
+{{ else }}
+        <el-form-item label="{{ col.column_comment }}">
+          <el-input v-model="form.{{ col.property_name | string.downcase_first }}" maxlength="{{ col.length | default 200 }}" />
+        </el-form-item>
+{{ end }}
+{{ end }}
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
+      </template>
+    </el-dialog>
+  </el-card>
+</template>
+
+<style scoped>
+.toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.pagination {
+  margin-top: 12px;
+  justify-content: flex-end;
+}
+</style>

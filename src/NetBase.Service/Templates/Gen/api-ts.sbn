@@ -1,0 +1,42 @@
+import request from '../request'
+import type { PageQuery, PageResult } from '@/types/api'
+
+/** {{ table.function_name }} */
+export interface {{ table.entity_name }} {
+  id: string
+{{ for col in list_columns }}
+  /** {{ col.column_comment }} */
+  {{ col.property_name | string.downcase_first }}{{ if col.c_sharp_type != "string" && !col.is_required }}?{{ end }}: {{ col.c_sharp_type | mapping_ts }}{{ if col.c_sharp_type == "string" }}
+
+{{ end }}
+{{ end }}
+  version: number
+}
+
+/** {{ table.function_name }} 保存入参 */
+export interface {{ table.entity_name }}Save {
+{{ for col in form_columns }}
+  {{ col.property_name | string.downcase_first }}{{ if col.c_sharp_type != "string" && !col.is_required }}?{{ end }}: {{ col.c_sharp_type | mapping_ts }}
+{{ end }}
+}
+
+export interface {{ table.entity_name }}Query extends PageQuery {
+{{ for col in query_columns }}
+  {{ col.property_name | string.downcase_first }}?: {{ col.c_sharp_type | mapping_ts }}
+{{ end }}
+}
+
+export const get{{ table.entity_name }}Page = (params: Partial<{{ table.entity_name }}Query>) =>
+  request.get<never, PageResult<{{ table.entity_name }}>>('/biz/{{ table.module_name }}/page', { params })
+
+export const get{{ table.entity_name }}Detail = (id: string) =>
+  request.get<never, {{ table.entity_name }}>(`/biz/{{ table.module_name }}/${id}`)
+
+export const create{{ table.entity_name }} = (data: {{ table.entity_name }}Save) =>
+  request.post<never, string>('/biz/{{ table.module_name }}', data)
+
+export const update{{ table.entity_name }} = (id: string, data: {{ table.entity_name }}Save) =>
+  request.put<never, void>(`/biz/{{ table.module_name }}/${id}`, data)
+
+export const delete{{ table.entity_name }} = (id: string) =>
+  request.delete<never, void>(`/biz/{{ table.module_name }}/${id}`)

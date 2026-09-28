@@ -256,16 +256,4 @@ public class ConcurrencyAndAuditIntegrationTests
         var last = logs.OrderByDescending(l => l.Id).First();
         Assert.Contains("IsDeleted", last.Changes); // 软删以 diff 形态留痕
     }
-
-
-;
-
-        // 路径 A：批量 UpdateWhere（审计路径）
-        // A 已注释
-
-        // 路径 B：单实体 UpdateAsync（审计路径）
-        def.Status = 1;
-        await repo.UpdateAsync(def);
-    }
-
 }

@@ -1,0 +1,29 @@
+using System.Text.Json.Serialization;
+using NetBase.Common.Json;
+using SqlSugar;
+
+namespace NetBase.Model.Entities.Biz;
+
+/// <summary>{{ table.function_name }}</summary>
+[SugarTable("{{ table.table_name }}", TableDescription = "{{ table.function_name }}")]
+public class Biz{{ table.entity_name }} : BaseEntity{{ if table.data_scope }}, IDataScope{{ end }}
+{
+{{ for col in columns }}
+{{ if !col.is_pk && col.column_name != "createtime" && col.column_name != "createby" && col.column_name != "updatetime" && col.column_name != "updateby" && col.column_name != "isdeleted" && col.column_name != "version" && col.column_name != "deptid" && col.column_name != "owneruserid" }}
+    /// <summary>{{ col.column_comment }}</summary>
+    [SugarColumn({{ if col.c_sharp_type == "string" }}Length = {{ col.length | default 200 }}, {{ end }}{{ if !col.is_required }}IsNullable = true, {{ end }}ColumnDescription = "{{ col.column_comment }}")]
+    public {{ col.c_sharp_type }}{{ if col.c_sharp_type != "string" && !col.is_required }}?{{ end }} {{ col.property_name }} { get; set; }{{ if col.c_sharp_type == "string" }} = string.Empty;{{ end }}
+
+{{ end }}
+{{ end }}
+{{ if table.data_scope }}
+    /// <summary>数据权限：归属部门</summary>
+    [SugarColumn(ColumnDescription = "归属部门")]
+    public long DeptId { get; set; }
+
+    /// <summary>数据权限：归属用户</summary>
+    [SugarColumn(ColumnDescription = "归属用户")]
+    public long OwnerUserId { get; set; }
+
+{{ end }}
+}

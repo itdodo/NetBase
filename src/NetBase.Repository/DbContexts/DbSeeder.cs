@@ -104,6 +104,7 @@ public class DbSeeder
         EnsurePersonalFlowMenus(db, adminRoleId, now);
         // 业务样板菜单（业务办公：报销/采购申请，接入审批流的活样例）
         EnsureBizSampleMenus(db, adminRoleId, now);
+        EnsureGenMenu(db, adminRoleId, now);
         SeedConfigs(db, now);
         SeedSampleDicts(db, now);
         SeedCommonDicts(db, now);
@@ -945,6 +946,62 @@ public class DbSeeder
     }
 
     private static long NewId() => Yitter.IdGenerator.YitIdHelper.NextId();
+
+
+    /// <summary>代码生成器菜单（系统管理下；幂等按权限码）</summary>
+    private void EnsureGenMenu(ISqlSugarClient db, long adminRoleId, DateTime now)
+    {
+        var systemDir = db.Queryable<SysMenu>().First(x => x.MenuName == "系统管理" && x.MenuType == (int)MenuTypeEnum.Directory);
+        if (systemDir == null || db.Queryable<SysMenu>().Any(x => x.Permission == "sys:gentable:list"))
+        {
+            return;
+        }
+
+        var menu = db.Insertable(new SysMenu
+        {
+            Id = NewId(),
+            ParentId = systemDir.Id,
+            MenuName = "代码生成",
+            MenuType = (int)MenuTypeEnum.Menu,
+            Path = "/system/gen",
+            Component = "system/gen/index",
+            Permission = "sys:gentable:list",
+            Icon = "SetUp",
+            Sort = 10,
+            CreateTime = now,
+            CreateBy = "system"
+        }).ExecuteReturnEntity();
+
+        // 按钮：add（导入/保存）、delete（删除配置）、download（下载 zip）
+        (string Name, string Perm)[] buttons = [("导入/保存", "sys:gentable:add"), ("删除配置", "sys:gentable:delete"), ("下载代码", "sys:gentable:download")];
+        var sort = 1;
+        foreach (var (name, perm) in buttons)
+        {
+            db.Insertable(new SysMenu
+            {
+                Id = NewId(),
+                ParentId = menu.Id,
+                MenuName = name,
+                MenuType = (int)MenuTypeEnum.Button,
+                Permission = perm,
+                Sort = sort++,
+                CreateTime = now,
+                CreateBy = "system"
+            }).ExecuteCommand();
+        }
+
+        // 授权 admin 角色（目录+菜单+按钮）
+        var grantIds = new List<long> { systemDir.Id, menu.Id };
+        grantIds.AddRange(db.Queryable<SysMenu>().Where(x => x.ParentId == menu.Id).ToList().Select(x => x.Id));
+        foreach (var menuId in grantIds)
+        {
+            if (!db.Queryable<SysRoleMenu>().Any(x => x.RoleId == adminRoleId && x.MenuId == menuId))
+            {
+                db.Insertable(new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = menuId, CreateTime = now }).ExecuteCommand();
+            }
+        }
+        _logger?.LogInformation("种子数据：增量菜单「代码生成」已写入");
+    }
 
     /// <summary>内置系统参数（幂等：按参数键判断）</summary>
     private void SeedConfigs(ISqlSugarClient db, DateTime now)

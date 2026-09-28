@@ -1,0 +1,53 @@
+using Microsoft.AspNetCore.Mvc;
+using NetBase.Api.Auth;
+using NetBase.Common.Results;
+using NetBase.Model.Dtos;
+using NetBase.Model.Entities.Biz;
+using NetBase.Service.Biz;
+
+namespace NetBase.Api.Controllers.Biz;
+
+/// <summary>{{ table.function_name }}</summary>
+[ApiController]
+[Route("api/v1/biz/{{ table.module_name }}")]
+public class Biz{{ table.entity_name }}Controller(
+    IBiz{{ table.entity_name }}Service service,
+    ICurrentUserService currentUserService) : BaseController(currentUserService)
+{
+    /// <summary>分页查询</summary>
+    [HasPermission("biz:{{ table.module_name }}:list")]
+    [HttpGet("page")]
+    public async Task<ApiResult<PageResult<{{ table.entity_name }}Dto>>> GetPage([FromQuery] {{ table.entity_name }}QueryDto query)
+        => Success(await service.GetPageListAsync(query));
+
+    /// <summary>详情</summary>
+    [HasPermission("biz:{{ table.module_name }}:list")]
+    [HttpGet("{id:long}")]
+    public async Task<ApiResult<{{ table.entity_name }}Dto?>> GetDetail(long id)
+        => Success(await service.GetDetailAsync(id));
+
+    /// <summary>新增</summary>
+    [HasPermission("biz:{{ table.module_name }}:add")]
+    [NoRepeatSubmit]
+    [HttpPost]
+    public async Task<ApiResult<string>> Create([FromBody] {{ table.entity_name }}SaveDto dto)
+        => SuccessId(await service.CreateAsync(dto, OperatorName));
+
+    /// <summary>编辑</summary>
+    [HasPermission("biz:{{ table.module_name }}:edit")]
+    [HttpPut("{id:long}")]
+    public async Task<ApiResult> Update(long id, [FromBody] {{ table.entity_name }}SaveDto dto)
+    {
+        await service.UpdateAsync(id, dto, OperatorName);
+        return Success("更新成功");
+    }
+
+    /// <summary>删除</summary>
+    [HasPermission("biz:{{ table.module_name }}:delete")]
+    [HttpDelete("{id:long}")]
+    public async Task<ApiResult> Delete(long id)
+    {
+        await service.DeleteAsync(id);
+        return Success("删除成功");
+    }
+}

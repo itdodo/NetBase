@@ -1,0 +1,122 @@
+using System.ComponentModel.DataAnnotations;
+using Mapster;
+using NetBase.Common.Exceptions;
+using NetBase.Common.Results;
+using NetBase.Model.Entities;
+using NetBase.Model.Entities.Biz;
+using NetBase.Repository.Repositories;
+using NetBase.Service.Base;
+
+namespace NetBase.Service.Biz;
+
+/// <summary>{{ table.function_name }} 查询入参</summary>
+public class {{ table.entity_name }}QueryDto : PageQuery
+{
+{{ for col in query_columns }}
+    /// <summary>{{ col.column_comment }}</summary>
+    public {{ col.c_sharp_type }}{{ if col.c_sharp_type != "string" && !col.is_required }}?{{ end }} {{ col.property_name }} { get; set; }{{ if col.c_sharp_type == "string" }} = string.Empty;{{ end }}
+
+{{ end }}
+}
+
+/// <summary>{{ table.function_name }} 出参</summary>
+public class {{ table.entity_name }}Dto
+{
+    /// <summary>ID（字符串防精度丢失）</summary>
+    public string Id { get; set; } = string.Empty;
+{{ for col in list_columns }}
+    /// <summary>{{ col.column_comment }}</summary>
+    public {{ col.c_sharp_type }}{{ if col.c_sharp_type != "string" && !col.is_required }}?{{ end }} {{ col.property_name }} { get; set; }{{ if col.c_sharp_type == "string" }} = string.Empty;{{ end }}
+
+{{ end }}
+    /// <summary>乐观锁版本（编辑回显，保存时回传）</summary>
+    public long Version { get; set; }
+}
+
+/// <summary>{{ table.function_name }} 保存入参</summary>
+public class {{ table.entity_name }}SaveDto
+{
+{{ for col in form_columns }}
+    /// <summary>{{ col.column_comment }}</summary>
+{{ if col.is_required }}
+    [Required(ErrorMessage = "{{ col.column_comment }}不能为空")]
+{{ end }}
+{{ if col.c_sharp_type == "string" }}
+    [StringLength({{ col.length | default 200 }})]
+{{ end }}
+    public {{ col.c_sharp_type }}{{ if col.c_sharp_type != "string" && !col.is_required }}?{{ end }} {{ col.property_name }} { get; set; }{{ if col.c_sharp_type == "string" }} = string.Empty;{{ end }}
+
+{{ end }}
+}
+
+/// <summary>{{ table.function_name }} 服务接口</summary>
+public interface IBiz{{ table.entity_name }}Service
+{
+    Task<PageResult<{{ table.entity_name }}Dto>> GetPageListAsync({{ table.entity_name }}QueryDto query);
+    Task<{{ table.entity_name }}Dto?> GetDetailAsync(long id);
+    Task<long> CreateAsync({{ table.entity_name }}SaveDto dto, string? operatorName = null);
+    Task UpdateAsync(long id, {{ table.entity_name }}SaveDto dto, string? operatorName = null);
+    Task DeleteAsync(long id);
+}
+
+/// <summary>{{ table.function_name }} 服务实现</summary>
+public class Biz{{ table.entity_name }}Service(
+    IRepository<Biz{{ table.entity_name }}> repository) : BaseService<Biz{{ table.entity_name }}>(repository), IBiz{{ table.entity_name }}Service
+{
+    private const string NotFoundCode = "{{ table.entity_name | string.upcase }}_NOT_FOUND";
+
+    public async Task<PageResult<{{ table.entity_name }}Dto>> GetPageListAsync({{ table.entity_name }}QueryDto query)
+    {
+        var expr = Expressionable.Create<Biz{{ table.entity_name }}>()
+{{ for col in query_columns }}
+{{ if col.query_type == "like" }}
+            .AndIF(!string.IsNullOrEmpty(query.{{ col.property_name }}), x => x.{{ col.property_name }}.Contains(query.{{ col.property_name }}!))
+{{ else }}
+            .AndIF(query.{{ col.property_name }} != null, x => x.{{ col.property_name }} == query.{{ col.property_name }})
+{{ end }}
+{{ end }}
+            .ToExpression();
+
+        var page = await Repository.GetPageListAsync(expr, query);
+        return new PageResult<{{ table.entity_name }}Dto>
+        {
+            Items = page.Items.Adapt<List<{{ table.entity_name }}Dto>>(),
+            Total = page.Total,
+            PageIndex = page.PageIndex,
+            PageSize = page.PageSize,
+            TotalPages = page.TotalPages
+        };
+    }
+
+    public async Task<{{ table.entity_name }}Dto?> GetDetailAsync(long id)
+    {
+        var entity = await Repository.GetByIdAsync(id);
+        return entity?.Adapt<{{ table.entity_name }}Dto>();
+    }
+
+    public async Task<long> CreateAsync({{ table.entity_name }}SaveDto dto, string? operatorName = null)
+    {
+        var entity = dto.Adapt<Biz{{ table.entity_name }}>();
+        entity.Id = 0; // 雪花 AOP 填充
+        await Repository.InsertAsync(entity);
+        return entity.Id;
+    }
+
+    public async Task UpdateAsync(long id, {{ table.entity_name }}SaveDto dto, string? operatorName = null)
+    {
+        var entity = await Repository.GetByIdAsync(id)
+            ?? throw new BusinessException("数据不存在", ApiResultCode.NotFound, NotFoundCode);
+        dto.Adapt(entity);
+        entity.Id = id;
+        entity.UpdateTime = DateTime.Now;
+        entity.UpdateBy = operatorName;
+        await UpdateWithConcurrencyCheckAsync(entity);
+    }
+
+    public async Task DeleteAsync(long id)
+    {
+        var entity = await Repository.GetByIdAsync(id)
+            ?? throw new BusinessException("数据不存在", ApiResultCode.NotFound, NotFoundCode);
+        await Repository.DeleteAsync(entity);
+    }
+}

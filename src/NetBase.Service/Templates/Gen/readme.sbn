@@ -1,0 +1,41 @@
+# {{ table.function_name }} 代码生成产物
+
+> 由代码生成器生成（{{ table.source_type == "db" ? "源表：" + table.table_name : "手工设计" }}），生成时间：{{ now }}。
+> 请按下述位置落位后，执行 sql/ 下两个脚本，再编译验证。
+
+## 落位清单
+
+| 产物 | 目标位置 |
+|---|---|
+| `Biz{{ table.entity_name }}.cs` | `src/NetBase.Model/Entities/Biz/` |
+| `Biz{{ table.entity_name }}Service.cs` | `src/NetBase.Service/Biz/` |
+| `Biz{{ table.entity_name }}Controller.cs` | `src/NetBase.Api/Controllers/Biz/` |
+| `{{ table.module_name }}.ts` | `web/src/api/biz/` |
+| `index.vue` | `web/src/views/biz/{{ table.module_name }}/` |
+| `01_建表脚本.sql` | 先在开发库执行（幂等可重复） |
+| `02_菜单权限种子.sql` | 建表后执行（挂菜单到「业务办公」并授权 admin） |
+
+## 服务注册（必须手工补一行）
+
+打开 `src/NetBase.Service/Biz/ServiceCollectionExtensions.cs`，在 `AddNetBaseBiz()` 中追加：
+
+```csharp
+services.TryAddScoped<IBiz{{ table.entity_name }}Service, Biz{{ table.entity_name }}Service>();
+```
+
+（接口与实现都在 `Biz{{ table.entity_name }}Service.cs` 文件内。）
+
+## 权限码
+
+`biz:{{ table.module_name }}:list / add / edit / delete` ——菜单种子已授权 admin 角色；
+其他角色请到「角色管理 → 分配菜单」勾选「业务办公 → {{ table.function_name }}」。
+
+## 生成选项
+
+- 数据权限：{{ table.data_scope ? "是（已生成 DeptId/OwnerUserId + IDataScope）" : "否" }}
+- 审批流单据：{{ table.flow_doc ? "是" : "否" }}
+- 主子表：{{ table.sub_tables != null && table.sub_tables.size > 0 ? "是（" + table.sub_tables.size + " 张子表）" : "否" }}
+
+## 自检
+
+落位后执行：`dotnet build`（0 错误）→ `dotnet test` → `cd web && npm run type-check` → 刷新页面授权后验证菜单可用。

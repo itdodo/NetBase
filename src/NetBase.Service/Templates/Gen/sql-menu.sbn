@@ -1,0 +1,47 @@
+-- ============================================================
+-- {{ table.function_name }} 菜单权限种子（幂等，可重复执行）
+-- 挂在「业务办公」目录下；含 add/edit/delete 按钮与 admin 角色授权
+-- ============================================================
+DO $$
+DECLARE
+    dir_id   int8;
+    menu_id  int8;
+    btn_id   int8;
+    rid      int8;
+BEGIN
+    -- 业务办公目录（不存在则创建）
+    SELECT id INTO dir_id FROM sys_menu WHERE menuname = '业务办公' AND menutype = 1 AND isdeleted = false LIMIT 1;
+    IF dir_id IS NULL THEN
+        dir_id := (FLOOR(RANDOM() * 899999999999999) + 100000000000000)::int8;
+        INSERT INTO sys_menu (id, parentid, menuname, menutype, path, icon, sort, permission, visible, status, createtime, createby)
+        VALUES (dir_id, 0, '业务办公', 1, '/biz', 'Files', 6, 'menu:biz:dir', true, 1, now(), 'gen');
+    END IF;
+
+    -- 功能菜单（按权限码幂等）
+    IF NOT EXISTS (SELECT 1 FROM sys_menu WHERE permission = 'biz:{{ table.module_name }}:list' AND isdeleted = false) THEN
+        menu_id := (FLOOR(RANDOM() * 899999999999999) + 100000000000000)::int8;
+        INSERT INTO sys_menu (id, parentid, menuname, menutype, path, component, permission, icon, sort, visible, status, createtime, createby)
+        VALUES (menu_id, dir_id, '{{ table.function_name }}', 2, '/biz/{{ table.module_name }}', 'biz/{{ table.module_name }}/index', 'biz:{{ table.module_name }}:list', 'Document', 9, true, 1, now(), 'gen');
+
+        -- 按钮（add/edit/delete）
+        btn_id := (FLOOR(RANDOM() * 899999999999999) + 100000000000000)::int8;
+        INSERT INTO sys_menu (id, parentid, menuname, menutype, permission, sort, visible, status, createtime, createby)
+        VALUES (btn_id, menu_id, '新增', 3, 'biz:{{ table.module_name }}:add', 1, true, 1, now(), 'gen');
+        btn_id := (FLOOR(RANDOM() * 899999999999999) + 100000000000000)::int8;
+        INSERT INTO sys_menu (id, parentid, menuname, menutype, permission, sort, visible, status, createtime, createby)
+        VALUES (btn_id, menu_id, '编辑', 3, 'biz:{{ table.module_name }}:edit', 2, true, 1, now(), 'gen');
+        btn_id := (FLOOR(RANDOM() * 899999999999999) + 100000000000000)::int8;
+        INSERT INTO sys_menu (id, parentid, menuname, menutype, permission, sort, visible, status, createtime, createby)
+        VALUES (btn_id, menu_id, '删除', 3, 'biz:{{ table.module_name }}:delete', 3, true, 1, now(), 'gen');
+
+        -- 授权 admin 角色（目录 + 菜单 + 按钮）
+        FOR rid IN SELECT id FROM sys_role WHERE rolecode = 'admin' AND isdeleted = false
+        LOOP
+            INSERT INTO sys_role_menu (id, roleid, menuid, createtime)
+            SELECT (FLOOR(RANDOM() * 899999999999999) + 100000000000000)::int8, rid, m.id, now()
+            FROM sys_menu m
+            WHERE (m.id = dir_id OR m.id = menu_id OR m.parentid = menu_id)
+              AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.roleid = rid AND rm.menuid = m.id);
+        END LOOP;
+    END IF;
+END $$;

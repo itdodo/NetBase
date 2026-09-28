@@ -1,0 +1,32 @@
+-- ============================================================
+-- {{ table.function_name }} 建表脚本（PostgreSQL 方言）
+-- 表：{{ table.table_name }}    生成时间：{{ now }}
+-- 幂等：CREATE TABLE IF NOT EXISTS；列注释逐条 COMMENT
+-- ============================================================
+CREATE TABLE IF NOT EXISTS {{ table.table_name }} (
+    id                int8         NOT NULL,
+{{ for col in columns }}
+{{ if !col.is_pk && col.column_name != "id" }}
+{{ if col.c_sharp_type == "string" }}
+    {{ col.column_name }}      varchar({{ col.length | default 200 }}){{ if col.is_required }} NOT NULL{{ else }} DEFAULT NULL{{ end }},
+{{ else }}
+    {{ col.column_name }}      {{ col.column_type }}{{ if col.is_required }} NOT NULL{{ else }} DEFAULT NULL{{ end }},
+{{ end }}
+{{ end }}
+{{ end }}
+    createtime        timestamp    NOT NULL DEFAULT now(),
+    createby          varchar(50)  DEFAULT NULL,
+    updatetime        timestamp    DEFAULT NULL,
+    updateby          varchar(50)  DEFAULT NULL,
+    isdeleted         bool         NOT NULL DEFAULT false,
+    version           int8         NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+);
+
+COMMENT ON TABLE {{ table.table_name }} IS '{{ table.function_name }}';
+{{ for col in columns }}
+{{ if col.column_comment != "" }}
+{{ comment_sql table.table_name col.column_name col.column_comment }}
+{{ end }}
+{{ end }}
+-- 索引：软删过滤 + 唯一列请按需补充（参考 uk_sys_user_username 模式）

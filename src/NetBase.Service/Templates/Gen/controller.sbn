@@ -64,9 +64,4 @@ public class Biz{{ table.entity_name }}Controller(
 {{ end }}
 }
 
-/// <summary>提交审批请求</summary>
-public class FlowSubmitDto
-{
-    /// <summary>流程编码（空则走单据绑定的默认流程）</summary>
-    public string FlowCode { get; set; } = string.Empty;
-}
+// FlowSubmitDto 已在共享位置定义（首次使用审批流时手工添加到 Dtos/Biz/FlowSubmitDto.cs）

@@ -40,3 +40,8 @@ export const update{{ table.entity_name }} = (id: string, data: {{ table.entity_
 
 export const delete{{ table.entity_name }} = (id: string) =>
   request.delete<never, void>(`/biz/{{ table.module_name }}/${id}`)
+
+{{ if table.flow_doc }}
+export const submit{{ table.entity_name }} = (id: string, flowCode = '') =>
+  request.post<never, void>(`/biz/{{ table.module_name }}/${id}/submit`, { flowCode })
+{{ end }}

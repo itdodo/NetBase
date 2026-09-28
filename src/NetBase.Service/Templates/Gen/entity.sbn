@@ -26,4 +26,25 @@ public class Biz{{ table.entity_name }} : BaseEntity{{ if table.data_scope }}, I
     public long OwnerUserId { get; set; }
 
 {{ end }}
+{{ if table.flow_doc }}
+    /// <summary>单据状态：0草稿 1审批中 2已通过 3已拒绝 4已撤回</summary>
+    [SugarColumn(ColumnDescription = "单据状态", DefaultValue = "0")]
+    public int Status { get; set; }
+
+{{ end }}
 }
+{{ for st in sub_tables }}
+/// <summary>{{ st.table.table_comment }}（{{ table.function_name }}明细）</summary>
+[SugarTable("{{ st.table.table_name }}", TableDescription = "{{ st.table.table_comment }}")]
+public class Biz{{ st.table.entity_name }} : BaseEntity
+{
+{{ for col in st.columns }}
+{{ if !col.is_pk && col.column_name != "createtime" && col.column_name != "createby" && col.column_name != "updatetime" && col.column_name != "updateby" && col.column_name != "isdeleted" && col.column_name != "version" }}
+    /// <summary>{{ col.column_comment }}</summary>
+    [SugarColumn({{ if col.c_sharp_type == "string" }}Length = {{ col.length | default 200 }}, {{ end }}{{ if !col.is_required }}IsNullable = true, {{ end  }}ColumnDescription = "{{ col.column_comment }}")]
+    public {{ col.c_sharp_type }}{{ if col.c_sharp_type != "string" && !col.is_required }}?{{ end }} {{ col.property_name }} { get; set; }{{ if col.c_sharp_type == "string" }} = string.Empty;{{ end }}
+
+{{ end }}
+{{ end }}
+}
+{{ end }}

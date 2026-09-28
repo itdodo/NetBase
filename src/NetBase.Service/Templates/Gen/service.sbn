@@ -57,11 +57,16 @@ public interface IBiz{{ table.entity_name }}Service
     Task<long> CreateAsync({{ table.entity_name }}SaveDto dto, string? operatorName = null);
     Task UpdateAsync(long id, {{ table.entity_name }}SaveDto dto, string? operatorName = null);
     Task DeleteAsync(long id);
+{{ if table.flow_doc }}
+    /// <summary>提交审批</summary>
+    Task SubmitAsync(long id, string flowCode, string operatorName);
+{{ end }}
 }
 
 /// <summary>{{ table.function_name }} 服务实现</summary>
 public class Biz{{ table.entity_name }}Service(
-    IRepository<Biz{{ table.entity_name }}> repository) : BaseService<Biz{{ table.entity_name }}>(repository), IBiz{{ table.entity_name }}Service
+    IRepository<Biz{{ table.entity_name }}> repository{{ if table.flow_doc }},
+    NetBase.Service.Sys.Flow.IFlowEngine flowEngine{{ end }}) : BaseService<Biz{{ table.entity_name }}>(repository), IBiz{{ table.entity_name }}Service
 {
     private const string NotFoundCode = "{{ table.entity_name | string.upcase }}_NOT_FOUND";
 
@@ -98,6 +103,9 @@ public class Biz{{ table.entity_name }}Service(
     {
         var entity = dto.Adapt<Biz{{ table.entity_name }}>();
         entity.Id = 0; // 雪花 AOP 填充
+{{ if table.flow_doc }}
+        entity.Status = 0; // 草稿
+{{ end }}
         await Repository.InsertAsync(entity);
         return entity.Id;
     }
@@ -119,4 +127,64 @@ public class Biz{{ table.entity_name }}Service(
             ?? throw new BusinessException("数据不存在", ApiResultCode.NotFound, NotFoundCode);
         await Repository.DeleteAsync(entity);
     }
+{{ if table.flow_doc }}
+
+    /// <summary>提交审批：仅草稿/拒绝状态可提交；送审后置为审批中</summary>
+    public async Task SubmitAsync(long id, string flowCode, string operatorName)
+    {
+        var entity = await Repository.GetByIdAsync(id)
+            ?? throw new BusinessException("数据不存在", ApiResultCode.NotFound, NotFoundCode);
+        if (entity.Status is not (0 or 3))
+        {
+            throw new BusinessException("仅草稿或被拒绝的单据可提交审批", ApiResultCode.BadRequest, ErrorCodes.BIZ_DOC_SUBMIT_STATUS_INVALID);
+        }
+
+        entity.Status = 1;
+        entity.UpdateTime = DateTime.Now;
+        entity.UpdateBy = operatorName;
+        await UpdateWithConcurrencyCheckAsync(entity);
+
+        await flowEngine.SubmitAsync(new FlowSubmitRequest
+        {
+            FlowCode = flowCode,
+            BusinessTable = "biz_{{ table.module_name }}",
+            BusinessId = entity.Id,
+            SubmitterName = operatorName,
+            Variables = new Dictionary<string, object?>()
+        });
+    }
+{{ end }}
 }
+{{ if table.flow_doc }}
+
+/// <summary>{{ table.function_name }} 审批流业务回调（按 BusinessTable 注册）</summary>
+public class Biz{{ table.entity_name }}FlowHandler : IFlowBusinessHandler
+{
+    public string BusinessTable => "biz_{{ table.module_name }}";
+
+    private readonly IRepository<Biz{{ table.entity_name }}> _repository;
+
+    public Biz{{ table.entity_name }}FlowHandler(IRepository<Biz{{ table.entity_name }}> repository) => _repository = repository;
+
+    public Task<string> GetSummaryAsync(long businessId)
+    {
+        var entity = _repository.GetById(businessId);
+        return Task.FromResult(entity == null ? BusinessTable : $"{{ table.function_name }} {entity.Id}");
+    }
+
+    /// <summary>终态回写：2 通过 / 3 拒绝 / 4 撤回 / 5 作废</summary>
+    public async Task OnFinishedAsync(long businessId, int instanceStatus, string comment)
+    {
+        var status = instanceStatus switch
+        {
+            2 => 2,
+            3 => 3,
+            4 => 4,
+            _ => 4
+        };
+        await _repository.UpdateWhereAsync(
+            x => x.Id == businessId,
+            x => new Biz{{ table.entity_name }} { Status = status, UpdateTime = DateTime.Now });
+    }
+}
+{{ end }}

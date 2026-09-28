@@ -1,0 +1,166 @@
+using System.ComponentModel.DataAnnotations;
+using Mapster;
+using NetBase.Common.Exceptions;
+using NetBase.Common.Results;
+using NetBase.Model.Entities;
+using NetBase.Model.Entities.Biz;
+using NetBase.Repository.Repositories;
+using NetBase.Service.Base;
+
+namespace NetBase.Service.Biz;
+
+/// <summary>X功能 查询入参</summary>
+public class QueryDto : PageQuery
+{
+
+}
+
+/// <summary>X功能 出参</summary>
+public class Dto
+{
+    /// <summary>ID（字符串防精度丢失）</summary>
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>乐观锁版本（编辑回显，保存时回传）</summary>
+    public long Version { get; set; }
+}
+
+/// <summary>X功能 保存入参</summary>
+public class SaveDto
+{
+
+}
+
+/// <summary>X功能 服务接口</summary>
+public interface IBizService
+{
+    Task<PageResult<Dto>> GetPageListAsync(QueryDto query);
+    Task<Dto?> GetDetailAsync(long id);
+    Task<long> CreateAsync(SaveDto dto, string? operatorName = null);
+    Task UpdateAsync(long id, SaveDto dto, string? operatorName = null);
+    Task DeleteAsync(long id);
+
+    /// <summary>提交审批</summary>
+    Task SubmitAsync(long id, string flowCode, string operatorName);
+
+}
+
+/// <summary>X功能 服务实现</summary>
+public class BizService(
+    IRepository<Biz> repository,
+    NetBase.Service.Sys.Flow.IFlowEngine flowEngine) : BaseService<Biz>(repository), IBizService
+{
+    private const string NotFoundCode = "_NOT_FOUND";
+
+    public async Task<PageResult<Dto>> GetPageListAsync(QueryDto query)
+    {
+        var expr = Expressionable.Create<Biz>()
+
+            .ToExpression();
+
+        var page = await Repository.GetPageListAsync(expr, query);
+        return new PageResult<Dto>
+        {
+            Items = page.Items.Adapt<List<Dto>>(),
+            Total = page.Total,
+            PageIndex = page.PageIndex,
+            PageSize = page.PageSize,
+            TotalPages = page.TotalPages
+        };
+    }
+
+    public async Task<Dto?> GetDetailAsync(long id)
+    {
+        var entity = await Repository.GetByIdAsync(id);
+        return entity?.Adapt<Dto>();
+    }
+
+    public async Task<long> CreateAsync(SaveDto dto, string? operatorName = null)
+    {
+        var entity = dto.Adapt<Biz>();
+        entity.Id = 0; // 雪花 AOP 填充
+
+        entity.Status = 0; // 草稿
+
+        await Repository.InsertAsync(entity);
+        return entity.Id;
+    }
+
+    public async Task UpdateAsync(long id, SaveDto dto, string? operatorName = null)
+    {
+        var entity = await Repository.GetByIdAsync(id)
+            ?? throw new BusinessException("数据不存在", ApiResultCode.NotFound, NotFoundCode);
+        dto.Adapt(entity);
+        entity.Id = id;
+        entity.UpdateTime = DateTime.Now;
+        entity.UpdateBy = operatorName;
+        await UpdateWithConcurrencyCheckAsync(entity);
+    }
+
+    public async Task DeleteAsync(long id)
+    {
+        var entity = await Repository.GetByIdAsync(id)
+            ?? throw new BusinessException("数据不存在", ApiResultCode.NotFound, NotFoundCode);
+        await Repository.DeleteAsync(entity);
+    }
+
+
+    /// <summary>提交审批：仅草稿/拒绝状态可提交；送审后置为审批中</summary>
+    public async Task SubmitAsync(long id, string flowCode, string operatorName)
+    {
+        var entity = await Repository.GetByIdAsync(id)
+            ?? throw new BusinessException("数据不存在", ApiResultCode.NotFound, NotFoundCode);
+        if (entity.Status is not (0 or 3))
+        {
+            throw new BusinessException("仅草稿或被拒绝的单据可提交审批", ApiResultCode.BadRequest, ErrorCodes.BIZ_DOC_SUBMIT_STATUS_INVALID);
+        }
+
+        entity.Status = 1;
+        entity.UpdateTime = DateTime.Now;
+        entity.UpdateBy = operatorName;
+        await UpdateWithConcurrencyCheckAsync(entity);
+
+        await flowEngine.SubmitAsync(new FlowSubmitRequest
+        {
+            FlowCode = flowCode,
+            BusinessTable = "biz_",
+            BusinessId = entity.Id,
+            SubmitterName = operatorName,
+            Variables = new Dictionary<string, object?>()
+        });
+    }
+
+}
+
+
+/// <summary>X功能 审批流业务回调（按 BusinessTable 注册）</summary>
+public class BizFlowHandler : IFlowBusinessHandler
+{
+    public string BusinessTable => "biz_";
+
+    private readonly IRepository<Biz> _repository;
+
+    public BizFlowHandler(IRepository<Biz> repository) => _repository = repository;
+
+    public Task<string> GetSummaryAsync(long businessId)
+    {
+        var entity = _repository.GetById(businessId);
+        return Task.FromResult(entity == null ? BusinessTable : $"X功能 {entity.Id}");
+    }
+
+    /// <summary>终态回写：2 通过 / 3 拒绝 / 4 撤回 / 5 作废</summary>
+    public async Task OnFinishedAsync(long businessId, int instanceStatus, string comment)
+    {
+        var status = instanceStatus switch
+        {
+            2 => 2,
+            3 => 3,
+            4 => 4,
+            _ => 4
+        };
+        await _repository.UpdateWhereAsync(
+            x => x.Id == businessId,
+            x => new Biz { Status = status, UpdateTime = DateTime.Now });
+    }
+}
+

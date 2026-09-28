@@ -50,4 +50,23 @@ public class Biz{{ table.entity_name }}Controller(
         await service.DeleteAsync(id);
         return Success("删除成功");
     }
+{{ if table.flow_doc }}
+
+    /// <summary>提交审批</summary>
+    [HasPermission("biz:{{ table.module_name }}:edit")]
+    [NoRepeatSubmit]
+    [HttpPost("{id:long}/submit")]
+    public async Task<ApiResult> Submit(long id, [FromBody] FlowSubmitDto dto)
+    {
+        await service.SubmitAsync(id, dto.FlowCode, OperatorName);
+        return Success("已提交审批");
+    }
+{{ end }}
+}
+
+/// <summary>提交审批请求</summary>
+public class FlowSubmitDto
+{
+    /// <summary>流程编码（空则走单据绑定的默认流程）</summary>
+    public string FlowCode { get; set; } = string.Empty;
 }

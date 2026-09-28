@@ -34,7 +34,7 @@ public sealed class IntegrationFixture
     public const string ConnectionStringEnvVar = "NETBASE_TEST_CONNECTIONSTRING";
 
     private static readonly string DefaultConnectionString =
-        "Host=localhost;Port=5544;Database=netbase_test;Username=netbase;Password=netbase123";
+        "Host=localhost;Port=5544;Database=netbase_test;Username=netbase;Password=YourStrong@Password1";
 
     /// <summary>测试库连接串：环境变量 NETBASE_TEST_CONNECTIONSTRING 优先，缺省本机库</summary>
     public static string ConnectionString { get; } =
@@ -92,7 +92,7 @@ public sealed class IntegrationFixture
         Services = services.BuildServiceProvider();
 
         // 先连 postgres 系统库确保测试库存在（应用连接指向测试库本身，库不存在时无法自建），再 CodeFirst 建表
-        var adminConn = "Host=localhost;Port=5544;Database=postgres;Username=netbase;Password=netbase123";
+        var adminConn = "Host=localhost;Port=5544;Database=postgres;Username=netbase;Password=YourStrong@Password1";
         using (var system = new Npgsql.NpgsqlConnection(adminConn))
         {
             system.Open();

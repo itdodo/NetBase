@@ -91,9 +91,9 @@ public sealed class IntegrationFixture
 
         Services = services.BuildServiceProvider();
 
-        // 先连 postgres 系统库确保测试库存在（应用连接指向测试库本身，库不存在时无法自建），再 CodeFirst 建表
-        var adminConn = "Host=localhost;Port=5544;Database=postgres;Username=netbase;Password=YourStrong@Password1";
-        using (var system = new Npgsql.NpgsqlConnection(adminConn))
+        // 先连 postgres 系统库确保测试库存在（从 ConnectionString 推导 admin 连接串，兼容本地/CI 不同端口）
+        var builder = new Npgsql.NpgsqlConnectionStringBuilder(ConnectionString) { Database = "postgres" };
+        using (var system = new Npgsql.NpgsqlConnection(builder.ConnectionString))
         {
             system.Open();
             using (var cmd = system.CreateCommand())

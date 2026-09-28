@@ -48,12 +48,6 @@ const form = reactive<Record<string, any>>({
 
   remark: '',
 
-  deptId: '',
-
-  ownerUserId: '',
-
-  status: '',
-
   version: 0
 })
 
@@ -91,12 +85,6 @@ async function openEdit(row: Contract): Promise<void> {
     signDate: src.signDate,
 
     remark: src.remark,
-
-    deptId: src.deptId,
-
-    ownerUserId: src.ownerUserId,
-
-    status: src.status,
 
     version: src.version
   })
@@ -157,20 +145,6 @@ onMounted(loadData)
 
 
       <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
-
-
-
-      <el-table-column prop="deptId" label="归属部门" min-width="140" show-overflow-tooltip />
-
-
-
-      <el-table-column prop="ownerUserId" label="归属用户" min-width="140" show-overflow-tooltip />
-
-
-
-      <el-table-column prop="status" label="单据状态" min-width="140" show-overflow-tooltip />
-
-
       <el-table-column label="操作" width="150" align="center">
         <template #default="{ row }">
           <el-button v-permission="'biz:contract:edit'" link type="primary" @click="openEdit(row as Contract)">编辑</el-button>
@@ -190,7 +164,7 @@ onMounted(loadData)
       @current-change="loadData"
     />
 
-    <el-dialog v-model="dialogVisible" :title="editingId == null ? '新增ContractMgr' : '编辑ContractMgr'" width="640px" class="dialog-scroll">
+    <el-dialog v-model="dialogVisible" :title="editingId == null ? '新增合同管理' : '编辑合同管理'" width="640px" class="dialog-scroll">
       <el-form ref="formRef" :model="form" label-width="110px">
 
 
@@ -215,26 +189,6 @@ onMounted(loadData)
         <el-form-item label="备注">
           <el-input v-model="form.remark" maxlength="500" />
         </el-form-item>
-
-
-
-        <el-form-item label="归属部门">
-          <el-input v-model="form.deptId" maxlength="0" />
-        </el-form-item>
-
-
-
-        <el-form-item label="归属用户">
-          <el-input v-model="form.ownerUserId" maxlength="0" />
-        </el-form-item>
-
-
-
-        <el-form-item label="单据状态">
-          <el-input v-model="form.status" maxlength="0" />
-        </el-form-item>
-
-
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>

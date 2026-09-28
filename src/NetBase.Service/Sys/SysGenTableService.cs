@@ -149,9 +149,9 @@ public class SysGenTableService(
                 Length = col.Length,
                 IsPk = col.IsPk,
                 IsRequired = col.IsRequired && !col.IsPk,
-                IsList = !col.IsPk && col.ColumnName is not ("createtimes" or "createtime" or "updateby" or "updatetime"),
-                IsQuery = col.ColumnName is "title" or "name" or "user_name" or "dict_name",
-                IsForm = !col.IsPk,
+                IsList = !col.IsPk && col.ColumnName is not ("createtimes" or "createtime" or "updateby" or "updatetime" or "isdeleted" or "version" or "deptid" or "owneruserid" or "status"),
+                IsQuery = col.ColumnName is "title" or "contract_name" or "name" or "user_name",
+                IsForm = !col.IsPk && col.ColumnName is not ("createtimes" or "createby" or "updatetime" or "updateby" or "isdeleted" or "version" or "deptid" or "owneruserid" or "status"),
                 Sort = sort++
             });
         }
@@ -500,8 +500,15 @@ public class GenModel
         "id", "createtime", "createby", "updatetime", "updateby", "isdeleted", "version", "deptid", "owneruserid"
     };
 
-    /// <summary>业务字段（非主键非审计列）</summary>
-    public List<SysGenTableColumn> FormColumns => Columns.Where(c => c.IsForm && !AuditCols.Contains(c.ColumnName)).ToList();
+    /// <summary>框架管理列：不出现在表单（deptid/owneruserid 由数据权限管，status 由审批流管）</summary>
+    private static readonly HashSet<string> FrameworkCols = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "deptid", "owneruserid", "status"
+    };
+
+    /// <summary>业务字段（非主键非审计列非框架列）</summary>
+    public List<SysGenTableColumn> FormColumns => Columns
+        .Where(c => c.IsForm && !AuditCols.Contains(c.ColumnName) && !FrameworkCols.Contains(c.ColumnName)).ToList();
     public List<SysGenTableColumn> ListColumns => Columns.Where(c => c.IsList && !AuditCols.Contains(c.ColumnName)).ToList();
     public List<SysGenTableColumn> QueryColumns => Columns.Where(c => c.IsQuery && !AuditCols.Contains(c.ColumnName)).ToList();
 

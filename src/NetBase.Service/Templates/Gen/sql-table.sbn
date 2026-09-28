@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS {{ table.table_name }} (
 {{ for col in columns }}
 {{ if !col.is_pk && col.column_name != "id" }}
 {{ if col.c_sharp_type == "string" }}
-    {{ col.column_name }}      varchar({{ col.length | default 200 }}){{ if col.is_required }} NOT NULL{{ else }} DEFAULT NULL{{ end }},
+    {{ col.column_name }}      varchar({{ col.length }}){{ if col.is_required }} NOT NULL{{ else }} DEFAULT NULL{{ end }},
 {{ else }}
     {{ col.column_name }}      {{ col.column_type }}{{ if col.is_required }} NOT NULL{{ else }} DEFAULT NULL{{ end }},
 {{ end }}
@@ -24,9 +24,5 @@ CREATE TABLE IF NOT EXISTS {{ table.table_name }} (
 );
 
 COMMENT ON TABLE {{ table.table_name }} IS '{{ table.function_name }}';
-{{ for col in columns }}
-{{ if col.column_comment != "" }}
-{{ comment_sql table.table_name col.column_name col.column_comment }}
-{{ end }}
-{{ end }}
+{{ comment_lines }}
 -- 索引：软删过滤 + 唯一列请按需补充（参考 uk_sys_user_username 模式）

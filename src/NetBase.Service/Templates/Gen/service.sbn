@@ -42,7 +42,7 @@ public class {{ table.entity_name }}SaveDto
     [Required(ErrorMessage = "{{ col.column_comment }}不能为空")]
 {{ end }}
 {{ if col.c_sharp_type == "string" }}
-    [StringLength({{ col.length | default 200 }})]
+    [StringLength({{ col.length }})]
 {{ end }}
     public {{ col.c_sharp_type }}{{ if col.c_sharp_type != "string" && !col.is_required }}?{{ end }} {{ col.property_name }} { get; set; }{{ if col.c_sharp_type == "string" }} = string.Empty;{{ end }}
 
@@ -68,7 +68,7 @@ public class Biz{{ table.entity_name }}Service(
     IRepository<Biz{{ table.entity_name }}> repository{{ if table.flow_doc }},
     NetBase.Service.Sys.Flow.IFlowEngine flowEngine{{ end }}) : BaseService<Biz{{ table.entity_name }}>(repository), IBiz{{ table.entity_name }}Service
 {
-    private const string NotFoundCode = "{{ table.entity_name | string.upcase }}_NOT_FOUND";
+    private const string NotFoundCode = "{{ table.entity_name | upcase }}_NOT_FOUND";
 
     public async Task<PageResult<{{ table.entity_name }}Dto>> GetPageListAsync({{ table.entity_name }}QueryDto query)
     {

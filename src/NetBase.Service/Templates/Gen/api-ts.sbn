@@ -6,7 +6,7 @@ export interface {{ table.entity_name }} {
   id: string
 {{ for col in list_columns }}
   /** {{ col.column_comment }} */
-  {{ col.property_name | string.downcase_first }}{{ if col.c_sharp_type != "string" && !col.is_required }}?{{ end }}: {{ col.c_sharp_type | mapping_ts }}{{ if col.c_sharp_type == "string" }}
+  {{ col.property_name | downcase_first }}{{ if col.c_sharp_type != "string" && !col.is_required }}?{{ end }}: {{ col.c_sharp_type | mapping_ts }}{{ if col.c_sharp_type == "string" }}
 
 {{ end }}
 {{ end }}
@@ -16,13 +16,13 @@ export interface {{ table.entity_name }} {
 /** {{ table.function_name }} 保存入参 */
 export interface {{ table.entity_name }}Save {
 {{ for col in form_columns }}
-  {{ col.property_name | string.downcase_first }}{{ if col.c_sharp_type != "string" && !col.is_required }}?{{ end }}: {{ col.c_sharp_type | mapping_ts }}
+  {{ col.property_name | downcase_first }}{{ if col.c_sharp_type != "string" && !col.is_required }}?{{ end }}: {{ col.c_sharp_type | mapping_ts }}
 {{ end }}
 }
 
 export interface {{ table.entity_name }}Query extends PageQuery {
 {{ for col in query_columns }}
-  {{ col.property_name | string.downcase_first }}?: {{ col.c_sharp_type | mapping_ts }}
+  {{ col.property_name | downcase_first }}?: {{ col.c_sharp_type | mapping_ts }}
 {{ end }}
 }
 

@@ -23,14 +23,14 @@ const {
   query,
   loadData,
   handleSearch
-} = usePageList<{{ table.entity_name }}, { pageIndex: number; pageSize: number;{{ for col in query_columns }} {{ col.property_name | string.downcase_first }}?: {{ col.c_sharp_type | mapping_ts }};{{ end }} }>({
+} = usePageList<{{ table.entity_name }}, { pageIndex: number; pageSize: number;{{ for col in query_columns }} {{ col.property_name | downcase_first }}?: {{ col.c_sharp_type | mapping_ts }};{{ end }} }>({
   url: '/biz/{{ table.module_name }}/page',
-  defaultQuery: { pageIndex: 1, pageSize: 10{{ for col in query_columns }}, {{ col.property_name | string.downcase_first }}: undefined{{ end }} }
+  defaultQuery: { pageIndex: 1, pageSize: 10{{ for col in query_columns }}, {{ col.property_name | downcase_first }}: undefined{{ end }} }
 })
 
 function handleReset(): void {
 {{ for col in query_columns }}
-  query.{{ col.property_name | string.downcase_first }} = undefined
+  query.{{ col.property_name | downcase_first }} = undefined
 {{ end }}
   handleSearch()
 }
@@ -42,7 +42,7 @@ const editingId = ref<string | null>(null)
 const formRef = ref()
 const form = reactive<{{ table.entity_name }}Save & { version?: number }>({
 {{ for col in form_columns }}
-  {{ col.property_name | string.downcase_first }}: {{ col.c_sharp_type == "string" ? "''" : "undefined" }},
+  {{ col.property_name | downcase_first }}: {{ col.c_sharp_type == "string" ? "''" : "undefined" }},
 {{ end }}
   version: 0
 })
@@ -50,7 +50,7 @@ const form = reactive<{{ table.entity_name }}Save & { version?: number }>({
 function openCreate(): void {
   editingId.value = null
 {{ for col in form_columns }}
-  form.{{ col.property_name | string.downcase_first }} = {{ col.c_sharp_type == "string" ? "''" : "undefined" }}
+  form.{{ col.property_name | downcase_first }} = {{ col.c_sharp_type == "string" ? "''" : "undefined" }}
 {{ end }}
   form.version = 0
   dialogVisible.value = true
@@ -62,7 +62,7 @@ async function openEdit(row: {{ table.entity_name }}): Promise<void> {
   const src = await get{{ table.entity_name }}Detail(row.id).catch(() => row)
   Object.assign(form, {
 {{ for col in form_columns }}
-    {{ col.property_name | string.downcase_first }}: src.{{ col.property_name | string.downcase_first }},
+    {{ col.property_name | downcase_first }}: src.{{ col.property_name | downcase_first }},
 {{ end }}
     version: src.version
   })
@@ -107,9 +107,9 @@ onMounted(loadData)
     <div class="toolbar">
 {{ for col in query_columns }}
 {{ if col.query_type == "like" }}
-      <el-input v-model="query.{{ col.property_name | string.downcase_first }}" placeholder="{{ col.column_comment }}" clearable style="width: 200px" :prefix-icon="Search" @keyup.enter="handleSearch" />
+      <el-input v-model="query.{{ col.property_name | downcase_first }}" placeholder="{{ col.column_comment }}" clearable style="width: 200px" :prefix-icon="Search" @keyup.enter="handleSearch" />
 {{ else }}
-      <el-input v-model="query.{{ col.property_name | string.downcase_first }}" placeholder="{{ col.column_comment }}" clearable style="width: 160px" />
+      <el-input v-model="query.{{ col.property_name | downcase_first }}" placeholder="{{ col.column_comment }}" clearable style="width: 160px" />
 {{ end }}
 {{ end }}
       <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
@@ -120,9 +120,9 @@ onMounted(loadData)
     <el-table v-loading="loading" :data="list" border stripe>
 {{ for col in list_columns }}
 {{ if col.c_sharp_type == "DateTime" }}
-      <el-table-column prop="{{ col.property_name | string.downcase_first }}" label="{{ col.column_comment }}" width="165" :formatter="formatDateTime" />
+      <el-table-column prop="{{ col.property_name | downcase_first }}" label="{{ col.column_comment }}" width="165" :formatter="formatDateTime" />
 {{ else }}
-      <el-table-column prop="{{ col.property_name | string.downcase_first }}" label="{{ col.column_comment }}" min-width="140" show-overflow-tooltip />
+      <el-table-column prop="{{ col.property_name | downcase_first }}" label="{{ col.column_comment }}" min-width="140" show-overflow-tooltip />
 {{ end }}
 {{ end }}
       <el-table-column label="操作" width="150" align="center">
@@ -157,27 +157,27 @@ onMounted(loadData)
 {{ for col in form_columns }}
 {{ if col.ui_type == "textarea" }}
         <el-form-item label="{{ col.column_comment }}">
-          <el-input v-model="form.{{ col.property_name | string.downcase_first }}" type="textarea" :rows="3" />
+          <el-input v-model="form.{{ col.property_name | downcase_first }}" type="textarea" :rows="3" />
         </el-form-item>
-{{ elif col.ui_type == "number" }}
+{{ else if col.ui_type == "number" }}
         <el-form-item label="{{ col.column_comment }}">
-          <el-input-number v-model="form.{{ col.property_name | string.downcase_first }}" :controls="false" style="width: 100%" />
+          <el-input-number v-model="form.{{ col.property_name | downcase_first }}" :controls="false" style="width: 100%" />
         </el-form-item>
-{{ elif col.ui_type == "switch" }}
+{{ else if col.ui_type == "switch" }}
         <el-form-item label="{{ col.column_comment }}">
-          <el-switch v-model="form.{{ col.property_name | string.downcase_first }}" />
+          <el-switch v-model="form.{{ col.property_name | downcase_first }}" />
         </el-form-item>
-{{ elif col.ui_type == "date" }}
+{{ else if col.ui_type == "date" }}
         <el-form-item label="{{ col.column_comment }}">
-          <el-date-picker v-model="form.{{ col.property_name | string.downcase_first }}" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+          <el-date-picker v-model="form.{{ col.property_name | downcase_first }}" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
         </el-form-item>
-{{ elif col.ui_type == "datetime" }}
+{{ else if col.ui_type == "datetime" }}
         <el-form-item label="{{ col.column_comment }}">
-          <el-date-picker v-model="form.{{ col.property_name | string.downcase_first }}" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" style="width: 100%" />
+          <el-date-picker v-model="form.{{ col.property_name | downcase_first }}" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" style="width: 100%" />
         </el-form-item>
 {{ else }}
         <el-form-item label="{{ col.column_comment }}">
-          <el-input v-model="form.{{ col.property_name | string.downcase_first }}" maxlength="{{ col.length | default 200 }}" />
+          <el-input v-model="form.{{ col.property_name | downcase_first }}" maxlength="{{ col.length }}" />
         </el-form-item>
 {{ end }}
 {{ end }}

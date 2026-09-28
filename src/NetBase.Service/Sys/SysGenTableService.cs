@@ -350,9 +350,17 @@ public class SysGenTableService(
             throw new InvalidOperationException($"模板解析失败: {string.Join("; ", template.Messages)}");
         }
 
-        // 模板统一 snake_case 取成员（table.function_name / col.is_required / query_columns ...）。
-        // 用字典模型（Scriban 原生最稳；实体反射访问在 List<T> 场景下 item 解析异常）
-        return template.Render(BuildTemplateModel(model));
+        // 模板统一 snake_case 取成员；管道过滤器须注册到 TemplateContext 全局（模型字典键仅作变量，不能当管道函数）
+        var context = new TemplateContext { MemberRenamer = m => m.Name };
+        var globals = new global::Scriban.Runtime.ScriptObject();
+        globals.Import("default", new Func<object?, object?, object?>((value, defaultValue) =>
+            value == null || (value is string str && string.IsNullOrEmpty(str)) || (value is int i && i == 0) ? defaultValue : value));
+        globals.Import("mapping_ts", new Func<string, string>(ToTsType));
+        globals.Import("downcase_first", new Func<string, string>(s => s.Length == 0 ? s : char.ToLowerInvariant(s[0]) + s[1..]));
+        globals.Import("upcase", new Func<string, string>(s => s.ToUpperInvariant()));
+        foreach (var kv in BuildTemplateModel(model)) globals[kv.Key] = kv.Value;
+        context.PushGlobal(globals);
+        return template.Render(context);
     }
 
     /// <summary>GenModel → snake_case 字典模板模型（列转为字典列表，Scriban 访问零反射问题）</summary>
@@ -381,6 +389,9 @@ public class SysGenTableService(
             ["entity_name"] = st.Table.EntityName,
             ["columns"] = st.Columns.Select(c => (object?)ColumnDict(c, st.Table.TableName)).ToList(),
         }).ToList();
+        var comment_lines = string.Join(Environment.NewLine,
+            model.Columns.Where(c => !string.IsNullOrEmpty(c.ColumnComment))
+                .Select(c => GenMetaService.BuildCommentSql(model.Table.TableName, c.ColumnName, c.ColumnComment)));
 
         return new Dictionary<string, object?>
         {
@@ -390,8 +401,8 @@ public class SysGenTableService(
             ["list_columns"] = list_columns,
             ["form_columns"] = form_columns,
             ["sub_tables"] = sub_tables,
+            ["comment_lines"] = comment_lines,
             ["now"] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
-            ["comment_sql"] = new Func<string, string, string, string>((t, c, cm) => GenMetaService.BuildCommentSql(t, c, cm)),
         };
     }
 

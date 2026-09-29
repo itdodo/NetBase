@@ -283,25 +283,10 @@ app.UseAuthentication();
 app.UseMiddleware<DataScopeMiddleware>();
 app.UseAuthorization();
 
-// 统一返回：/api 未匹配路由返回 ApiResult 404（不落入 SPA 回退返回 HTML，方法不匹配同理）
-app.Use(async (context, next) =>
-{
-    if (context.Request.Path.StartsWithSegments("/api") && context.GetEndpoint() == null)
-    {
-        context.Response.StatusCode = ApiResultCode.NotFound;
-        context.Response.ContentType = "application/json; charset=utf-8";
-        await context.Response.WriteAsync(JsonSerializer.Serialize(
-            new ApiResult
-            {
-                Code = ApiResultCode.NotFound,
-                Message = "接口不存在",
-                ErrorCode = ErrorCodes.COMMON_ROUTE_NOT_FOUND
-            },
-            new JsonSerializerOptions(JsonSerializerDefaults.Web)));
-        return;
-    }
-    await next();
-});
+// 统一返回：/api 未匹配路由返回 ApiResult 404。⚠️ 不能用 GetEndpoint()==null 前置判断——
+// MapFallbackToFile 为所有路径注册 fallback endpoint，该判断恒 false（实测曾因此失效返回 HTML）。
+// 正确方案：自定义 fallback（在 fallback 内区分 /api 与 SPA 路由，见文件尾 MapFallback）。
+
 
 // Hangfire Dashboard（默认仅本机访问；生产建议保持关闭，管理动作走系统管理页）
 if (hangfireOptions.DashboardEnabled)
@@ -322,10 +307,23 @@ using (var jobScope = app.Services.CreateScope())
 }
 app.MapControllers();
 
-// SPA 回退：非 API 路由刷新时返回 index.html（仅前端产物存在时）
+// SPA 回退：非 API 路由刷新时返回 index.html；/api 未匹配路由返回 ApiResult 404（统一返回约定）
 if (File.Exists(indexPage))
 {
-    app.MapFallbackToFile("index.html");
+    app.MapFallback(async (HttpContext context) =>
+    {
+        if (context.Request.Path.StartsWithSegments("/api"))
+        {
+            context.Response.StatusCode = ApiResultCode.NotFound;
+            context.Response.ContentType = "application/json; charset=utf-8";
+            await context.Response.WriteAsync(JsonSerializer.Serialize(
+                new ApiResult { Code = ApiResultCode.NotFound, Message = "接口不存在", ErrorCode = ErrorCodes.COMMON_ROUTE_NOT_FOUND },
+                new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+            return;
+        }
+        context.Response.ContentType = "text/html; charset=utf-8";
+        await context.Response.SendFileAsync(indexPage);
+    });
 }
 
 // 健康检查端点（含数据库探针）

@@ -47,6 +47,10 @@ public class MessageQueryDto : PageQuery
     /// <summary>是否已读</summary>
     [Range(0, 1)]
     public int? IsRead { get; set; }
+
+    /// <summary>发送人关键字</summary>
+    [StringLength(50)]
+    public string? SenderName { get; set; }
 }
 
 /// <summary>站内信服务</summary>

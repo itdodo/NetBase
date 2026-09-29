@@ -38,11 +38,13 @@ public class SysMessageService(IRepository<SysMessage> repository, IRepository<S
     {
         // 接收人条件恒定携带（防越权泄露他人消息），关键字/已读为可选条件
         var keyword = query.Keyword?.Trim();
+        var senderName = query.SenderName?.Trim();
         var isRead = query.IsRead.HasValue ? query.IsRead.Value == 1 : (bool?)null;
         var page = await repository.GetPageListAsync(
             Expressionable.Create<SysMessage>()
                 .And(x => x.ReceiverId == userId)
                 .AndIF(keyword.IsNotNullOrEmpty(), x => x.Title.Contains(keyword!) || x.Content.Contains(keyword!))
+                .AndIF(senderName.IsNotNullOrEmpty(), x => x.SenderName != null && x.SenderName.Contains(senderName!))
                 .AndIF(isRead.HasValue, x => x.IsRead == isRead!.Value)
                 .ToExpression(), query);
         return PageResult<SysMessage>.Of(page.Items, page.Total, page.PageIndex, page.PageSize);

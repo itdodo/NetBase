@@ -130,13 +130,14 @@ const {
   query: msgQuery,
   loadData: loadMyMessages,
   handleSearch: msgHandleSearch
-} = usePageList<MessageInfo, { pageIndex: number; pageSize: number; keyword: string; isRead?: number }>({
+} = usePageList<MessageInfo, { pageIndex: number; pageSize: number; keyword: string; senderName: string; isRead?: number }>({
   url: '/sys/message/my/page',
-  defaultQuery: { pageIndex: 1, pageSize: 10, keyword: '', isRead: undefined }
+  defaultQuery: { pageIndex: 1, pageSize: 10, keyword: '', senderName: '', isRead: undefined }
 })
 
 function msgReset(): void {
   msgQuery.keyword = ''
+  msgQuery.senderName = ''
   msgQuery.isRead = undefined
   msgHandleSearch()
 }
@@ -249,6 +250,14 @@ onMounted(() => {
             placeholder="标题关键字"
             clearable
             style="width: 200px"
+            :prefix-icon="Search"
+            @keyup.enter="msgHandleSearch"
+          />
+          <el-input
+            v-model="msgQuery.senderName"
+            placeholder="发送人"
+            clearable
+            style="width: 140px"
             :prefix-icon="Search"
             @keyup.enter="msgHandleSearch"
           />

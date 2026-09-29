@@ -74,7 +74,9 @@ public class SysFlowQueryService(
         query2 = query2
             .WhereIF(!string.IsNullOrWhiteSpace(keyword), (t, i) =>
                 i.Summary.Contains(keyword!) || i.SubmitterName.Contains(keyword!))
-            .WhereIF(!string.IsNullOrWhiteSpace(flowCode), (t, i) => i.FlowCode == flowCode);
+            .WhereIF(!string.IsNullOrWhiteSpace(flowCode), (t, i) => i.FlowCode == flowCode)
+            .WhereIF(query.BeginTime != null, (t, i) => i.SubmitTime >= query.BeginTime)
+            .WhereIF(query.EndTime != null, (t, i) => i.SubmitTime <= query.EndTime);
         query2 = onlyTodo
             ? query2.Where((t, i) => t.Status == FlowTaskStatus.Pending)
             : query2.Where((t, i) => t.Status != FlowTaskStatus.Pending && t.Status != FlowTaskStatus.Waiting);

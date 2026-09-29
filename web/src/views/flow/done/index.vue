@@ -15,18 +15,28 @@ const {
   total,
   query,
   loadData
-} = usePageList<FlowTaskView, { pageIndex: number; pageSize: number; keyword: string; flowCode: string }>({
+} = usePageList<FlowTaskView, { pageIndex: number; pageSize: number; keyword: string; flowCode: string; beginTime?: string; endTime?: string }>({
   url: '/sys/flow/task/done',
-  defaultQuery: { pageIndex: 1, pageSize: 10, keyword: '', flowCode: '' }
+  defaultQuery: { pageIndex: 1, pageSize: 10, keyword: '', flowCode: '' , beginTime: undefined, endTime: undefined }
 })
 
+const timeRange = ref<[string, string] | null>(null)
+
 function handleSearch(): void {
+  if (timeRange.value) {
+    query.beginTime = timeRange.value[0]
+    query.endTime = timeRange.value[1]
+  } else {
+    query.beginTime = undefined
+    query.endTime = undefined
+  }
   loadData()
 }
 
 function handleReset(): void {
   query.keyword = ''
   query.flowCode = ''
+  timeRange.value = null
   handleSearch()
 }
 
@@ -55,6 +65,15 @@ onMounted(loadData)
         @keyup.enter="handleSearch"
       />
       <el-input v-model="query.flowCode" placeholder="流程编码" clearable style="width: 140px" @keyup.enter="handleSearch" />
+      <el-date-picker
+        v-model="timeRange"
+        type="daterange"
+        range-separator="至"
+        start-placeholder="提交开始"
+        end-placeholder="提交结束"
+        value-format="YYYY-MM-DD"
+        style="width: 260px"
+      />
       <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
       <el-button :icon="Refresh" @click="handleReset">重置</el-button>
     </div>

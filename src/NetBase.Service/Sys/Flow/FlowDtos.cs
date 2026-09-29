@@ -241,6 +241,12 @@ public class FlowTaskQueryDto : PageQuery
     /// <summary>流程编码</summary>
     [System.ComponentModel.DataAnnotations.StringLength(50)]
     public string? FlowCode { get; set; }
+
+    /// <summary>提交时间起（含）</summary>
+    public DateTime? BeginTime { get; set; }
+
+    /// <summary>提交时间止（含）</summary>
+    public DateTime? EndTime { get; set; }
 }
 
 /// <summary>抄送我的查询条件</summary>

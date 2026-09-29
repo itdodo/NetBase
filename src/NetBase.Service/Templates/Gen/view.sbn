@@ -4,7 +4,6 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Search } from '@element-plus/icons-vue'
 import type { {{ table.entity_name }} } from '@/api/biz/{{ table.module_name }}'
 import {
-  get{{ table.entity_name }}Page,
   get{{ table.entity_name }}Detail,
   create{{ table.entity_name }},
   update{{ table.entity_name }},
@@ -47,12 +46,46 @@ const form = reactive<Record<string, any>>({
   version: 0
 })
 
+{{ for st in sub_tables }}
+// ---------- {{ st.table_comment }} 明细行 ----------
+interface {{ st.entity_name }}Row {
+  _key: number
+{{ for col in st.columns }}
+{{ if col.column_name != st.fk_column }}
+  {{ col.property_name | downcase_first }}{{ if col.c_sharp_type != "string" && !col.is_required }}?{{ end }}: {{ col.c_sharp_type | mapping_ts }}
+{{ end }}
+{{ end }}
+}
+
+const {{ st.entity_name | downcase_first }}List = ref<{{ st.entity_name }}Row[]>([])
+let {{ st.entity_name | downcase_first }}Key = 0
+
+function add{{ st.entity_name }}Row(): void {
+  {{ st.entity_name | downcase_first }}List.value.push({
+    _key: ++{{ st.entity_name | downcase_first }}Key
+{{ for col in st.columns }}
+{{ if col.column_name != st.fk_column }}
+    , {{ col.property_name | downcase_first }}: {{ col.c_sharp_type == "string" ? "''" : col.c_sharp_type == "decimal" || col.c_sharp_type == "int" || col.c_sharp_type == "long" ? "0" : col.c_sharp_type == "bool" ? "false" : "undefined" }}
+{{ end }}
+{{ end }}
+  })
+}
+
+function remove{{ st.entity_name }}Row(index: number): void {
+  {{ st.entity_name | downcase_first }}List.value.splice(index, 1)
+}
+
+{{ end }}
+
 function openCreate(): void {
   editingId.value = null
 {{ for col in form_columns }}
   form.{{ col.property_name | downcase_first }} = {{ col.c_sharp_type == "string" ? "''" : col.c_sharp_type == "decimal" || col.c_sharp_type == "int" || col.c_sharp_type == "long" ? "0" : col.c_sharp_type == "bool" ? "false" : "undefined" }}
 {{ end }}
   form.version = 0
+{{ for st in sub_tables }}
+  {{ st.entity_name | downcase_first }}List.value = []
+{{ end }}
   dialogVisible.value = true
 }
 
@@ -72,11 +105,20 @@ async function openEdit(row: {{ table.entity_name }}): Promise<void> {
 async function handleSave(): Promise<void> {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
+{{ for st in sub_tables }}
+  const {{ st.entity_name | downcase_first }}Data = {{ st.entity_name | downcase_first }}List.value.map(({ _key, ...rest }) => rest)
+{{ end }}
+  const payload = {
+    ...form
+{{ for st in sub_tables }}
+    , {{ st.entity_name | downcase_first }}Items: {{ st.entity_name | downcase_first }}Data
+{{ end }}
+  }
   if (editingId.value == null) {
-    await create{{ table.entity_name }}({ ...form })
+    await create{{ table.entity_name }}(payload as any)
     ElMessage.success('创建成功')
   } else {
-    await update{{ table.entity_name }}(editingId.value, { ...form })
+    await update{{ table.entity_name }}(editingId.value, payload as any)
     ElMessage.success('更新成功')
   }
   dialogVisible.value = false
@@ -180,6 +222,27 @@ onMounted(loadData)
           <el-input v-model="form.{{ col.property_name | downcase_first }}" maxlength="{{ col.length }}" />
         </el-form-item>
 {{ end }}
+{{ end }}
+{{ for st in sub_tables }}
+
+        <el-divider content-position="left">{{ st.table_comment }}</el-divider>
+        <el-button type="primary" plain size="small" @click="add{{ st.entity_name }}Row">添加明细</el-button>
+        <el-table :data="{{ st.entity_name | downcase_first }}List" border size="small" style="margin-top: 8px">
+{{ for col in st.columns }}
+{{ if col.column_name != st.fk_column }}
+          <el-table-column label="{{ col.column_comment }}" min-width="140">
+            <template #default="{ row }">
+              <el-input v-model="row.{{ col.property_name | downcase_first }}" size="small" />
+            </template>
+          </el-table-column>
+{{ end }}
+{{ end }}
+          <el-table-column label="操作" width="70" align="center">
+            <template #default="{ $index }">
+              <el-button link type="danger" size="small" @click="remove{{ st.entity_name }}Row($index)">删</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
 {{ end }}
       </el-form>
       <template #footer>

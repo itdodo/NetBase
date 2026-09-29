@@ -6,10 +6,9 @@ export interface {{ table.entity_name }} {
   id: string
 {{ for col in list_columns }}
   /** {{ col.column_comment }} */
-  {{ col.property_name | downcase_first }}{{ if col.c_sharp_type != "string" && !col.is_required }}?{{ end }}: {{ col.c_sharp_type | mapping_ts }}{{ if col.c_sharp_type == "string" }}
-
+  {{ col.property_name | downcase_first }}{{ if col.c_sharp_type != "string" && !col.is_required }}?{{ end }}: {{ col.c_sharp_type | mapping_ts }}
 {{ end }}
-{{ end }}
+  /** 乐观锁版本 */
   version: number
 }
 

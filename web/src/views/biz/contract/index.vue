@@ -21,14 +21,12 @@ const {
   query,
   loadData,
   handleSearch
-} = usePageList<Contract, { pageIndex: number; pageSize: number; contractName?: string; }>({
+} = usePageList<Contract, { pageIndex: number; pageSize: number; }>({
   url: '/biz/contract/page',
-  defaultQuery: { pageIndex: 1, pageSize: 10, contractName: undefined }
+  defaultQuery: { pageIndex: 1, pageSize: 10 }
 })
 
 function handleReset(): void {
-
-  query.contractName = undefined
 
   handleSearch()
 }
@@ -40,35 +38,32 @@ const editingId = ref<string | null>(null)
 const formRef = ref()
 const form = reactive<Record<string, any>>({
 
-  contractName: '',
-
   amount: 0,
 
-  signDate: undefined,
-
   remark: '',
+
+  contractName: '',
+
+  signDate: undefined,
 
   version: 0
 })
 
+
+
 function openCreate(): void {
   editingId.value = null
 
-  form.contractName = ''
-
   form.amount = 0
-
-  form.signDate = undefined
 
   form.remark = ''
 
-  form.deptId = ''
+  form.contractName = ''
 
-  form.ownerUserId = ''
-
-  form.status = ''
+  form.signDate = undefined
 
   form.version = 0
+
   dialogVisible.value = true
 }
 
@@ -78,13 +73,13 @@ async function openEdit(row: Contract): Promise<void> {
   const src = await getContractDetail(row.id).catch(() => row)
   Object.assign(form, {
 
-    contractName: src.contractName,
-
     amount: src.amount,
 
-    signDate: src.signDate,
-
     remark: src.remark,
+
+    contractName: src.contractName,
+
+    signDate: src.signDate,
 
     version: src.version
   })
@@ -94,11 +89,16 @@ async function openEdit(row: Contract): Promise<void> {
 async function handleSave(): Promise<void> {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
+
+  const payload = {
+    ...form
+
+  }
   if (editingId.value == null) {
-    await createContract({ ...form } as any)
+    await createContract(payload as any)
     ElMessage.success('创建成功')
   } else {
-    await updateContract(editingId.value, { ...form } as any)
+    await updateContract(editingId.value, payload as any)
     ElMessage.success('更新成功')
   }
   dialogVisible.value = false
@@ -107,7 +107,7 @@ async function handleSave(): Promise<void> {
 
 
 async function handleDelete(row: Contract): Promise<void> {
-  await ElMessageBox.confirm(`确定删除该ContractMgr记录吗？`, '提示', { type: 'warning' })
+  await ElMessageBox.confirm(`确定删除该合同管理记录吗？`, '提示', { type: 'warning' })
   await deleteContract(row.id)
   ElMessage.success('删除成功')
   loadData()
@@ -120,10 +120,6 @@ onMounted(loadData)
   <el-card>
     <div class="toolbar">
 
-
-      <el-input v-model="query.contractName" placeholder="合同名称" clearable style="width: 200px" :prefix-icon="Search" @keyup.enter="handleSearch" />
-
-
       <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
       <el-button :icon="Refresh" @click="handleReset">重置</el-button>
       <el-button v-permission="'biz:contract:add'" type="primary" :icon="Plus" @click="openCreate">新增</el-button>
@@ -132,19 +128,21 @@ onMounted(loadData)
     <el-table v-loading="loading" :data="list" border stripe>
 
 
-      <el-table-column prop="contractName" label="合同名称" min-width="140" show-overflow-tooltip />
-
-
-
       <el-table-column prop="amount" label="合同金额" min-width="140" show-overflow-tooltip />
+
+
+
+      <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
+
+
+
+      <el-table-column prop="contractName" label="合同名称" min-width="140" show-overflow-tooltip />
 
 
 
       <el-table-column prop="signDate" label="签订日期" width="165" :formatter="formatDateTime" />
 
 
-
-      <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
       <el-table-column label="操作" width="150" align="center">
         <template #default="{ row }">
           <el-button v-permission="'biz:contract:edit'" link type="primary" @click="openEdit(row as Contract)">编辑</el-button>
@@ -168,20 +166,8 @@ onMounted(loadData)
       <el-form ref="formRef" :model="form" label-width="110px">
 
 
-        <el-form-item label="合同名称">
-          <el-input v-model="form.contractName" maxlength="200" />
-        </el-form-item>
-
-
-
         <el-form-item label="合同金额">
-          <el-input-number v-model="form.amount" :controls="false" style="width: 100%" />
-        </el-form-item>
-
-
-
-        <el-form-item label="签订日期">
-          <el-date-picker v-model="form.signDate" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+          <el-input v-model="form.amount" maxlength="0" />
         </el-form-item>
 
 
@@ -189,6 +175,21 @@ onMounted(loadData)
         <el-form-item label="备注">
           <el-input v-model="form.remark" maxlength="500" />
         </el-form-item>
+
+
+
+        <el-form-item label="合同名称">
+          <el-input v-model="form.contractName" maxlength="200" />
+        </el-form-item>
+
+
+
+        <el-form-item label="签订日期">
+          <el-input v-model="form.signDate" maxlength="0" />
+        </el-form-item>
+
+
+
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>

@@ -156,6 +156,11 @@ public class DbSeeder
         EnsureIndex(db, "sys_user_role", "ix_sys_user_role_userid", "UserId");
         EnsureIndex(db, "sys_user_role", "ix_sys_user_role_roleid", "RoleId");
         EnsureIndex(db, "sys_role_menu", "ix_sys_role_menu_roleid", "RoleId");
+        // 审批流高频查询索引：待办（审批人+状态）/任务详情（实例）/流程实例（编码+状态）/抄送收件人
+        EnsureIndex(db, "sys_flow_task", "ix_sys_flow_task_approver_status", "ApproverUserId, Status");
+        EnsureIndex(db, "sys_flow_task", "ix_sys_flow_task_instance", "InstanceId");
+        EnsureIndex(db, "sys_flow_instance", "ix_sys_flow_instance_flowcode_status", "FlowCode, Status");
+        EnsureIndex(db, "sys_flow_cc", "ix_sys_flow_cc_userid", "UserId");
         EnsureIndex(db, "sys_role_menu", "ix_sys_role_menu_menuid", "MenuId");
         EnsureIndex(db, "sys_menu", "ix_sys_menu_parentid", "ParentId");
         EnsureIndex(db, "sys_user_session", "ix_sys_user_session_tokenid", "TokenId");

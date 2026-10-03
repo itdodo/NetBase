@@ -1,6 +1,6 @@
 # NetBase 通用基础框架
 
-基于 **.NET 10 (C#)** 的企业级 Web 开发基础框架，采用传统三层架构（Service + Repository）并引入泛型化设计，内置 RBAC 权限数据模型，ORM 使用 SqlSugarCore（最新稳定版），数据库为 PostgreSQL 17。满足中小型企业 Web 开发需求；前端采用 Vue 3 + Element Plus（`web/` 目录），开箱即得完整的管理系统骨架。
+基于 **.NET 10 (C#)** 的企业级 Web 开发基础框架，采用传统三层架构（Service + Repository）并引入泛型化设计，内置 RBAC 权限数据模型，ORM 使用 SqlSugarCore（最新稳定版），数据库为 PostgreSQL 18。满足中小型企业 Web 开发需求；前端采用 Vue 3 + Element Plus（`web/` 目录），开箱即得完整的管理系统骨架。
 
 ## 技术栈
 
@@ -8,7 +8,7 @@
 |---|---|---|
 | 运行时 | .NET 10 | C# 最新语言特性 |
 | ORM | SqlSugarCore 5.1.4.x | CodeFirst、全局软删除过滤器、AOP SQL 日志 |
-| 数据库 | PostgreSQL 17 | 连接串在 appsettings.json 配置（Npgsql） |
+| 数据库 | PostgreSQL 18 | 连接串在 appsettings.json 配置（Npgsql） |
 | 缓存 | MemoryCache（默认）/ Redis（备用） | 配置一键切换 |
 | 消息队列 | RabbitMQ（备用，默认关闭） | RabbitMQ.Client 7.x 异步 API |
 | 日志 | Serilog | 控制台 + 按日滚动文件（Logs/） |
@@ -158,7 +158,7 @@ web/src/
 ## Docker 部署
 
 ```bash
-docker compose up -d        # 两容器：netbase-api（.NET + 前端静态 + pg_dump）+ netbase-db（PostgreSQL 17），自动建表种子
+docker compose up -d        # 两容器：netbase-api（.NET + 前端静态 + pg_dump）+ netbase-db（PostgreSQL 18），自动建表种子
 # 访问 http://localhost:8080（生产环境务必覆盖 Jwt__SecretKey 与数据库密码环境变量）
 ```
 

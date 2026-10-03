@@ -39,7 +39,7 @@ public class UserConnectionMapping : IUserConnectionMapping
     }
 
     public IReadOnlyCollection<string> GetConnections(long userId) =>
-        _map.TryGetValue(userId, out var c) ? c.Keys.ToArray() : Array.Empty<string>();
+        _map.TryGetValue(userId, out var c) ? c.Keys.ToArray() : [];
 
     public bool IsOnline(long userId) => _map.ContainsKey(userId);
 

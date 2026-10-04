@@ -5,8 +5,10 @@ services:
   db:
     image: postgres:18-alpine
     container_name: netbase-db
-    command: ["postgres", "-N", "200"]   # max_connections=200（默认 100 会被 api 连接池占满）
+    command: ["postgres", "-N", "200", "-c", "timezone=Asia/Shanghai"]   # max_connections=200（默认 100 会被 api 连接池占满）
     environment:
+      TZ: "Asia/Shanghai"
+      PGTZ: "Asia/Shanghai"
       POSTGRES_USER: "netbase"
       POSTGRES_PASSWORD: "YourStrong@Password1"
       POSTGRES_DB: "netbase"
@@ -37,6 +39,7 @@ services:
     build: .
     container_name: netbase-api
     environment:
+      TZ: "Asia/Shanghai"
       ASPNETCORE_ENVIRONMENT: "Production"
       Db__ConnectionString: "Host=db;Port=5432;Database=netbase;Username=netbase;Password=YourStrong@Password1;Maximum Pool Size=50"
       ConnectionStrings__Hangfire: "Host=db;Port=5432;Database=netbase;Username=netbase;Password=YourStrong@Password1;Maximum Pool Size=10"

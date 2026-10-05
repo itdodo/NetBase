@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, FormInstance, FormRules } from 'element-plus'
 import { Lock, User, Refresh } from '@element-plus/icons-vue'
-import { getCaptcha, forgotPassword, resetPasswordByCode } from '@/api/auth'
+import { getCaptcha, getCaptchaEnabled, forgotPassword, resetPasswordByCode } from '@/api/auth'
+import { ApiError } from '@/api/request'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
@@ -15,6 +16,8 @@ const loading = ref(false)
 const form = reactive({ userName: '', password: '', captchaId: '', captchaCode: '' })
 const captchaSvg = ref('')
 const defaultCaptchaSvg = ''
+// 验证码开关（默认按开启处理：探测失败时保守显示）
+const captchaEnabled = ref(true)
 
 async function refreshCaptcha(): Promise<void> {
   try {
@@ -26,16 +29,26 @@ async function refreshCaptcha(): Promise<void> {
   }
 }
 
-refreshCaptcha()
+async function initCaptcha(): Promise<void> {
+  try {
+    captchaEnabled.value = await getCaptchaEnabled()
+  } catch {
+    captchaEnabled.value = true
+  }
+  if (captchaEnabled.value) await refreshCaptcha()
+}
+initCaptcha()
 
-const rules: FormRules = {
+const rules = computed<FormRules>(() => ({
   userName: [{ required: true, message: '请输入账号', trigger: 'blur' }],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, message: '密码至少 6 位', trigger: 'blur' }
   ],
-  captchaCode: [{ required: true, message: '请输入验证码', trigger: 'blur' }]
-}
+  ...(captchaEnabled.value
+    ? { captchaCode: [{ required: true, message: '请输入验证码', trigger: 'blur' }] }
+    : {})
+}))
 
 // ---------- 忘记密码（两步：发码 → 验证码+新密码） ----------
 const forgotVisible = ref(false)
@@ -132,12 +145,18 @@ async function handleLogin() {
     }
     ElMessage.success('登录成功')
     await router.push((route.query.redirect as string) || '/')
-  } catch {
-    // 错误提示由 request 拦截器统一处理
+  } catch (e) {
+    // 错误提示由 request 拦截器统一处理；被验证码拦截时动态补出验证码框（如开关刚被打开）
+    if (e instanceof ApiError && e.errorCode === 'AUTH_CAPTCHA_INVALID' && !captchaEnabled.value) {
+      captchaEnabled.value = true
+      await refreshCaptcha()
+    }
   } finally {
     // 登录失败（含验证码错误）后刷新验证码
-    form.captchaCode = ''
-    refreshCaptcha()
+    if (captchaEnabled.value) {
+      form.captchaCode = ''
+      refreshCaptcha()
+    }
     loading.value = false
   }
 }
@@ -212,7 +231,7 @@ const features = [
               autocomplete="current-password"
             />
           </el-form-item>
-          <el-form-item prop="captchaCode">
+          <el-form-item v-if="captchaEnabled" prop="captchaCode">
             <div class="captcha-row">
               <el-input v-model="form.captchaCode" placeholder="验证码" :prefix-icon="Refresh" maxlength="4" />
               <img

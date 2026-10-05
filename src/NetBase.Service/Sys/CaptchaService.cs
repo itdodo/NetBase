@@ -52,7 +52,7 @@ public class CaptchaService(
         var captchaId = Guid.NewGuid().ToString("N");
         var data = captcha.Generate(captchaId);
 
-        cacheService.Set($"netbase:captcha:{captchaId}", data.Code.ToUpperInvariant(), Ttl);
+        cacheService.Set($"captcha:{captchaId}", data.Code.ToUpperInvariant(), Ttl);
         return Task.FromResult(new CaptchaResult
         {
             CaptchaId = captchaId,
@@ -67,7 +67,7 @@ public class CaptchaService(
             return Task.FromResult(false);
         }
 
-        var key = $"netbase:captcha:{captchaId}";
+        var key = $"captcha:{captchaId}";
         var expected = cacheService.Get<string>(key);
         if (expected == null)
         {

@@ -83,8 +83,8 @@ public class SysAuthService(
 
         // 登录失败锁定：连续失败达阈值则锁定一段时间（阈值/时长支持参数配置）
         var key = userName.ToLowerInvariant();
-        var failKey = $"netbase:login:fail:{key}";
-        var lockKey = $"netbase:login:lock:{key}";
+        var failKey = $"login:fail:{key}";
+        var lockKey = $"login:lock:{key}";
         if (cacheService.Get<bool>(lockKey))
         {
             var lockMinutes = await GetLockMinutesAsync();
@@ -223,9 +223,9 @@ public class SysAuthService(
         await sessionRepository.DeletePhysicalWhereAsync(x => x.UserId == userId);
     }
 
-    private const string ResetCodeKey = "netbase:pwdreset:code:";
-    private const string ResetFreqKey = "netbase:pwdreset:freq:";
-    private const string ResetTryKey = "netbase:pwdreset:try:";
+    private const string ResetCodeKey = "pwdreset:code:";
+    private const string ResetFreqKey = "pwdreset:freq:";
+    private const string ResetTryKey = "pwdreset:try:";
 
     /// <inheritdoc />
     public async Task SendResetCodeAsync(string userName, string email, string? ip)

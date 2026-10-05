@@ -129,5 +129,5 @@ public class SysConfigService(
         await cacheService.RemoveAsync(CacheKey(config.ConfigKey));
     }
 
-    private static string CacheKey(string configKey) => $"netbase:config:{configKey}";
+    private static string CacheKey(string configKey) => $"config:{configKey}";
 }

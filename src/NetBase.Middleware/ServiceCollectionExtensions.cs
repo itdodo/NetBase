@@ -24,11 +24,12 @@ public static class ServiceCollectionExtensions
         if (cacheOptions.Provider.Equals("MultiLevel", StringComparison.OrdinalIgnoreCase))
         {
             // MultiLevel 双层缓存：L1 进程内内存 + L2 Redis 分布式（写穿透模式）
+            // 键前缀统一由 MultiLevelCacheService.FullKey 按 RedisKeyPrefix 加一层，
+            // InstanceName 必须留空，否则 Redis 键会叠成 netbase:netbase:...
             services.AddMemoryCache();
             services.AddStackExchangeRedisCache(o =>
             {
                 o.Configuration = cacheOptions.RedisConnectionString;
-                o.InstanceName = cacheOptions.RedisKeyPrefix;
             });
             services.TryAddSingleton<IDistributedCache>(sp =>
                 sp.GetRequiredService<IDistributedCache>());

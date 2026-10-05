@@ -176,5 +176,5 @@ public class SysDictService(
         }
     }
 
-    private static string CacheKey(string dictCode) => $"netbase:dict:{dictCode}";
+    private static string CacheKey(string dictCode) => $"dict:{dictCode}";
 }

@@ -35,7 +35,7 @@ public class NoRepeatSubmitFilter(ICacheService cacheService, ICurrentUserServic
 
         var argsJson = SafeSerialize(context.ActionArguments);
         var argsHash = Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(argsJson)));
-        var key = $"netbase:norepeat:{currentUser.UserId}:{context.HttpContext.Request.Path}:{argsHash}";
+        var key = $"norepeat:{currentUser.UserId}:{context.HttpContext.Request.Path}:{argsHash}";
         if (cacheService.Exists(key))
         {
             context.Result = new JsonResult(NetBase.Common.Results.ApiResult.Fail("请勿重复提交", NetBase.Common.Results.ApiResultCode.BadRequest, NetBase.Common.Results.ErrorCodes.COMMON_REPEAT_SUBMIT));

@@ -49,7 +49,7 @@ services:
       Cache__Provider: "MultiLevel"
       Cache__RedisConnectionString: "redis:6379,abortConnect=false"
     ports:
-      - "${NETBASE_API_PORT:-8280}:8080"   # 前端+API 同端口（镜像内置前端构建产物）；默认 8280 避开保留区间（每次重启可能重排，bind 失败先查 netsh excludedportrange）
+      - "${NETBASE_API_PORT:-8680}:8080"   # 前端+API 同端口（镜像内置前端构建产物）；默认 8680 避开保留区间（每次重启可能重排，bind 失败先查 netsh excludedportrange）
     volumes:
       - netbase-backup:/app/backup
       - netbase-uploads:/app/uploads       # 用户上传（头像等）持久化，重建容器不丢

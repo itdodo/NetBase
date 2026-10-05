@@ -94,6 +94,14 @@ public class AuthController(
         return Success(await captchaService.GenerateAsync());
     }
 
+    /// <summary>验证码开关（登录页据此决定是否展示验证码输入）</summary>
+    [AllowAnonymous]
+    [HttpGet("captcha/enabled")]
+    public async Task<ApiResult<bool>> CaptchaEnabled()
+    {
+        return Success(await captchaService.IsEnabledAsync());
+    }
+
     /// <summary>修改自己资料（昵称/手机/邮箱）</summary>
     [Authorize]
     [HttpPut("profile")]

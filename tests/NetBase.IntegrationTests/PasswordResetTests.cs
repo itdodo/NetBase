@@ -11,7 +11,7 @@ namespace NetBase.IntegrationTests;
 
 /// <summary>
 /// 忘记密码自助重置全流程：发码（防枚举/限频）→ 验证码重置（一次性/策略/限尝试）→ 新密码登录。
-/// 邮件走 TestEmailService 替身；验证码从缓存键直接读取（netbase:pwdreset:code:{userName}）。
+/// 邮件走 TestEmailService 替身；验证码从缓存键直接读取（pwdreset:code:{userName}）。
 /// </summary>
 [Collection("Integration")]
 public class PasswordResetTests
@@ -48,7 +48,7 @@ public class PasswordResetTests
 
     private ISysAuthService Auth => _fixture.GetService<ISysAuthService>();
 
-    private string? GetCachedCode(string userName) => _cache.Get<string>($"netbase:pwdreset:code:{userName}");
+    private string? GetCachedCode(string userName) => _cache.Get<string>($"pwdreset:code:{userName}");
 
     [Fact]
     public async Task FullFlow_ResetThenLoginWithNewPassword()

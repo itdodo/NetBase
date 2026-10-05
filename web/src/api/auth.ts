@@ -41,6 +41,9 @@ export const resetPasswordByCode = (data: { userName: string; email: string; cod
 export const getCaptcha = () =>
   request.get<never, { captchaId: string; svg: string }>('/auth/captcha')
 
+/** 验证码开关（登录页据此决定是否展示验证码输入） */
+export const getCaptchaEnabled = () => request.get<never, boolean>('/auth/captcha/enabled')
+
 /** 登录 */
 export const login = (data: LoginPayload) =>
   request.post<never, LoginResponse>('/auth/login', data)

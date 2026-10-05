@@ -350,8 +350,8 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             x => new SysUser { Password = hashed, PwdUpdateTime = DateTime.Now, UpdateTime = DateTime.Now, UpdateBy = operatorName });
         // 重置密码后清除该用户全部会话与登录失败计数，强制重新登录
         await _userSessionRepository.DeletePhysicalWhereAsync(x => x.UserId == id);
-        var failKey = $"netbase:login:fail:{user.UserName.ToLowerInvariant()}";
-        var lockKey = $"netbase:login:lock:{user.UserName.ToLowerInvariant()}";
+        var failKey = $"login:fail:{user.UserName.ToLowerInvariant()}";
+        var lockKey = $"login:lock:{user.UserName.ToLowerInvariant()}";
         _cacheService.Remove(failKey);
         _cacheService.Remove(lockKey);
     }

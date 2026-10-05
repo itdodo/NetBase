@@ -27,7 +27,7 @@ public class PermissionService : IPermissionService
     private readonly ICacheService _cacheService;
     private readonly ILogger<PermissionService> _logger;
 
-    private const string VersionKey = "netbase:perm:version";
+    private const string VersionKey = "perm:version";
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
     public PermissionService(
@@ -47,7 +47,7 @@ public class PermissionService : IPermissionService
     public async Task<HashSet<string>> GetUserPermissionsAsync(long userId)
     {
         var version = _cacheService.Get<long>(VersionKey);
-        var key = $"netbase:perm:v{version}:{userId}";
+        var key = $"perm:v{version}:{userId}";
 
         var cached = _cacheService.Get<HashSet<string>>(key);
         if (cached != null)

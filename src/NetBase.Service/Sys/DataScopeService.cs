@@ -16,7 +16,7 @@ public class DataScopeService(
 {
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(60);
 
-    private string CacheKey(long userId) => $"netbase:datascope:{userId}";
+    private string CacheKey(long userId) => $"datascope:{userId}";
 
     public async Task<DataScopeInfo> GetDataScopeAsync(long userId)
     {

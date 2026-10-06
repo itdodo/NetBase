@@ -179,7 +179,9 @@ function goProfile(): void {
 
 async function handleLogout() {
   await stopRealtime()
-  userStore.logout()
+  // 必须先 await：logout 调完后端接口后才清 token，未等完就跳转会被守卫
+  // 「已登录访问 /login 重定向回首页」弹回，表现为菜单消失但不跳登录页
+  await userStore.logout()
   permissionStore.reset()
   tabsStore.closeAll()
   ElMessage.success('已退出登录')

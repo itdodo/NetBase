@@ -6,10 +6,10 @@ namespace NetBase.Common.Auditing;
 /// <summary>字段级变更审计：实体更新前后属性 diff（敏感字段脱敏）</summary>
 public static class AuditDiff
 {
-    /// <summary>不参与 diff 的属性（框架审计/并发字段）</summary>
+    /// <summary>不参与 diff 的属性（框架审计/并发字段 + 登录簿记字段——每次登录都变，不属于业务变更）</summary>
     private static readonly HashSet<string> Ignored = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Version", "UpdateTime", "UpdateBy", "IsDeleted"
+        "Version", "UpdateTime", "UpdateBy", "IsDeleted", "LastLoginTime"
     };
 
     /// <summary>
@@ -40,4 +40,7 @@ public static class AuditDiff
 
         return changes.Count == 0 ? null : SensitiveData.Serialize(changes, maxLength: 8000);
     }
+
+    /// <summary>字段是否在审计忽略清单中（供 SetColumns 精确 diff 路径复用，保证各审计路径口径一致）</summary>
+    public static bool IsIgnored(string propertyName) => Ignored.Contains(propertyName);
 }

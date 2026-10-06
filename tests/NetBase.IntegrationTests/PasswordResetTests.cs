@@ -168,4 +168,17 @@ public class PasswordResetTests
         Assert.Null(await GetCachedCode(userName));
         Assert.Empty(_email.Sent);
     }
+
+    [Fact]
+    public async Task Login_ShouldUpdateLastLoginTime()
+    {
+        var (user, password) = await CreateUserAsync("pwdlastlogin");
+        Assert.Null(user.LastLoginTime); // 建号时为空
+
+        await Auth.LoginAsync(user.UserName, password, "127.0.0.1", "test");
+
+        var after = await _fixture.GetService<IRepository<SysUser>>()
+            .GetFirstAsync(x => x.UserName == user.UserName);
+        Assert.NotNull(after!.LastLoginTime);
+    }
 }

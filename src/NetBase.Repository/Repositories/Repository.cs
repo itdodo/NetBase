@@ -363,13 +363,17 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
         return fields.Count > 0 ? fields : null;
     }
 
-    /// <summary>按 SetColumns 赋值字段生成行级 diff（仅比较被更新的列，保持与整行 diff 相同的结构）</summary>
+    /// <summary>按 SetColumns 赋值字段生成行级 diff（仅比较被更新的列；忽略清单与整行 diff 同口径）</summary>
     private static string? BuildSetFieldsDiff(
         T before, List<SetField> setFields)
     {
         var changes = new Dictionary<string, object>();
         foreach (var (name, getValue) in setFields)
         {
+            if (NetBase.Common.Auditing.AuditDiff.IsIgnored(name))
+            {
+                continue;
+            }
             var oldVal = typeof(T).GetProperty(name)?.GetValue(before);
             var newVal = getValue(before);
             if (Equals(oldVal, newVal))

@@ -259,6 +259,12 @@ onMounted(() => {
         width="165"
         :formatter="formatDateTime"
       />
+      <el-table-column
+        prop="lastLoginTime"
+        label="最后登录"
+        width="165"
+        :formatter="formatDateTime"
+      />
       <el-table-column label="操作" width="185">
         <template #default="{ row }">
           <el-button v-permission="'sys:user:edit'" link type="primary" @click="openEdit(row as User)">

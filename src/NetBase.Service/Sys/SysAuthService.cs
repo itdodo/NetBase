@@ -113,6 +113,8 @@ public class SysAuthService(
         }
 
         await cacheService.RemoveAsync(failKey);
+        // 记录最后登录时间（个人中心/用户列表展示；簿记字段已进审计忽略清单，不产生变更日志）
+        await userRepository.UpdateWhereAsync(x => x.Id == user.Id, x => new SysUser { LastLoginTime = DateTime.Now });
         return await CreateSessionAsync(user, loginIp, userAgent);
     }
 

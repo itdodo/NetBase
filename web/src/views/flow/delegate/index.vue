@@ -24,6 +24,7 @@ interface DelegateRow {
 
 const {
   loading,
+  firstLoading,
   list,
   total,
   query,
@@ -91,6 +92,8 @@ onMounted(() => {
   loadData()
   getUserList().then((list) => (users.value = list))
 })
+  import TableEmpty from '@/components/TableEmpty.vue'
+  import TableSkeleton from '@/components/TableSkeleton.vue'
 </script>
 
 <template>
@@ -106,7 +109,8 @@ onMounted(() => {
       <el-button :icon="Refresh" @click="loadData">刷新</el-button>
     </div>
 
-    <el-table v-loading="loading" :data="list" border stripe>
+    <TableSkeleton v-if="firstLoading" />
+      <el-table v-else v-loading="loading" :data="list" border stripe>
       <el-table-column prop="agentName" label="代理人" min-width="110" />
       <el-table-column label="生效时间" min-width="300">
         <template #default="{ row }">
@@ -127,6 +131,9 @@ onMounted(() => {
           <el-button link type="danger" @click="handleDelete(row as DelegateRow)">删除</el-button>
         </template>
       </el-table-column>
+    <template #empty>
+      <TableEmpty />
+    </template>
     </el-table>
 
     <el-pagination

@@ -23,6 +23,7 @@ defineOptions({ name: 'AuditOperLogTab' })
 const dateRange = ref<[string, string] | null>(null)
 const {
   loading,
+  firstLoading,
   list,
   total,
   query,
@@ -65,6 +66,8 @@ async function handleCleanup(): Promise<void> {
 }
 
 onMounted(loadData)
+  import TableEmpty from '@/components/TableEmpty.vue'
+  import TableSkeleton from '@/components/TableSkeleton.vue'
 </script>
 
 <template>
@@ -96,7 +99,8 @@ onMounted(loadData)
       <el-button v-permission="'monitor:operlog:list'" type="warning" @click="handleExport">导出</el-button>
     </div>
 
-    <el-table v-loading="loading" :data="list" border stripe>
+    <TableSkeleton v-if="firstLoading" />
+      <el-table v-else v-loading="loading" :data="list" border stripe>
       <el-table-column prop="userName" label="操作人" min-width="100" />
       <el-table-column prop="module" label="模块" min-width="100" />
       <el-table-column prop="action" label="动作" min-width="120" />
@@ -114,6 +118,9 @@ onMounted(loadData)
       <el-table-column prop="elapsedMs" label="耗时(ms)" width="90" align="center" />
       <el-table-column prop="ip" label="IP" min-width="120" />
       <el-table-column prop="createTime" label="时间" width="165" :formatter="formatDateTime" />
+    <template #empty>
+      <TableEmpty />
+    </template>
     </el-table>
 
     <el-pagination

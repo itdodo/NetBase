@@ -28,6 +28,7 @@ const activeTab = ref(canManage.value ? 'notice' : 'messages')
 // ---------- Tab 1：通知公告管理（原有逻辑） ----------
 const {
   loading,
+  firstLoading,
   list,
   total,
   query,
@@ -176,6 +177,8 @@ onMounted(() => {
     loadData()
   }
 })
+  import TableEmpty from '@/components/TableEmpty.vue'
+  import TableSkeleton from '@/components/TableSkeleton.vue'
 </script>
 
 <template>
@@ -201,7 +204,8 @@ onMounted(() => {
           <el-button v-permission="'sys:notice:add'" type="primary" :icon="Plus" @click="openCreate">新建公告</el-button>
         </div>
 
-        <el-table v-loading="loading" :data="list" border stripe>
+        <TableSkeleton v-if="firstLoading" />
+      <el-table v-else v-loading="loading" :data="list" border stripe>
           <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip>
             <template #default="{ row }">
               <el-link type="primary" @click="openDetail(row as NoticeInfo)">{{ (row as NoticeInfo).title }}</el-link>
@@ -229,6 +233,9 @@ onMounted(() => {
               <el-button v-permission="'sys:notice:delete'" link type="danger" @click="handleDelete(row as NoticeInfo)">删除</el-button>
             </template>
           </el-table-column>
+        <template #empty>
+          <TableEmpty />
+        </template>
         </el-table>
 
         <el-pagination
@@ -300,6 +307,9 @@ onMounted(() => {
               <span v-else class="op-muted">—</span>
             </template>
           </el-table-column>
+        <template #empty>
+          <TableEmpty />
+        </template>
         </el-table>
 
         <el-pagination

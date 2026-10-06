@@ -16,6 +16,7 @@ defineOptions({ name: 'BizContractView' })
 
 const {
   loading,
+  firstLoading,
   list,
   total,
   query,
@@ -114,6 +115,8 @@ async function handleDelete(row: Contract): Promise<void> {
 }
 
 onMounted(loadData)
+  import TableEmpty from '@/components/TableEmpty.vue'
+  import TableSkeleton from '@/components/TableSkeleton.vue'
 </script>
 
 <template>
@@ -125,7 +128,8 @@ onMounted(loadData)
       <el-button v-permission="'biz:contract:add'" type="primary" :icon="Plus" @click="openCreate">新增</el-button>
     </div>
 
-    <el-table v-loading="loading" :data="list" border stripe>
+    <TableSkeleton v-if="firstLoading" />
+      <el-table v-else v-loading="loading" :data="list" border stripe>
 
 
       <el-table-column prop="amount" label="合同金额" min-width="140" show-overflow-tooltip />
@@ -150,6 +154,9 @@ onMounted(loadData)
 
         </template>
       </el-table-column>
+    <template #empty>
+      <TableEmpty />
+    </template>
     </el-table>
 
     <el-pagination

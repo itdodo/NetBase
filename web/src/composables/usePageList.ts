@@ -3,7 +3,7 @@
  * Q 为查询条件类型（含 pageIndex/pageSize），T 为行类型。
  * 迁移示例见 views/monitor/operlog、views/monitor/loginlog。
  */
-import { onScopeDispose, reactive, ref, type Ref } from 'vue'
+import { computed, onScopeDispose, reactive, ref, type Ref } from 'vue'
 import request, { CONCURRENCY_CONFLICT_EVENT } from '@/api/request'
 
 export interface UsePageListOptions<T, Q> {
@@ -22,6 +22,9 @@ export function usePageList<T = unknown, Q extends { pageIndex: number; pageSize
   const loading = ref(false)
   const list = ref<T[]>([]) as Ref<T[]>
   const total = ref(0)
+
+  // 首次加载（列表尚无数据）：页面据此显示骨架屏而非 v-loading 遮罩
+  const firstLoading = computed(() => loading.value && list.value.length === 0)
 
   const query = reactive({ ...options.defaultQuery }) as { pageIndex: number; pageSize: number } & Q
 
@@ -55,5 +58,5 @@ export function usePageList<T = unknown, Q extends { pageIndex: number; pageSize
   window.addEventListener(CONCURRENCY_CONFLICT_EVENT, onConcurrencyConflict as EventListener)
   onScopeDispose(() => window.removeEventListener(CONCURRENCY_CONFLICT_EVENT, onConcurrencyConflict as EventListener))
 
-  return { loading, list, total, query, loadData, handleSearch, handleReset }
+  return { loading, firstLoading, list, total, query, loadData, handleSearch, handleReset }
 }

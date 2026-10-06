@@ -49,6 +49,7 @@ function sizeText(bytes: number): string {
 }
 
 onMounted(loadData)
+  import TableEmpty from '@/components/TableEmpty.vue'
 </script>
 
 <template>
@@ -80,6 +81,9 @@ onMounted(loadData)
           <el-button v-permission="'monitor:backup:list'" link type="primary" :icon="Download" @click="handleDownload(row as BackupFile)">下载</el-button>
         </template>
       </el-table-column>
+    <template #empty>
+      <TableEmpty />
+    </template>
     </el-table>
 
     <el-empty v-if="!loading && files.length === 0" description="暂无备份文件（每日 03:00 自动生成，或点「立即备份」）" :image-size="80" />

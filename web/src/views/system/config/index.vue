@@ -97,6 +97,7 @@ async function handleDelete(row: ConfigInfo): Promise<void> {
 }
 
 onMounted(loadData)
+  import TableEmpty from '@/components/TableEmpty.vue'
 </script>
 
 <template>
@@ -144,6 +145,9 @@ onMounted(loadData)
           </el-button>
         </template>
       </el-table-column>
+    <template #empty>
+      <TableEmpty />
+    </template>
     </el-table>
 
     <el-pagination

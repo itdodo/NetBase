@@ -11,6 +11,7 @@ defineOptions({ name: 'FlowDoneView' })
 
 const {
   loading,
+  firstLoading,
   list,
   total,
   query,
@@ -51,6 +52,8 @@ function openDetail(row: FlowTaskView): void {
 }
 
 onMounted(loadData)
+  import TableEmpty from '@/components/TableEmpty.vue'
+  import TableSkeleton from '@/components/TableSkeleton.vue'
 </script>
 
 <template>
@@ -77,7 +80,8 @@ onMounted(loadData)
       <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
       <el-button :icon="Refresh" @click="handleReset">重置</el-button>
     </div>
-    <el-table v-loading="loading" :data="list" border stripe>
+    <TableSkeleton v-if="firstLoading" />
+      <el-table v-else v-loading="loading" :data="list" border stripe>
       <el-table-column prop="summary" label="标题" min-width="200" show-overflow-tooltip>
         <template #default="{ row }">
           <el-link type="primary" @click="openDetail(row as FlowTaskView)">{{ (row as FlowTaskView).summary }}</el-link>
@@ -96,6 +100,9 @@ onMounted(loadData)
         </template>
       </el-table-column>
       <el-table-column prop="actTime" label="处理时间" width="165" :formatter="formatDateTime" />
+    <template #empty>
+      <TableEmpty />
+    </template>
     </el-table>
 
     <el-pagination

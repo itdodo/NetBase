@@ -16,6 +16,7 @@ defineOptions({ name: 'SystemFlowView' })
 
 const {
   loading,
+  firstLoading,
   list,
   total,
   query,
@@ -214,6 +215,8 @@ async function handleDeleteCategory(row: FlowCategory): Promise<void> {
 }
 
 onMounted(loadData)
+  import TableEmpty from '@/components/TableEmpty.vue'
+  import TableSkeleton from '@/components/TableSkeleton.vue'
 </script>
 
 <template>
@@ -237,7 +240,8 @@ onMounted(loadData)
       <el-button v-permission="'sys:flow:list'" plain @click="openCategoryManager">分类管理</el-button>
     </div>
 
-    <el-table v-loading="loading" :data="list" border stripe>
+    <TableSkeleton v-if="firstLoading" />
+      <el-table v-else v-loading="loading" :data="list" border stripe>
       <el-table-column prop="flowCode" label="编号" width="80" align="center" />
       <el-table-column prop="category" label="分类" width="100">
         <template #default="{ row }">
@@ -286,6 +290,9 @@ onMounted(loadData)
           >删除</el-button>
         </template>
       </el-table-column>
+    <template #empty>
+      <TableEmpty />
+    </template>
     </el-table>
 
     <el-pagination
@@ -324,6 +331,9 @@ onMounted(loadData)
               <el-button link type="danger" size="small" @click="handleDeleteBinding(row as FlowBinding)">删除</el-button>
             </template>
           </el-table-column>
+        <template #empty>
+          <TableEmpty />
+        </template>
         </el-table>
 
         <el-divider content-position="left">新增绑定</el-divider>
@@ -366,6 +376,9 @@ onMounted(loadData)
               >删除</el-button>
             </template>
           </el-table-column>
+        <template #empty>
+          <TableEmpty />
+        </template>
         </el-table>
       </div>
     </el-dialog>

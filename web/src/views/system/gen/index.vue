@@ -34,7 +34,7 @@ const UI_TYPES = [
   { value: 'switch', label: '开关' }
 ]
 // ---------- Tab1：配置列表 ----------
-const { loading, list, total, query, loadData, handleSearch } = usePageList<GenTable, { pageIndex: number; pageSize: number; keyword: string }>({
+const { loading, firstLoading, list, total, query, loadData, handleSearch } = usePageList<GenTable, { pageIndex: number; pageSize: number; keyword: string }>({
   url: '/sys/gen/page',
   defaultQuery: { pageIndex: 1, pageSize: 10, keyword: '' }
 })
@@ -302,6 +302,8 @@ onMounted(() => {
   loadData()
   loadDbTables()
 })
+  import TableEmpty from '@/components/TableEmpty.vue'
+  import TableSkeleton from '@/components/TableSkeleton.vue'
 </script>
 
 <template>
@@ -322,7 +324,8 @@ onMounted(() => {
           <el-button :icon="Refresh" @click="handleSearch">刷新</el-button>
         </div>
 
-        <el-table v-loading="loading" :data="list" border stripe>
+        <TableSkeleton v-if="firstLoading" />
+      <el-table v-else v-loading="loading" :data="list" border stripe>
           <el-table-column prop="tableName" label="表名" min-width="160" />
           <el-table-column prop="tableComment" label="功能描述" min-width="140" />
           <el-table-column prop="moduleName" label="模块" width="110" />
@@ -341,6 +344,9 @@ onMounted(() => {
               <el-button v-permission="'sys:gentable:delete'" link type="danger" :icon="Delete" @click="handleDelete(row as GenTable)">删除</el-button>
             </template>
           </el-table-column>
+        <template #empty>
+          <TableEmpty />
+        </template>
         </el-table>
 
         <el-pagination
@@ -371,6 +377,9 @@ onMounted(() => {
               <el-button v-permission="'sys:gentable:add'" link type="primary" :loading="importing" @click="importTable(row as GenTableBrief)">导入</el-button>
             </template>
           </el-table-column>
+        <template #empty>
+          <TableEmpty />
+        </template>
         </el-table>
         <div style="margin-top: 12px">
           <el-button v-permission="'sys:gentable:add'" type="primary" :icon="Plus" @click="openWizard('create')">手工新建配置</el-button>
@@ -472,6 +481,9 @@ onMounted(() => {
               <el-button link type="danger" :disabled="(row as GenColumn).isPk" @click="removeColumn($index)">删</el-button>
             </template>
           </el-table-column>
+        <template #empty>
+          <TableEmpty />
+        </template>
         </el-table>
         <div style="margin-top: 12px; display: flex; gap: 8px">
           <el-button @click="step = 0">上一步</el-button>
@@ -540,6 +552,9 @@ onMounted(() => {
                   <el-button link type="danger" @click="removeSubColumn(sub, $index)">删</el-button>
                 </template>
               </el-table-column>
+            <template #empty>
+              <TableEmpty />
+            </template>
             </el-table>
           </el-collapse-item>
         </el-collapse>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 defineOptions({ name: 'SystemUserView' })
 
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -21,9 +21,12 @@ import { formatDateTime } from '@/utils/format'
 import { download } from '@/utils/download'
 import type { RoleSimple, User } from '@/types/api'
 import { uploadImportFile, downloadImportTemplate } from '@/api/user'
+import TableSkeleton from '@/components/TableSkeleton.vue'
 
 const loading = ref(false)
 const list = ref<User[]>([])
+// 首次加载：显示骨架屏而非 v-loading 遮罩
+const firstLoading = computed(() => loading.value && list.value.length === 0)
 const total = ref(0)
 const roleOptions = ref<RoleSimple[]>([])
 const positionOptions = ref<Position[]>([])
@@ -194,6 +197,7 @@ onMounted(() => {
   loadData()
   getRoleList().then((roles) => (roleOptions.value = roles))
 })
+  import TableEmpty from '@/components/TableEmpty.vue'
 </script>
 
 <template>
@@ -222,7 +226,8 @@ onMounted(() => {
     </div>
 
     <!-- 数据表格 -->
-    <el-table v-loading="loading" :data="list" border stripe>
+    <TableSkeleton v-if="firstLoading" />
+    <el-table v-else v-loading="loading" :data="list" border stripe>
       <el-table-column prop="userName" label="用户名" min-width="100" />
       <el-table-column prop="nickName" label="昵称" min-width="100" />
       <el-table-column prop="deptName" label="所属部门" min-width="110">
@@ -273,6 +278,9 @@ onMounted(() => {
           </el-button>
         </template>
       </el-table-column>
+    <template #empty>
+      <TableEmpty />
+    </template>
     </el-table>
 
     <!-- 分页 -->

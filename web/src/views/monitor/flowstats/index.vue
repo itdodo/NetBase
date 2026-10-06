@@ -70,6 +70,7 @@ function hours(v: number): string {
 }
 
 onMounted(loadData)
+  import TableEmpty from '@/components/TableEmpty.vue'
 </script>
 
 <template>
@@ -109,6 +110,9 @@ onMounted(loadData)
           <el-table-column label="平均通过时长" min-width="110" align="center">
             <template #default="{ row }">{{ hours((row as ByFlowRow).avgApproveHours) }}</template>
           </el-table-column>
+        <template #empty>
+          <TableEmpty />
+        </template>
         </el-table>
       </el-tab-pane>
       <el-tab-pane label="按审批人">
@@ -125,6 +129,9 @@ onMounted(loadData)
           <el-table-column label="平均处理时长" min-width="110" align="center">
             <template #default="{ row }">{{ hours((row as ByApproverRow).avgHandleHours) }}</template>
           </el-table-column>
+        <template #empty>
+          <TableEmpty />
+        </template>
         </el-table>
       </el-tab-pane>
     </el-tabs>

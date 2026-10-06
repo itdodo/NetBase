@@ -73,6 +73,7 @@ async function handleBatchKick(): Promise<void> {
   loadData()
 }
 
+  import TableEmpty from '@/components/TableEmpty.vue'
 </script>
 
 <template>
@@ -113,6 +114,9 @@ async function handleBatchKick(): Promise<void> {
           </el-button>
         </template>
       </el-table-column>
+    <template #empty>
+      <TableEmpty />
+    </template>
     </el-table>
 
     <el-pagination

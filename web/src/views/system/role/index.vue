@@ -191,6 +191,7 @@ onMounted(() => {
   loadData()
   getDeptTree().then((tree) => (deptTree.value = tree))
 })
+  import TableEmpty from '@/components/TableEmpty.vue'
 </script>
 
 <template>
@@ -252,6 +253,9 @@ onMounted(() => {
           </el-button>
         </template>
       </el-table-column>
+    <template #empty>
+      <TableEmpty />
+    </template>
     </el-table>
 
     <el-pagination

@@ -22,6 +22,7 @@ interface LoginLogQuery {
 const dateRange = ref<[string, string] | null>(null)
 const {
   loading,
+  firstLoading,
   list,
   total,
   query,
@@ -64,6 +65,8 @@ async function handleCleanup(): Promise<void> {
 }
 
 onMounted(loadData)
+  import TableEmpty from '@/components/TableEmpty.vue'
+  import TableSkeleton from '@/components/TableSkeleton.vue'
 </script>
 
 <template>
@@ -95,7 +98,8 @@ onMounted(loadData)
       <el-button type="warning" @click="handleExport">导出</el-button>
     </div>
 
-    <el-table v-loading="loading" :data="list" border stripe>
+    <TableSkeleton v-if="firstLoading" />
+      <el-table v-else v-loading="loading" :data="list" border stripe>
       <el-table-column prop="userName" label="用户名" min-width="110" />
       <el-table-column label="结果" width="80" align="center">
         <template #default="{ row }">
@@ -108,6 +112,9 @@ onMounted(loadData)
       <el-table-column prop="ip" label="登录IP" min-width="130" />
       <el-table-column prop="userAgent" label="浏览器标识" min-width="220" show-overflow-tooltip />
       <el-table-column prop="createTime" label="时间" width="165" :formatter="formatDateTime" />
+    <template #empty>
+      <TableEmpty />
+    </template>
     </el-table>
 
     <el-pagination

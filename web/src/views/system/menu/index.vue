@@ -138,6 +138,7 @@ const menuTypeTag: Record<number, 'primary' | 'success' | 'warning'> = {
 }
 
 onMounted(loadData)
+  import TableEmpty from '@/components/TableEmpty.vue'
 </script>
 
 <template>
@@ -212,6 +213,9 @@ onMounted(loadData)
           </el-button>
         </template>
       </el-table-column>
+    <template #empty>
+      <TableEmpty />
+    </template>
     </el-table>
 
     <!-- 新增/编辑弹窗 -->

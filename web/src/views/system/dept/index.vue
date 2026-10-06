@@ -7,6 +7,7 @@ import { createDept, deleteDept, getDeptTree, updateDept } from '@/api/dept'
 import type { DeptSave, DeptTree } from '@/api/dept'
 import { formatDateTime } from '@/utils/format'
 import { getUserList } from '@/api/user'
+import TableEmpty from '@/components/TableEmpty.vue'
 import type { User } from '@/types/api'
 
 defineOptions({ name: 'SystemDeptView' })
@@ -179,6 +180,9 @@ export default {}
           </el-button>
         </template>
       </el-table-column>
+    <template #empty>
+      <TableEmpty />
+    </template>
     </el-table>
 
     <el-dialog

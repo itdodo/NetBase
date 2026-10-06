@@ -19,6 +19,7 @@ defineOptions({ name: 'BizPurchaseView' })
 
 const {
   loading,
+  firstLoading,
   list,
   total,
   query,
@@ -109,6 +110,8 @@ async function openTimeline(row: PurchaseDoc): Promise<void> {
 }
 
 onMounted(loadData)
+  import TableEmpty from '@/components/TableEmpty.vue'
+  import TableSkeleton from '@/components/TableSkeleton.vue'
 </script>
 
 <template>
@@ -127,7 +130,8 @@ onMounted(loadData)
       <el-button v-permission="'biz:purchase:add'" type="primary" :icon="Plus" @click="openCreate">新建采购申请</el-button>
     </div>
 
-    <el-table v-loading="loading" :data="list" border stripe>
+    <TableSkeleton v-if="firstLoading" />
+      <el-table v-else v-loading="loading" :data="list" border stripe>
       <el-table-column prop="title" label="标题" min-width="160" show-overflow-tooltip />
       <el-table-column prop="itemName" label="采购物品" min-width="120" show-overflow-tooltip />
       <el-table-column prop="amount" label="预算金额" width="120" align="right">
@@ -167,6 +171,9 @@ onMounted(loadData)
           >删除</el-button>
         </template>
       </el-table-column>
+    <template #empty>
+      <TableEmpty />
+    </template>
     </el-table>
 
     <el-pagination

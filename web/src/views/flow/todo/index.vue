@@ -14,6 +14,7 @@ defineOptions({ name: 'FlowTodoView' })
 
 const {
   loading,
+  firstLoading,
   list,
   total,
   query,
@@ -70,6 +71,8 @@ async function handleWithdraw(): Promise<void> {
 }
 
 onMounted(loadData)
+  import TableEmpty from '@/components/TableEmpty.vue'
+  import TableSkeleton from '@/components/TableSkeleton.vue'
 </script>
 
 <template>
@@ -96,7 +99,8 @@ onMounted(loadData)
       <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
       <el-button :icon="Refresh" @click="handleReset">重置</el-button>
     </div>
-    <el-table v-loading="loading" :data="list" border stripe>
+    <TableSkeleton v-if="firstLoading" />
+      <el-table v-else v-loading="loading" :data="list" border stripe>
       <el-table-column prop="summary" label="待办标题" min-width="200" show-overflow-tooltip>
         <template #default="{ row }">
           <el-link type="primary" @click="openDetail(row as FlowTaskView)">{{ (row as FlowTaskView).summary }}</el-link>
@@ -111,6 +115,9 @@ onMounted(loadData)
           <el-button link type="primary" @click="openDetail(row as FlowTaskView)">审批</el-button>
         </template>
       </el-table-column>
+    <template #empty>
+      <TableEmpty />
+    </template>
     </el-table>
 
     <el-pagination

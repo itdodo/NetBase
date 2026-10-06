@@ -22,6 +22,7 @@ interface ChangeLogQueryLocal {
 const dateRange = ref<[string, string] | null>(null)
 const {
   loading,
+  firstLoading,
   list,
   total,
   query,
@@ -78,6 +79,8 @@ function showDetail(row: ChangeLogInfo): void {
 }
 
 onMounted(loadData)
+  import TableEmpty from '@/components/TableEmpty.vue'
+  import TableSkeleton from '@/components/TableSkeleton.vue'
 </script>
 
 <template>
@@ -111,7 +114,8 @@ onMounted(loadData)
       <el-button type="danger" plain @click="handleCleanup">清理</el-button>
     </div>
 
-    <el-table v-loading="loading" :data="list" border stripe>
+    <TableSkeleton v-if="firstLoading" />
+      <el-table v-else v-loading="loading" :data="list" border stripe>
       <el-table-column prop="tableName" label="表名" min-width="110" />
       <el-table-column prop="recordId" label="记录ID" min-width="170" show-overflow-tooltip />
       <el-table-column prop="userName" label="操作人" min-width="100" />
@@ -126,6 +130,9 @@ onMounted(loadData)
           <el-button link type="primary" :icon="View" @click="showDetail(row as ChangeLogInfo)">明细</el-button>
         </template>
       </el-table-column>
+    <template #empty>
+      <TableEmpty />
+    </template>
     </el-table>
 
     <el-pagination

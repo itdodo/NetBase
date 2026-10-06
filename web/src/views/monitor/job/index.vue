@@ -123,6 +123,7 @@ async function handleRetry(row: JobLogInfo): Promise<void> {
 }
 
 onMounted(loadData)
+  import TableEmpty from '@/components/TableEmpty.vue'
 </script>
 
 <template>
@@ -176,6 +177,9 @@ onMounted(loadData)
               </el-button>
             </template>
           </el-table-column>
+        <template #empty>
+          <TableEmpty />
+        </template>
         </el-table>
       </el-tab-pane>
 
@@ -232,6 +236,9 @@ onMounted(loadData)
               </el-button>
             </template>
           </el-table-column>
+        <template #empty>
+          <TableEmpty />
+        </template>
         </el-table>
 
         <el-pagination

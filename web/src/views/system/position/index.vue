@@ -11,6 +11,7 @@ defineOptions({ name: 'SystemPositionView' })
 
 const {
   loading,
+  firstLoading,
   list,
   total,
   query,
@@ -82,6 +83,8 @@ async function handleDelete(row: Position): Promise<void> {
 }
 
 onMounted(loadData)
+  import TableEmpty from '@/components/TableEmpty.vue'
+  import TableSkeleton from '@/components/TableSkeleton.vue'
 </script>
 
 <template>
@@ -100,7 +103,8 @@ onMounted(loadData)
       <el-button v-permission="'sys:position:add'" type="primary" :icon="Plus" @click="openCreate">新建岗位</el-button>
     </div>
 
-    <el-table v-loading="loading" :data="list" border stripe>
+    <TableSkeleton v-if="firstLoading" />
+      <el-table v-else v-loading="loading" :data="list" border stripe>
       <el-table-column prop="positionCode" label="岗位编码" min-width="130" />
       <el-table-column prop="positionName" label="岗位名称" min-width="150" />
       <el-table-column label="状态" width="80" align="center">
@@ -118,6 +122,9 @@ onMounted(loadData)
           <el-button v-permission="'sys:position:delete'" link type="danger" @click="handleDelete(row as Position)">删除</el-button>
         </template>
       </el-table-column>
+    <template #empty>
+      <TableEmpty />
+    </template>
     </el-table>
 
     <el-pagination

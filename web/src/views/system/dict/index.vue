@@ -170,6 +170,7 @@ async function deleteData(row: DictDataDto): Promise<void> {
 }
 
 onMounted(loadTypes)
+  import TableEmpty from '@/components/TableEmpty.vue'
 </script>
 
 <template>
@@ -205,6 +206,9 @@ onMounted(loadTypes)
               <el-button v-permission="'sys:dict:delete'" link type="danger" @click="deleteType(row as DictType)">删除</el-button>
             </template>
           </el-table-column>
+        <template #empty>
+          <TableEmpty />
+        </template>
         </el-table>
         <el-pagination
           v-model:current-page="typeQuery.pageIndex"
@@ -242,6 +246,9 @@ onMounted(loadTypes)
               <el-button v-permission="'sys:dict:delete'" link type="danger" @click="deleteData(row as DictDataDto)">删除</el-button>
             </template>
           </el-table-column>
+        <template #empty>
+          <TableEmpty />
+        </template>
         </el-table>
         <el-pagination
           v-model:current-page="dataQuery.pageIndex"

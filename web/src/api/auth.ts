@@ -20,6 +20,8 @@ export interface SessionInfo {
   userAgent?: string
   loginTime: string
   expireTime: string
+  /** 是否当前请求自己的会话（不可勾选自踢） */
+  isCurrent: boolean
 }
 
 export interface LoginPayload {
@@ -76,3 +78,7 @@ export const getSessionPage = (params: Partial<PageQuery>) =>
 
 /** 强制下线 */
 export const kickSession = (id: number) => request.delete<never, void>(`/auth/sessions/${id}`)
+
+/** 批量强制下线（后端自动排除当前请求自己的会话） */
+export const kickSessionsBatch = (ids: string[]) =>
+  request.delete<never, string>('/auth/sessions/batch', { data: { ids } })

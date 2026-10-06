@@ -1,13 +1,16 @@
 using System.Linq.Expressions;
+using System.Text.Json.Serialization;
 using Hangfire;
 using Hangfire.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NetBase.Common.Cache;
 using NetBase.Common.Realtime;
+using NetBase.Common.Results;
 using NetBase.Model.Entities;
 using NetBase.Repository.Repositories;
 using NetBase.Service.Sys;
+using SqlSugar;
 
 namespace NetBase.Api.Jobs;
 
@@ -45,6 +48,40 @@ public class JobInstanceDto
     public bool Paused { get; set; }
 }
 
+/// <summary>作业执行日志查询</summary>
+public class JobLogQueryDto : PageQuery
+{
+    /// <summary>作业标识（空=全部）</summary>
+    public string? JobId { get; set; }
+
+    /// <summary>执行结果（空=全部）</summary>
+    public bool? Success { get; set; }
+}
+
+/// <summary>作业执行日志条目</summary>
+public class JobLogDto
+{
+    [JsonConverter(typeof(NetBase.Common.Json.LongToStringConverter))]
+    public long Id { get; set; }
+
+    public string JobId { get; set; } = string.Empty;
+
+    public string JobName { get; set; } = string.Empty;
+
+    public bool Success { get; set; }
+
+    /// <summary>执行耗时（毫秒）</summary>
+    public long DurationMs { get; set; }
+
+    public string? Error { get; set; }
+
+    /// <summary>触发方式：scheduled/manual</summary>
+    public string TriggerType { get; set; } = "scheduled";
+
+    /// <summary>执行时间（落库时间）</summary>
+    public DateTime ExecutedAt { get; set; }
+}
+
 /// <summary>
 /// 内置定时任务：注册、执行与运行时管理（修改 Cron/触发/暂停）。
 /// 基于 Hangfire RecurringJob（免费版，PostgreSQL 存储）。
@@ -68,6 +105,9 @@ public interface ISystemJobService
 
     /// <summary>恢复调度</summary>
     void Resume(string jobId);
+
+    /// <summary>作业执行日志分页（默认最新在前）</summary>
+    Task<PageResult<JobLogDto>> GetLogsAsync(JobLogQueryDto query);
 }
 
 /// <summary>作业定义与实现</summary>
@@ -81,6 +121,7 @@ public class SystemJobService(
     IRepository<SysUserRole> userRoleRepository,
     IRepository<SysUser> userRepository,
     IRepository<SysUserSession> userSessionRepository,
+    IRepository<SysJobLog> jobLogRepository,
     NetBase.Service.Sys.Flow.IFlowEngine flowEngine,
     IBackupService backupService,
     IOptions<BackupOptions> backupOptions,
@@ -132,9 +173,10 @@ public class SystemJobService(
             var opCount = await logService.CleanupOperationLogsAsync(before);
             var loginCount = await logService.CleanupLoginLogsAsync(before);
             var changeCount = await logService.CleanupChangeLogsAsync(before);
+            var jobLogCount = await jobLogRepository.DeletePhysicalWhereAsync(x => x.CreateTime < before);
             var sessionCount = await userSessionRepository.DeletePhysicalWhereAsync(x => x.ExpireTime <= DateTime.Now);
-            logger.LogInformation("清理完成: 操作日志 {Op} 条, 登录日志 {Login} 条, 变更日志 {Change} 条, 过期会话 {Session} 条（日志保留 {Days} 天）",
-                opCount, loginCount, changeCount, sessionCount, keepDays);
+            logger.LogInformation("清理完成: 操作日志 {Op} 条, 登录日志 {Login} 条, 变更日志 {Change} 条, 作业日志 {JobLog} 条, 过期会话 {Session} 条（日志保留 {Days} 天）",
+                opCount, loginCount, changeCount, jobLogCount, sessionCount, keepDays);
         }
         catch (Exception ex)
         {
@@ -288,5 +330,40 @@ public class SystemJobService(
             throw new ArgumentException($"未知作业: {jobId}");
         }
         return def;
+    }
+
+    /// <summary>按作业标识取内置定义（过滤器解析日志身份用）</summary>
+    public static (string JobId, string DisplayName)? FindBuiltIn(string jobId)
+    {
+        var def = BuiltInJobs.FirstOrDefault(j => j.JobId == jobId);
+        return def.JobId == null ? null : (def.JobId, def.DisplayName);
+    }
+
+    /// <summary>按执行方法名取内置定义（手动触发的表达式无 RecurringJobId 参数，降级映射）</summary>
+    public static (string JobId, string DisplayName)? FindBuiltInByMethod(string methodName) =>
+        BuiltInJobs
+            .Where(j => (j.Run.Body as MethodCallExpression)?.Method.Name == methodName)
+            .Select(j => ((string JobId, string DisplayName)?)(j.JobId, j.DisplayName))
+            .FirstOrDefault();
+
+    public async Task<PageResult<JobLogDto>> GetLogsAsync(JobLogQueryDto query)
+    {
+        var page = await jobLogRepository.GetPageListAsync(
+            Expressionable.Create<SysJobLog>()
+                .AndIF(!string.IsNullOrEmpty(query.JobId), x => x.JobId == query.JobId)
+                .AndIF(query.Success.HasValue, x => x.Success == query.Success!.Value)
+                .ToExpression(), query);
+        var items = page.Items.Select(j => new JobLogDto
+        {
+            Id = j.Id,
+            JobId = j.JobId,
+            JobName = j.JobName,
+            Success = j.Success,
+            DurationMs = j.DurationMs,
+            Error = j.Error,
+            TriggerType = j.TriggerType,
+            ExecutedAt = j.CreateTime
+        }).ToList();
+        return PageResult<JobLogDto>.Of(items, page.Total, page.PageIndex, page.PageSize);
     }
 }

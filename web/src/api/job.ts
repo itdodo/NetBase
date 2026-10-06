@@ -26,3 +26,20 @@ export const pauseJob = (jobId: string) => request.put<never, void>(`/monitor/jo
 
 /** 恢复作业 */
 export const resumeJob = (jobId: string) => request.put<never, void>(`/monitor/job/${jobId}/resume`)
+import type { PageQuery, PageResult } from '@/types/api'
+
+export interface JobLogInfo {
+  id: string
+  jobId: string
+  jobName: string
+  success: boolean
+  durationMs: number
+  error?: string
+  /** scheduled=按 Cron 调度 / manual=手动触发 */
+  triggerType: string
+  executedAt: string
+}
+
+/** 作业执行日志分页（jobId/success 筛选） */
+export const getJobLogs = (params: Partial<PageQuery> & { jobId?: string; success?: boolean }) =>
+  request.get<never, PageResult<JobLogInfo>>('/monitor/job/logs', { params })

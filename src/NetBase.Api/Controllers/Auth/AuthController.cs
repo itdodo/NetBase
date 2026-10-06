@@ -141,12 +141,21 @@ public class AuthController(
         return Success(profile);
     }
 
-    /// <summary>在线会话分页</summary>
+    /// <summary>在线会话分页（当前请求自己的会话标记 IsCurrent）</summary>
     [HasPermission("monitor:online:list")]
     [HttpGet("sessions")]
     public async Task<ApiResult<PageResult<SessionDto>>> Sessions([FromQuery] PageQuery query)
     {
-        return Success(await authService.GetSessionPageAsync(query));
+        return Success(await authService.GetSessionPageAsync(query, User.FindFirst(TokenIdClaim)?.Value));
+    }
+
+    /// <summary>批量强制下线（自动排除当前请求自己的会话）</summary>
+    [HasPermission("monitor:online:list")]
+    [HttpDelete("sessions/batch")]
+    public async Task<ApiResult> KickBatch([FromBody] BatchKickDto dto)
+    {
+        var kicked = await authService.KickSessionsAsync(dto.Ids, User.FindFirst(TokenIdClaim)?.Value);
+        return Success($"已强制下线 {kicked} 个会话");
     }
 
     /// <summary>强制下线（删除指定会话）</summary>

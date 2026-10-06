@@ -116,10 +116,14 @@ var hangfireOptions = builder.Configuration.GetSection(NetBase.Api.Jobs.Hangfire
 var hangfireConnectionString = builder.Configuration.GetConnectionString("Hangfire")
     ?? builder.Configuration.GetSection("Db:ConnectionString").Value
     ?? "Host=localhost;Port=5544;Database=netbase;Username=netbase;Password=netbase123";
-builder.Services.AddHangfire(config => config
+builder.Services.AddHangfire((sp, config) => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
     .UseSimpleAssemblyNameTypeSerializer()
     .UseRecommendedSerializerSettings()
+    // 作业执行日志过滤器：所有作业执行前后自动落 sys_job_log（成功/失败/耗时/触发方式）
+    .UseFilter(new NetBase.Api.Jobs.JobExecutionLogFilter(
+        sp.GetRequiredService<IServiceScopeFactory>(),
+        sp.GetRequiredService<ILogger<NetBase.Api.Jobs.JobExecutionLogFilter>>()))
     .UsePostgreSqlStorage(hangfireConnectionString, new Hangfire.PostgreSql.PostgreSqlStorageOptions
     {
         SchemaName = "hangfire",

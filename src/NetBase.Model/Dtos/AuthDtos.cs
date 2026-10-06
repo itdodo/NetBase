@@ -45,3 +45,13 @@ public class ChangePasswordDto
     [StringLength(64, MinimumLength = 6, ErrorMessage = "密码长度须为 6-64 位")]
     public string NewPassword { get; set; } = string.Empty;
 }
+
+/// <summary>批量强制下线请求（会话 ID 列表）</summary>
+public class BatchKickDto
+{
+    /// <summary>会话 ID 列表（一次最多 100 个）</summary>
+    [Required(ErrorMessage = "请选择要下线的会话")]
+    [MinLength(1, ErrorMessage = "请选择要下线的会话")]
+    [MaxLength(100, ErrorMessage = "一次最多下线 100 个会话")]
+    public List<long> Ids { get; set; } = [];
+}

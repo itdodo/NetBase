@@ -159,7 +159,7 @@ public class SysAuthService(
     public async Task RemoveUserSessionsAsync(long userId) =>
         await sessionRepository.DeletePhysicalWhereAsync(x => x.UserId == userId);
 
-    public async Task<PageResult<SessionDto>> GetSessionPageAsync(PageQuery query)
+    public async Task<PageResult<SessionDto>> GetSessionPageAsync(PageQuery query, string? currentTokenId = null)
     {
         var page = await sessionRepository.GetPageListAsync(null, query);
         var userIds = page.Items.Select(x => x.UserId).Distinct().ToList();
@@ -177,7 +177,8 @@ public class SysAuthService(
             LoginIp = s.LoginIp,
             UserAgent = s.UserAgent,
             LoginTime = s.LoginTime,
-            ExpireTime = s.ExpireTime
+            ExpireTime = s.ExpireTime,
+            IsCurrent = currentTokenId != null && s.TokenId == currentTokenId
         }).ToList();
 
         return PageResult<SessionDto>.Of(items, page.Total, page.PageIndex, page.PageSize);
@@ -191,6 +192,33 @@ public class SysAuthService(
         {
             await notifyService.PushForceLogoutAsync(session.UserId, "管理员已将您强制下线");
         }
+    }
+
+    public async Task<int> KickSessionsAsync(List<long> sessionIds, string? currentTokenId)
+    {
+        // 防自踢：排除当前请求自己的会话（批量误勾自己不应导致操作者被登出）
+        if (!string.IsNullOrEmpty(currentTokenId))
+        {
+            var own = await sessionRepository.GetFirstAsync(x => x.TokenId == currentTokenId);
+            if (own != null)
+            {
+                sessionIds = sessionIds.Where(id => id != own.Id).ToList();
+            }
+        }
+
+        var kicked = 0;
+        foreach (var id in sessionIds.Distinct())
+        {
+            var session = await sessionRepository.GetByIdAsync(id);
+            if (session == null)
+            {
+                continue; // 已下线/不存在，跳过不计
+            }
+            await sessionRepository.DeletePhysicalWhereAsync(x => x.Id == id);
+            await notifyService.PushForceLogoutAsync(session.UserId, "管理员已将您强制下线");
+            kicked++;
+        }
+        return kicked;
     }
 
     public async Task<UserDto?> GetUserProfileAsync(long userId) => await userService.GetDetailAsync(userId);

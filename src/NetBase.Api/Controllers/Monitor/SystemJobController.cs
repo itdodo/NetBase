@@ -24,6 +24,14 @@ public class SystemJobController(ISystemJobService jobService) : ControllerBase
         return ApiResult<List<JobInstanceDto>>.Ok(await jobService.GetJobsAsync());
     }
 
+    /// <summary>作业执行日志分页（作业标识/执行结果筛选，默认最新在前）</summary>
+    [HasPermission("monitor:job:list")]
+    [HttpGet("logs")]
+    public async Task<ApiResult<PageResult<JobLogDto>>> Logs([FromQuery] JobLogQueryDto query)
+    {
+        return ApiResult<PageResult<JobLogDto>>.Ok(await jobService.GetLogsAsync(query));
+    }
+
     /// <summary>修改作业 Cron（立即恢复调度）</summary>
     [HasPermission("monitor:job:edit")]
     [HttpPut("{jobId}/cron")]

@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh } from '@element-plus/icons-vue'
-import { getJobList, pauseJob, resumeJob, triggerJob, updateJobCron } from '@/api/job'
-import type { JobInstanceInfo } from '@/api/job'
+import { Refresh, Search } from '@element-plus/icons-vue'
+import { getJobList, getJobLogs, pauseJob, resumeJob, triggerJob, updateJobCron } from '@/api/job'
+import type { JobInstanceInfo, JobLogInfo } from '@/api/job'
 import { formatDateTime } from '@/utils/format'
 
 defineOptions({ name: 'MonitorJobView' })
 
+// ==================== Tab1：作业实例 ====================
 const loading = ref(false)
 const list = ref<JobInstanceInfo[]>([])
 
@@ -71,58 +72,179 @@ async function handleSaveCron(): Promise<void> {
   }
 }
 
+// ==================== Tab2：执行日志 ====================
+const activeTab = ref('jobs')
+const logsLoaded = ref(false)
+const logsLoading = ref(false)
+const logs = ref<JobLogInfo[]>([])
+const logsTotal = ref(0)
+const logsQuery = ref({ pageIndex: 1, pageSize: 10, jobId: '', success: undefined as boolean | undefined })
+
+async function loadLogs(): Promise<void> {
+  logsLoading.value = true
+  try {
+    const page = await getJobLogs({
+      pageIndex: logsQuery.value.pageIndex,
+      pageSize: logsQuery.value.pageSize,
+      jobId: logsQuery.value.jobId || undefined,
+      success: logsQuery.value.success
+    })
+    logs.value = page.items
+    logsTotal.value = page.total
+  } finally {
+    logsLoading.value = false
+  }
+}
+
+function searchLogs(): void {
+  logsQuery.value.pageIndex = 1
+  loadLogs()
+}
+
+function handleTabChange(name: string | number): void {
+  if (name === 'logs' && !logsLoaded.value) {
+    logsLoaded.value = true
+    loadLogs()
+  }
+}
+
+/** 耗时人性化显示 */
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms} ms`
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)} s`
+  return `${Math.floor(ms / 60_000)} min ${Math.round((ms % 60_000) / 1000)} s`
+}
+
+/** 失败日志一键重试 = 重新触发该作业 */
+async function handleRetry(row: JobLogInfo): Promise<void> {
+  await ElMessageBox.confirm(`确定重新执行作业「${row.jobName}」吗？`, '重试', { type: 'warning' })
+  await triggerJob(row.jobId)
+  ElMessage.success('已触发执行')
+}
+
 onMounted(loadData)
 </script>
 
 <template>
   <el-card>
-    <div class="toolbar">
-      <span class="title">定时任务（Hangfire）</span>
-      <el-button :icon="Refresh" @click="loadData">刷新</el-button>
-    </div>
+    <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+      <!-- Tab1：作业实例 -->
+      <el-tab-pane label="作业实例" name="jobs">
+        <div class="toolbar">
+          <span class="title">定时任务（Hangfire）</span>
+          <el-button :icon="Refresh" @click="loadData">刷新</el-button>
+        </div>
 
-    <el-table v-loading="loading" :data="list" border stripe>
-      <el-table-column prop="jobId" label="作业标识" min-width="140" />
-      <el-table-column prop="displayName" label="名称" min-width="240" show-overflow-tooltip />
-      <el-table-column prop="cron" label="Cron" min-width="110" />
-      <el-table-column label="上次执行" width="165" :formatter="formatDateTime" prop="lastExecution" />
-      <el-table-column label="上次结果" width="100" align="center">
-        <template #default="{ row }">
-          <el-tag
-            v-if="row.lastJobSuccess !== undefined && row.lastJobSuccess !== null"
-            :type="row.lastJobSuccess ? 'success' : 'danger'"
-            size="small"
-          >
-            {{ row.lastJobSuccess ? '成功' : '失败' }}
-          </el-tag>
-          <span v-else>-</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="下次执行" width="165" :formatter="formatDateTime" prop="nextExecution" />
-      <el-table-column label="状态" width="90" align="center">
-        <template #default="{ row }">
-          <el-tag :type="row.paused ? 'warning' : 'success'" size="small">
-            {{ row.paused ? '已暂停' : '运行中' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="220" align="center">
-        <template #default="{ row }">
-          <el-button v-permission="'monitor:job:trigger'" link type="success" @click="handleTrigger(row as JobInstanceInfo)">
-            立即执行
-          </el-button>
-          <el-button v-permission="'monitor:job:edit'" link type="primary" @click="openEditCron(row as JobInstanceInfo)">
-            修改Cron
-          </el-button>
-          <el-button v-if="!row.paused" v-permission="'monitor:job:edit'" link type="warning" @click="handlePause(row as JobInstanceInfo)">
-            暂停
-          </el-button>
-          <el-button v-else v-permission="'monitor:job:edit'" link type="success" @click="handleResume(row as JobInstanceInfo)">
-            恢复
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+        <el-table v-loading="loading" :data="list" border stripe>
+          <el-table-column prop="jobId" label="作业标识" min-width="140" />
+          <el-table-column prop="displayName" label="名称" min-width="240" show-overflow-tooltip />
+          <el-table-column prop="cron" label="Cron" min-width="110" />
+          <el-table-column label="上次执行" width="165" :formatter="formatDateTime" prop="lastExecution" />
+          <el-table-column label="上次结果" width="100" align="center">
+            <template #default="{ row }">
+              <el-tag
+                v-if="row.lastJobSuccess !== undefined && row.lastJobSuccess !== null"
+                :type="row.lastJobSuccess ? 'success' : 'danger'"
+                size="small"
+              >
+                {{ row.lastJobSuccess ? '成功' : '失败' }}
+              </el-tag>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="下次执行" width="165" :formatter="formatDateTime" prop="nextExecution" />
+          <el-table-column label="状态" width="90" align="center">
+            <template #default="{ row }">
+              <el-tag :type="row.paused ? 'warning' : 'success'" size="small">
+                {{ row.paused ? '已暂停' : '运行中' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="220" align="center">
+            <template #default="{ row }">
+              <el-button v-permission="'monitor:job:trigger'" link type="success" @click="handleTrigger(row as JobInstanceInfo)">
+                立即执行
+              </el-button>
+              <el-button v-permission="'monitor:job:edit'" link type="primary" @click="openEditCron(row as JobInstanceInfo)">
+                修改Cron
+              </el-button>
+              <el-button v-if="!row.paused" v-permission="'monitor:job:edit'" link type="warning" @click="handlePause(row as JobInstanceInfo)">
+                暂停
+              </el-button>
+              <el-button v-else v-permission="'monitor:job:edit'" link type="success" @click="handleResume(row as JobInstanceInfo)">
+                恢复
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-tab-pane>
+
+      <!-- Tab2：执行日志 -->
+      <el-tab-pane label="执行日志" name="logs">
+        <div class="toolbar">
+          <div class="filters">
+            <el-select v-model="logsQuery.jobId" placeholder="全部作业" clearable filterable style="width: 220px" @change="searchLogs">
+              <el-option v-for="j in list" :key="j.jobId" :label="j.jobId" :value="j.jobId" />
+            </el-select>
+            <el-select v-model="logsQuery.success" placeholder="全部结果" clearable style="width: 120px" @change="searchLogs">
+              <el-option label="成功" :value="true" />
+              <el-option label="失败" :value="false" />
+            </el-select>
+            <el-button :icon="Search" type="primary" plain @click="searchLogs">查询</el-button>
+          </div>
+          <el-button :icon="Refresh" @click="loadLogs">刷新</el-button>
+        </div>
+
+        <el-table v-loading="logsLoading" :data="logs" border stripe>
+          <el-table-column label="执行时间" width="165" :formatter="formatDateTime" prop="executedAt" />
+          <el-table-column prop="jobId" label="作业标识" min-width="130" show-overflow-tooltip />
+          <el-table-column prop="jobName" label="作业名称" min-width="220" show-overflow-tooltip />
+          <el-table-column label="结果" width="80" align="center">
+            <template #default="{ row }">
+              <el-tag :type="row.success ? 'success' : 'danger'" size="small">
+                {{ row.success ? '成功' : '失败' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="耗时" width="100" align="right">
+            <template #default="{ row }">{{ formatDuration(row.durationMs) }}</template>
+          </el-table-column>
+          <el-table-column label="触发方式" width="90" align="center">
+            <template #default="{ row }">
+              <el-tag :type="row.triggerType === 'manual' ? 'primary' : 'info'" size="small">
+                {{ row.triggerType === 'manual' ? '手动' : '调度' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="error" label="失败原因" min-width="200" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.error || '-' }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="80" align="center">
+            <template #default="{ row }">
+              <el-button
+                v-if="!row.success"
+                v-permission="'monitor:job:trigger'"
+                link
+                type="primary"
+                @click="handleRetry(row as JobLogInfo)"
+              >
+                重试
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <el-pagination
+          v-model:current-page="logsQuery.pageIndex"
+          v-model:page-size="logsQuery.pageSize"
+          class="pagination"
+          background
+          layout="total, prev, pager, next"
+          :total="logsTotal"
+          @current-change="() => loadLogs()"
+        />
+      </el-tab-pane>
+    </el-tabs>
 
     <!-- 修改 Cron -->
     <el-dialog v-model="cronDialogVisible" :title="`修改调度：${editingJob?.displayName}`" width="440px">
@@ -144,6 +266,12 @@ onMounted(loadData)
   margin-bottom: 12px;
 }
 
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .title {
   font-weight: 600;
 }
@@ -152,5 +280,10 @@ onMounted(loadData)
   font-size: 12px;
   color: #909399;
   margin-top: 8px;
+}
+
+.pagination {
+  margin-top: 12px;
+  justify-content: flex-end;
 }
 </style>

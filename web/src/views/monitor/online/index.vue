@@ -2,7 +2,7 @@
 import { onActivated, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
-import { kickSession, getSessionPage } from '@/api/auth'
+import { kickSession, kickSessionsBatch, getSessionPage } from '@/api/auth'
 import type { SessionInfo } from '@/api/auth'
 import { formatDateTime } from '@/utils/format'
 
@@ -12,6 +12,7 @@ const loading = ref(false)
 const list = ref<SessionInfo[]>([])
 const total = ref(0)
 const query = reactive({ pageIndex: 1, pageSize: 10 })
+const selection = ref<SessionInfo[]>([])
 
 async function loadData(silent = false): Promise<void> {
   if (!silent) loading.value = true
@@ -59,19 +60,47 @@ async function handleKick(row: SessionInfo): Promise<void> {
   loadData()
 }
 
+/** 批量强制下线（后端自动排除当前请求自己的会话，双保险） */
+async function handleBatchKick(): Promise<void> {
+  const ids = selection.value.filter(s => !s.isCurrent).map(s => String(s.id))
+  if (ids.length === 0) {
+    ElMessage.warning('请先勾选要下线的会话（当前会话不可选）')
+    return
+  }
+  await ElMessageBox.confirm(`确定强制下线选中的 ${ids.length} 个会话吗？`, '批量强制下线', { type: 'warning' })
+  const msg = await kickSessionsBatch(ids)
+  ElMessage.success(msg || '已批量强制下线')
+  loadData()
+}
+
 </script>
 
 <template>
   <el-card>
     <div class="toolbar">
       <el-button type="primary" plain :icon="Refresh" @click="loadData()">刷新</el-button>
+      <el-button
+        v-permission="'monitor:online:list'"
+        type="danger"
+        plain
+        :disabled="selection.filter(s => !s.isCurrent).length === 0"
+        @click="handleBatchKick"
+      >
+        批量下线{{ selection.filter(s => !s.isCurrent).length > 0 ? `（${selection.filter(s => !s.isCurrent).length}）` : '' }}
+      </el-button>
       <span class="auto-refresh">
         <el-switch v-model="autoRefresh" @change="setAutoRefresh" />
         15 秒自动刷新
       </span>
     </div>
-    <el-table v-loading="loading" :data="list" border stripe>
-      <el-table-column prop="userName" label="用户名" min-width="110" />
+    <el-table v-loading="loading" :data="list" border stripe @selection-change="selection = $event as SessionInfo[]">
+      <el-table-column type="selection" width="45" :selectable="(row: SessionInfo) => !row.isCurrent" />
+      <el-table-column prop="userName" label="用户名" min-width="110">
+        <template #default="{ row }">
+          {{ row.userName }}
+          <el-tag v-if="row.isCurrent" size="small" type="info">当前</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="nickName" label="昵称" min-width="110" />
       <el-table-column prop="loginIp" label="登录IP" min-width="130" />
       <el-table-column prop="userAgent" label="浏览器标识" min-width="200" show-overflow-tooltip />

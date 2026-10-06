@@ -42,6 +42,9 @@ public class SessionDto
     public DateTime LoginTime { get; set; }
 
     public DateTime ExpireTime { get; set; }
+
+    /// <summary>是否当前请求自己的会话（前端禁止勾选自踢）</summary>
+    public bool IsCurrent { get; set; }
 }
 
 /// <summary>认证服务：登录 / 刷新 / 登出 / 会话管理</summary>
@@ -74,9 +77,12 @@ public interface ISysAuthService
     /// <summary>查询用户资料（profile 接口）</summary>
     Task<UserDto?> GetUserProfileAsync(long userId);
 
-    /// <summary>在线会话分页</summary>
-    Task<PageResult<SessionDto>> GetSessionPageAsync(PageQuery query);
+    /// <summary>在线会话分页（currentTokenId 用于标记 IsCurrent）</summary>
+    Task<PageResult<SessionDto>> GetSessionPageAsync(PageQuery query, string? currentTokenId = null);
 
     /// <summary>强制下线（删除指定会话）</summary>
     Task KickSessionAsync(long sessionId);
+
+    /// <summary>批量强制下线（自动排除当前请求自己的会话），返回实际踢掉数量</summary>
+    Task<int> KickSessionsAsync(List<long> sessionIds, string? currentTokenId);
 }

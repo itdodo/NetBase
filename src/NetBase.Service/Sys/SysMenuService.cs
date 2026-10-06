@@ -163,7 +163,7 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
         // 跨会话陈旧检测：客户端回传读取时的版本参与比对（未传则用现读版本，兼容旧客户端）
         menu.Version = dto.Version ?? menu.Version;
         await UpdateWithConcurrencyCheckAsync(menu);
-        _permissionService.InvalidateAll();
+        await _permissionService.InvalidateAllAsync();
     }
 
     public async new Task DeleteAsync(long id, string? operatorName = null)
@@ -181,7 +181,7 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
         menu.UpdateBy = operatorName;
         menu.UpdateTime = DateTime.Now;
         await Repository.DeleteAsync(menu);
-        _permissionService.InvalidateAll();
+        await _permissionService.InvalidateAllAsync();
     }
 
     private Task<SysMenu> GetRequiredAsync(long id) =>

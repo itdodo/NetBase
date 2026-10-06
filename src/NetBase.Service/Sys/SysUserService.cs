@@ -182,7 +182,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
 
         if (successCount > 0)
         {
-            _permissionService.InvalidateAll();
+            await _permissionService.InvalidateAllAsync();
         }
         return (successCount, errors);
     }
@@ -302,7 +302,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             }
             return true;
         });
-        _permissionService.InvalidateAll();
+        await _permissionService.InvalidateAllAsync();
     }
 
     public async new Task DeleteAsync(long id, string? operatorName = null)
@@ -324,7 +324,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             await _userRoleRepository.DeleteWhereAsync(x => x.UserId == id);
             return true;
         });
-        _permissionService.InvalidateAll();
+        await _permissionService.InvalidateAllAsync();
     }
 
     public async Task ResetPasswordAsync(long id, string? newPassword, string? operatorName = null)
@@ -349,11 +349,17 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             x => x.Id == id,
             x => new SysUser { Password = hashed, PwdUpdateTime = DateTime.Now, UpdateTime = DateTime.Now, UpdateBy = operatorName });
         // 重置密码后清除该用户全部会话与登录失败计数，强制重新登录
+        // （先清会话有效性标记再删行，删后查不到 tokenId）
+        var userSessions = await _userSessionRepository.GetListAsync(x => x.UserId == id);
+        foreach (var s2 in userSessions)
+        {
+            await _cacheService.RemoveAsync($"session:valid:{s2.TokenId}");
+        }
         await _userSessionRepository.DeletePhysicalWhereAsync(x => x.UserId == id);
         var failKey = $"login:fail:{user.UserName.ToLowerInvariant()}";
         var lockKey = $"login:lock:{user.UserName.ToLowerInvariant()}";
-        _cacheService.Remove(failKey);
-        _cacheService.Remove(lockKey);
+        await _cacheService.RemoveAsync(failKey);
+        await _cacheService.RemoveAsync(lockKey);
     }
 
     public async Task AssignRolesAsync(long userId, List<long> roleIds, string? operatorName = null)
@@ -369,7 +375,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             await SaveUserRolesAsync(userId, roleIds);
             return true;
         });
-        _permissionService.InvalidateAll();
+        await _permissionService.InvalidateAllAsync();
     }
 
     public Task<SysUser?> GetByUserNameAsync(string userName) =>

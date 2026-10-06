@@ -47,34 +47,34 @@ public class CaptchaService(
         return enabled != "false"; // 缺省启用
     }
 
-    public Task<CaptchaResult> GenerateAsync()
+    public async Task<CaptchaResult> GenerateAsync()
     {
         var captchaId = Guid.NewGuid().ToString("N");
         var data = captcha.Generate(captchaId);
 
-        cacheService.Set($"captcha:{captchaId}", data.Code.ToUpperInvariant(), Ttl);
-        return Task.FromResult(new CaptchaResult
+        await cacheService.SetAsync($"captcha:{captchaId}", data.Code.ToUpperInvariant(), Ttl);
+        return new CaptchaResult
         {
             CaptchaId = captchaId,
             Svg = $"data:image/gif;base64,{data.Base64}"
-        });
+        };
     }
 
-    public Task<bool> ValidateAsync(string captchaId, string code)
+    public async Task<bool> ValidateAsync(string captchaId, string code)
     {
         if (captchaId.IsNullOrWhiteSpace() || code.IsNullOrWhiteSpace())
         {
-            return Task.FromResult(false);
+            return false;
         }
 
         var key = $"captcha:{captchaId}";
-        var expected = cacheService.Get<string>(key);
+        var expected = await cacheService.GetAsync<string>(key);
         if (expected == null)
         {
-            return Task.FromResult(false); // 过期或不存在
+            return false; // 过期或不存在
         }
 
-        cacheService.Remove(key); // 一次性
-        return Task.FromResult(string.Equals(expected, code.Trim(), StringComparison.OrdinalIgnoreCase));
+        await cacheService.RemoveAsync(key); // 一次性
+        return string.Equals(expected, code.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 }

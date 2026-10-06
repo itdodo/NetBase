@@ -26,3 +26,8 @@ src/NetBase.Api/backup/
 backup-drill/
 preview_result.json
 preview_result.json
+
+# 压测器构建产物
+scripts/loadtest/NetBase.LoadTest/bin/
+scripts/loadtest/NetBase.LoadTest/obj/
+scripts/loadtest/NetBase.LoadTest/publish/

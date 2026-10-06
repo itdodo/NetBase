@@ -17,35 +17,34 @@ public class NoRepeatSubmitAttribute(int windowSeconds = 2) : Attribute
     public int WindowSeconds { get; } = windowSeconds;
 }
 
-/// <summary>防重复提交过滤器：与 NoRepeatSubmitAttribute 配套</summary>
-public class NoRepeatSubmitFilter(ICacheService cacheService, ICurrentUserService currentUser) : IActionFilter
+/// <summary>防重复提交过滤器：与 NoRepeatSubmitAttribute 配套（异步过滤器：缓存可能走 Redis，同步等待会阻塞线程池）</summary>
+public class NoRepeatSubmitFilter(ICacheService cacheService, ICurrentUserService currentUser) : IAsyncActionFilter
 {
-    public void OnActionExecuting(ActionExecutingContext context)
+    public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
         if (context.HttpContext.Request.Method is not ("POST" or "PUT" or "DELETE" or "PATCH"))
         {
+            await next();
             return;
         }
 
         var attribute = context.ActionDescriptor.EndpointMetadata.OfType<NoRepeatSubmitAttribute>().FirstOrDefault();
         if (attribute == null || currentUser.UserId == null)
         {
+            await next();
             return; // 未标注或未登录不判重
         }
 
         var argsJson = SafeSerialize(context.ActionArguments);
         var argsHash = Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(argsJson)));
         var key = $"norepeat:{currentUser.UserId}:{context.HttpContext.Request.Path}:{argsHash}";
-        if (cacheService.Exists(key))
+        if (await cacheService.ExistsAsync(key))
         {
             context.Result = new JsonResult(NetBase.Common.Results.ApiResult.Fail("请勿重复提交", NetBase.Common.Results.ApiResultCode.BadRequest, NetBase.Common.Results.ErrorCodes.COMMON_REPEAT_SUBMIT));
             return;
         }
-        cacheService.Set(key, true, TimeSpan.FromSeconds(attribute.WindowSeconds));
-    }
-
-    public void OnActionExecuted(ActionExecutedContext context)
-    {
+        await cacheService.SetAsync(key, true, TimeSpan.FromSeconds(attribute.WindowSeconds));
+        await next();
     }
 
     /// <summary>参数序列化：IFormFile 等不可序列化对象降级为类型名</summary>

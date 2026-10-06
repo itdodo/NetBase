@@ -48,7 +48,7 @@ public class PasswordResetTests
 
     private ISysAuthService Auth => _fixture.GetService<ISysAuthService>();
 
-    private string? GetCachedCode(string userName) => _cache.Get<string>($"pwdreset:code:{userName}");
+    private Task<string?> GetCachedCode(string userName) => _cache.GetAsync<string>($"pwdreset:code:{userName}");
 
     [Fact]
     public async Task FullFlow_ResetThenLoginWithNewPassword()
@@ -57,14 +57,14 @@ public class PasswordResetTests
 
         // 发码：静默成功（对外统一提示由控制器层保证）
         await Auth.SendResetCodeAsync(user.UserName, user.Email, ip: "127.0.0.1");
-        var code = GetCachedCode(user.UserName);
+        var code = await GetCachedCode(user.UserName);
         Assert.NotNull(code);
         Assert.Single(_email.Sent);
         Assert.Equal(user.Email, _email.Sent[0].To);
 
         // 重置成功 → 全端会话清除 + 验证码已消耗
         await Auth.ResetPasswordByCodeAsync(user.UserName, user.Email, code!, "NewPwd@456", ip: "127.0.0.1");
-        Assert.Null(GetCachedCode(user.UserName));
+        Assert.Null(await GetCachedCode(user.UserName));
 
         // 新密码可登录，旧密码被拒
         await Auth.LoginAsync(user.UserName, "NewPwd@456", "127.0.0.1", "test");
@@ -80,7 +80,7 @@ public class PasswordResetTests
         // 账号存在但邮箱不匹配：不发码、不报错（防枚举）
         await Auth.SendResetCodeAsync(user.UserName, "wrong@test.local", ip: "127.0.0.1");
         Assert.Empty(_email.Sent);
-        Assert.Null(GetCachedCode(user.UserName));
+        Assert.Null(await GetCachedCode(user.UserName));
 
         // 账号不存在：同样静默
         await Auth.SendResetCodeAsync("no_such_user_xxx", "any@test.local", ip: "127.0.0.1");
@@ -103,7 +103,7 @@ public class PasswordResetTests
     {
         var (user, _) = await CreateUserAsync("pwdsingle");
         await Auth.SendResetCodeAsync(user.UserName, user.Email, ip: "127.0.0.1");
-        var code = GetCachedCode(user.UserName)!;
+        var code = (await GetCachedCode(user.UserName))!;
 
         await Auth.ResetPasswordByCodeAsync(user.UserName, user.Email, code, "NewPwd@456", ip: "127.0.0.1");
 
@@ -117,13 +117,13 @@ public class PasswordResetTests
     {
         var (user, _) = await CreateUserAsync("pwdpolicy");
         await Auth.SendResetCodeAsync(user.UserName, user.Email, ip: "127.0.0.1");
-        var code = GetCachedCode(user.UserName)!;
+        var code = (await GetCachedCode(user.UserName))!;
 
         var ex = await Assert.ThrowsAsync<BusinessException>(
             () => Auth.ResetPasswordByCodeAsync(user.UserName, user.Email, code, "123456", ip: "127.0.0.1"));
         Assert.Equal(ErrorCodes.AUTH_PWD_POLICY_VIOLATION, ex.ErrorCode);
         // 验证码已消耗（安全优先）
-        Assert.Null(GetCachedCode(user.UserName));
+        Assert.Null(await GetCachedCode(user.UserName));
     }
 
     [Fact]
@@ -146,7 +146,7 @@ public class PasswordResetTests
         var ex = await Assert.ThrowsAsync<BusinessException>(
             () => Auth.SendResetCodeAsync(user.UserName, user.Email, ip: "127.0.0.1"));
         Assert.Equal(ErrorCodes.AUTH_RESET_CODE_INVALID, ex.ErrorCode);
-        Assert.Null(GetCachedCode(user.UserName));
+        Assert.Null(await GetCachedCode(user.UserName));
         _email.Enabled = true;
     }
 
@@ -165,7 +165,7 @@ public class PasswordResetTests
         });
 
         await Auth.SendResetCodeAsync(userName, $"{userName}@test.local", ip: "127.0.0.1");
-        Assert.Null(GetCachedCode(userName));
+        Assert.Null(await GetCachedCode(userName));
         Assert.Empty(_email.Sent);
     }
 }

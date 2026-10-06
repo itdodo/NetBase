@@ -8,6 +8,7 @@ namespace NetBase.Middleware.Cache;
 /// <summary>
 /// Redis 缓存实现（备用方案）。Configuration:Cache:Provider=Redis 时启用。
 /// 采用 Lazy 懒连接，Redis 不可用不影响启动；值以 JSON 序列化存储。
+/// 全异步访问（同步 API 阻塞线程池，高并发下线程饥饿级联超时——压测实证）。
 /// </summary>
 public class RedisCacheService : ICacheService
 {
@@ -29,22 +30,22 @@ public class RedisCacheService : ICacheService
 
     private string FullKey(string key) => $"{_keyPrefix}{key}";
 
-    public T? Get<T>(string key)
+    public async Task<T?> GetAsync<T>(string key)
     {
-        var value = Db.StringGet(FullKey(key));
+        var value = await Db.StringGetAsync(FullKey(key));
         return value.IsNull ? default : ((string)value!).FromJson<T>();
     }
 
-    public void Set<T>(string key, T value, TimeSpan? expiry = null)
+    public async Task SetAsync<T>(string key, T value, TimeSpan? expiry = null)
     {
         // StackExchange.Redis 3.x：过期时间通过 Expiration 结构传递，Default 表示永不过期
         var expiration = expiry.HasValue ? new Expiration(expiry.Value) : Expiration.Default;
-        Db.StringSet(FullKey(key), value.ToJson(), expiration);
+        await Db.StringSetAsync(FullKey(key), value.ToJson(), expiration);
     }
 
-    public void Remove(string key) => Db.KeyDelete(FullKey(key));
+    public Task RemoveAsync(string key) => Db.KeyDeleteAsync(FullKey(key));
 
-    public bool Exists(string key) => Db.KeyExists(FullKey(key));
+    public Task<bool> ExistsAsync(string key) => Db.KeyExistsAsync(FullKey(key));
 
     /// <summary>Redis 诊断指标（memory/stats），供系统监控页展示</summary>
     public Task<object?> GetRedisDiagnosticsAsync()

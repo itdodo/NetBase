@@ -145,7 +145,7 @@ public class SysDictService(
     public async Task<List<DictDataDto>> GetEnabledDataByCodeAsync(string dictCode)
     {
         var key = CacheKey(dictCode);
-        var cached = cacheService.Get<List<DictDataDto>>(key);
+        var cached = await cacheService.GetAsync<List<DictDataDto>>(key);
         if (cached != null)
         {
             return cached;
@@ -162,7 +162,7 @@ public class SysDictService(
         var result = items.OrderBy(x => x.Sort)
             .Select(x => new DictDataDto { Id = x.Id, Label = x.Label, Value = x.Value, Sort = x.Sort, Status = x.Status, DictCode = type.DictCode })
             .ToList();
-        cacheService.Set(key, result, CacheTtl);
+        await cacheService.SetAsync(key, result, CacheTtl);
         return result;
     }
 

@@ -39,7 +39,7 @@ public class SysConfigService(
     public async Task<string?> GetConfigValueAsync(string configKey)
     {
         var key = CacheKey(configKey);
-        var cached = cacheService.Get<string>(key);
+        var cached = await cacheService.GetAsync<string>(key);
         if (cached != null)
         {
             return cached;
@@ -50,7 +50,7 @@ public class SysConfigService(
         {
             return null;
         }
-        cacheService.Set(key, config.ConfigValue, CacheTtl);
+        await cacheService.SetAsync(key, config.ConfigValue, CacheTtl);
         return config.ConfigValue;
     }
 

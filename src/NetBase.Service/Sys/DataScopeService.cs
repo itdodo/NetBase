@@ -16,17 +16,34 @@ public class DataScopeService(
 {
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(60);
 
+    /// <summary>并发未命中合并（单飞）：同键只允许一个 DB 加载在途</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Task<DataScopeInfo>> InFlight = new();
+
     private string CacheKey(long userId) => $"datascope:{userId}";
 
     public async Task<DataScopeInfo> GetDataScopeAsync(long userId)
     {
         var cacheKey = CacheKey(userId);
-        var cached = cacheService.Get<DataScopeInfo>(cacheKey);
+        var cached = await cacheService.GetAsync<DataScopeInfo>(cacheKey);
         if (cached != null)
         {
             return cached;
         }
 
+        // 单飞：L1 失效瞬间的并发未命中合并为一次 DB 加载，防惊群打爆连接池
+        var loadTask = InFlight.GetOrAdd(cacheKey, _ => LoadDataScopeAsync(userId, cacheKey));
+        try
+        {
+            return await loadTask;
+        }
+        finally
+        {
+            InFlight.TryRemove(cacheKey, out _);
+        }
+    }
+
+    private async Task<DataScopeInfo> LoadDataScopeAsync(long userId, string cacheKey)
+    {
         var user = await userRepository.GetByIdAsync(userId);
         if (user == null)
         {
@@ -84,7 +101,7 @@ public class DataScopeService(
             info.IncludeSelfData = true;
         }
 
-        cacheService.Set(cacheKey, info, CacheTtl);
+        await cacheService.SetAsync(cacheKey, info, CacheTtl);
         return info;
     }
 

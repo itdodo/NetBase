@@ -5,6 +5,7 @@ namespace NetBase.Middleware.Cache;
 
 /// <summary>
 /// 进程内缓存实现（默认）。单机部署或开发环境使用。
+/// 内存操作本身非阻塞，异步方法为直接封装。
 /// </summary>
 public class MemoryCacheService : ICacheService
 {
@@ -15,14 +16,20 @@ public class MemoryCacheService : ICacheService
         _memoryCache = memoryCache;
     }
 
-    public T? Get<T>(string key) => _memoryCache.TryGetValue(key, out T? value) ? value : default;
+    public Task<T?> GetAsync<T>(string key) =>
+        Task.FromResult(_memoryCache.TryGetValue(key, out T? value) ? value : default);
 
-    public void Set<T>(string key, T value, TimeSpan? expiry = null) =>
-        _memoryCache.Set(key, value, expiry.HasValue
+    public Task SetAsync<T>(string key, T value, TimeSpan? expiry = null) =>
+        Task.FromResult(_memoryCache.Set(key, value, expiry.HasValue
             ? new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = expiry }
-            : new MemoryCacheEntryOptions());
+            : new MemoryCacheEntryOptions()));
 
-    public void Remove(string key) => _memoryCache.Remove(key);
+    public Task RemoveAsync(string key)
+    {
+        _memoryCache.Remove(key);
+        return Task.CompletedTask;
+    }
 
-    public bool Exists(string key) => _memoryCache.TryGetValue(key, out _);
+    public Task<bool> ExistsAsync(string key) =>
+        Task.FromResult(_memoryCache.TryGetValue(key, out _));
 }

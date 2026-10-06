@@ -163,7 +163,7 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
             await _roleDeptRepository.DeleteWhereAsync(x => x.RoleId == id);
             return true;
         });
-        _permissionService.InvalidateAll();
+        await _permissionService.InvalidateAllAsync();
     }
 
     public async Task AssignMenusAsync(long roleId, List<long> menuIds)
@@ -193,7 +193,7 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
             }
             return true;
         });
-        _permissionService.InvalidateAll();
+        await _permissionService.InvalidateAllAsync();
     }
 
     public async Task<List<long>> GetMenuIdsAsync(long roleId)

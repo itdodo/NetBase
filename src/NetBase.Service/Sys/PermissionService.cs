@@ -8,7 +8,7 @@ namespace NetBase.Service.Sys;
 
 /// <summary>
 /// 用户权限码服务（角色 → 菜单权限码），带进程内缓存。
-/// 角色菜单/用户角色变更时调用 InvalidateAll 使缓存整体失效。
+/// 角色菜单/用户角色变更时调用 InvalidateAllAsync 使缓存整体失效。
 /// </summary>
 public interface IPermissionService
 {
@@ -16,7 +16,7 @@ public interface IPermissionService
     Task<HashSet<string>> GetUserPermissionsAsync(long userId);
 
     /// <summary>清除全部用户权限缓存（角色授权、菜单变更后调用）</summary>
-    void InvalidateAll();
+    Task InvalidateAllAsync();
 }
 
 public class PermissionService : IPermissionService
@@ -46,10 +46,10 @@ public class PermissionService : IPermissionService
 
     public async Task<HashSet<string>> GetUserPermissionsAsync(long userId)
     {
-        var version = _cacheService.Get<long>(VersionKey);
+        var version = await _cacheService.GetAsync<long>(VersionKey);
         var key = $"perm:v{version}:{userId}";
 
-        var cached = _cacheService.Get<HashSet<string>>(key);
+        var cached = await _cacheService.GetAsync<HashSet<string>>(key);
         if (cached != null)
         {
             return cached;
@@ -73,15 +73,15 @@ public class PermissionService : IPermissionService
             }
         }
 
-        _cacheService.Set(key, permissions, CacheTtl);
+        await _cacheService.SetAsync(key, permissions, CacheTtl);
         return permissions;
     }
 
-    public void InvalidateAll()
+    public async Task InvalidateAllAsync()
     {
         // 版本号递增使全部权限缓存 key 失效，无需遍历清除
-        var version = _cacheService.Get<long>(VersionKey);
-        _cacheService.Set(VersionKey, version + 1);
+        var version = await _cacheService.GetAsync<long>(VersionKey);
+        await _cacheService.SetAsync(VersionKey, version + 1);
         _logger.LogDebug("权限缓存已整体失效（version={Version}）", version + 1);
     }
 }

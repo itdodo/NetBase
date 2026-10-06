@@ -85,7 +85,7 @@ public class SysAuthService(
         var key = userName.ToLowerInvariant();
         var failKey = $"login:fail:{key}";
         var lockKey = $"login:lock:{key}";
-        if (cacheService.Get<bool>(lockKey))
+        if (await cacheService.GetAsync<bool>(lockKey))
         {
             var lockMinutes = await GetLockMinutesAsync();
             throw new BusinessException($"密码错误次数过多，账号已锁定，请 {lockMinutes} 分钟后重试", ApiResultCode.BadRequest, ErrorCodes.AUTH_ACCOUNT_LOCKED);
@@ -97,12 +97,12 @@ public class SysAuthService(
         {
             // 统一错误提示，不泄露账号是否存在；失败计数入缓存，达阈值锁定
             var threshold = await GetFailThresholdAsync();
-            var fails = cacheService.Get<int>(failKey) + 1;
-            cacheService.Set(failKey, fails, FailWindow);
+            var fails = await cacheService.GetAsync<int>(failKey) + 1;
+            await cacheService.SetAsync(failKey, fails, FailWindow);
             if (fails >= threshold)
             {
                 var lockMinutes = await GetLockMinutesAsync();
-                cacheService.Set(lockKey, true, TimeSpan.FromMinutes(lockMinutes));
+                await cacheService.SetAsync(lockKey, true, TimeSpan.FromMinutes(lockMinutes));
             }
             return null;
         }
@@ -112,7 +112,7 @@ public class SysAuthService(
             throw new BusinessException("账号已被停用，请联系管理员", ApiResultCode.Forbidden, ErrorCodes.AUTH_ACCOUNT_DISABLED);
         }
 
-        cacheService.Remove(failKey);
+        await cacheService.RemoveAsync(failKey);
         return await CreateSessionAsync(user, loginIp, userAgent);
     }
 
@@ -149,15 +149,22 @@ public class SysAuthService(
 
         // 轮换：删除旧会话，签发全新 token 对
         await sessionRepository.DeletePhysicalWhereAsync(x => x.Id == session.Id);
+        await EvictSessionValidAsync(session.TokenId);
         return await CreateSessionAsync(user, loginIp, userAgent);
     }
 
     // 会话记录无审计价值，登出/踢人/过期清理一律物理删除，防止软删记录无限膨胀
-    public async Task LogoutAsync(string tokenId) =>
+    public async Task LogoutAsync(string tokenId)
+    {
         await sessionRepository.DeletePhysicalWhereAsync(x => x.TokenId == tokenId);
+        await EvictSessionValidAsync(tokenId);
+    }
 
-    public async Task RemoveUserSessionsAsync(long userId) =>
+    public async Task RemoveUserSessionsAsync(long userId)
+    {
+        await EvictSessionValidByUserAsync(userId);
         await sessionRepository.DeletePhysicalWhereAsync(x => x.UserId == userId);
+    }
 
     public async Task<PageResult<SessionDto>> GetSessionPageAsync(PageQuery query, string? currentTokenId = null)
     {
@@ -190,6 +197,7 @@ public class SysAuthService(
         await sessionRepository.DeletePhysicalWhereAsync(x => x.Id == sessionId);
         if (session != null)
         {
+            await EvictSessionValidAsync(session.TokenId);
             await notifyService.PushForceLogoutAsync(session.UserId, "管理员已将您强制下线");
         }
     }
@@ -215,6 +223,7 @@ public class SysAuthService(
                 continue; // 已下线/不存在，跳过不计
             }
             await sessionRepository.DeletePhysicalWhereAsync(x => x.Id == id);
+            await EvictSessionValidAsync(session.TokenId);
             await notifyService.PushForceLogoutAsync(session.UserId, "管理员已将您强制下线");
             kicked++;
         }
@@ -248,12 +257,33 @@ public class SysAuthService(
             x => new SysUser { Password = hashed, PwdUpdateTime = DateTime.Now, UpdateTime = DateTime.Now, UpdateBy = operatorName });
 
         // 改密后清除全部会话（含当前），强制重新登录
+        await EvictSessionValidByUserAsync(userId);
         await sessionRepository.DeletePhysicalWhereAsync(x => x.UserId == userId);
     }
 
     private const string ResetCodeKey = "pwdreset:code:";
     private const string ResetFreqKey = "pwdreset:freq:";
     private const string ResetTryKey = "pwdreset:try:";
+    private const string SessionValidKey = "session:valid:";
+
+    /// <summary>清除会话有效性标记（OnTokenValidated 的 60 秒存在性缓存）——登出/踢线必须同步调用，杜绝宽限窗口</summary>
+    private async Task EvictSessionValidAsync(string? tokenId)
+    {
+        if (!string.IsNullOrEmpty(tokenId))
+        {
+            await cacheService.RemoveAsync(SessionValidKey + tokenId);
+        }
+    }
+
+    /// <summary>按用户清除会话标记（须在删除会话行之前调用，行删后查不到 tokenId）</summary>
+    private async Task EvictSessionValidByUserAsync(long userId)
+    {
+        var sessions = await sessionRepository.GetListAsync(x => x.UserId == userId);
+        foreach (var s in sessions)
+        {
+            await cacheService.RemoveAsync(SessionValidKey + s.TokenId);
+        }
+    }
 
     /// <inheritdoc />
     public async Task SendResetCodeAsync(string userName, string email, string? ip)
@@ -265,7 +295,7 @@ public class SysAuthService(
 
         // 发码限频：同账号 60 秒一次（防轰炸；正常用户重发间隔足够）
         var freqKey = ResetFreqKey + userName;
-        if (cacheService.Get<bool>(freqKey))
+        if (await cacheService.GetAsync<bool>(freqKey))
         {
             throw new BusinessException("验证码发送过于频繁，请稍后再试", ApiResultCode.BadRequest, ErrorCodes.AUTH_RESET_CODE_RATE_LIMITED);
         }
@@ -283,7 +313,7 @@ public class SysAuthService(
         }
 
         var code = Random.Shared.Next(100000, 999999).ToString();
-        cacheService.Set(ResetCodeKey + userName, code, TimeSpan.FromMinutes(5));
+        await cacheService.SetAsync(ResetCodeKey + userName, code, TimeSpan.FromMinutes(5));
         var sent = await emailService.SendAsync(
             user!.Email!.Trim(),
             "NetBase 密码重置验证码",
@@ -292,12 +322,12 @@ public class SysAuthService(
             "<p>验证码 5 分钟内有效且一次使用。若非本人操作，请忽略本邮件。</p>");
         if (sent)
         {
-            cacheService.Set(freqKey, true, TimeSpan.FromSeconds(60));
+            await cacheService.SetAsync(freqKey, true, TimeSpan.FromSeconds(60));
             return;
         }
 
         // 邮件通道故障（未配置 SMTP/发送失败）：清码并明确报错——静默成功会让用户干等一封永远不来的邮件
-        cacheService.Remove(ResetCodeKey + userName);
+        await cacheService.RemoveAsync(ResetCodeKey + userName);
         throw new BusinessException("邮件发送失败，请联系管理员检查系统邮件配置", ApiResultCode.BadRequest, ErrorCodes.AUTH_RESET_CODE_INVALID);
     }
 
@@ -306,17 +336,17 @@ public class SysAuthService(
     {
         // 重置尝试限频：同账号每小时 10 次（验证码空间 10^6，防穷举）
         var tryKey = ResetTryKey + userName;
-        var tries = cacheService.Get<int>(tryKey);
+        var tries = await cacheService.GetAsync<int>(tryKey);
         if (tries >= 10)
         {
             throw new BusinessException("重置尝试过于频繁，请稍后再试", ApiResultCode.BadRequest, ErrorCodes.AUTH_RESET_ATTEMPT_RATE_LIMITED);
         }
-        cacheService.Set(tryKey, tries + 1, TimeSpan.FromHours(1));
+        await cacheService.SetAsync(tryKey, tries + 1, TimeSpan.FromHours(1));
 
         // 验证码一次性：取后即删（无论对错都消耗本次尝试）
         var codeKey = ResetCodeKey + userName;
-        var cached = cacheService.Get<string>(codeKey);
-        cacheService.Remove(codeKey);
+        var cached = await cacheService.GetAsync<string>(codeKey);
+        await cacheService.RemoveAsync(codeKey);
         if (cached == null || cached != code.Trim())
         {
             throw new BusinessException("验证码错误或已过期", ApiResultCode.BadRequest, ErrorCodes.AUTH_RESET_CODE_INVALID);
@@ -348,6 +378,7 @@ public class SysAuthService(
             x => new SysUser { Password = hashed, PwdUpdateTime = DateTime.Now, UpdateTime = DateTime.Now, UpdateBy = "password-reset" });
 
         // 全端踢线：旧会话立即失效
+        await EvictSessionValidByUserAsync(user.Id);
         await sessionRepository.DeletePhysicalWhereAsync(x => x.UserId == user.Id);
 
         await notifyService.PushToUsersAsync([user.Id], new NetBase.Common.Realtime.NoticePayload
@@ -374,6 +405,7 @@ public class SysAuthService(
         if (await configService.GetIntConfigAsync("sys.login.kickSameUser", 0) == 1)
         {
             await notifyService.PushForceLogoutAsync(user.Id, "您的账号已在其他设备登录，如非本人操作请及时修改密码");
+            await EvictSessionValidByUserAsync(user.Id);
             await sessionRepository.DeletePhysicalWhereAsync(x => x.UserId == user.Id);
         }
 

@@ -186,13 +186,24 @@ builder.Services
                     context.Fail("无效令牌");
                     return;
                 }
+                // 会话存在性缓存（60 秒）：免去每请求一次会话表查询——500qps 下该查询纯属 DB 陪跑。
+                // 登出/踢线/批量踢线/改密清会话各路径均已同步清标记，无宽限窗口
+                var cache = context.HttpContext.RequestServices
+                    .GetRequiredService<NetBase.Common.Cache.ICacheService>();
+                var validKey = $"session:valid:{tokenId}";
+                if (await cache.GetAsync<bool>(validKey))
+                {
+                    return;
+                }
                 var sessionRepository = context.HttpContext.RequestServices
                     .GetRequiredService<NetBase.Repository.Repositories.IRepository<NetBase.Model.Entities.SysUserSession>>();
                 var session = await sessionRepository.GetFirstAsync(x => x.TokenId == tokenId);
                 if (session == null || session.ExpireTime <= DateTime.Now)
                 {
                     context.Fail("会话已失效");
+                    return;
                 }
+                await cache.SetAsync(validKey, true, TimeSpan.FromSeconds(60));
             },
             // 统一返回：管道 401 也带 ApiResult 结构（HTTP 状态仍为真实 401，前端按状态码走刷新/回登录）
             OnChallenge = async context =>

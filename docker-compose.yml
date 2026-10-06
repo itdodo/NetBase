@@ -41,7 +41,7 @@ services:
     environment:
       TZ: "Asia/Shanghai"
       ASPNETCORE_ENVIRONMENT: "Production"
-      Db__ConnectionString: "Host=db;Port=5432;Database=netbase;Username=netbase;Password=YourStrong@Password1;Maximum Pool Size=50"
+      Db__ConnectionString: "Host=db;Port=5432;Database=netbase;Username=netbase;Password=YourStrong@Password1;Maximum Pool Size=300;Minimum Pool Size=20;Timeout=5"
       ConnectionStrings__Hangfire: "Host=db;Port=5432;Database=netbase;Username=netbase;Password=YourStrong@Password1;Maximum Pool Size=10"
       Jwt__SecretKey: "CHANGE_ME_Please-Use-A-Random-Key-At-Least-32-Chars-Long!"
       # 备份目录指向挂载卷（pg_dump 在 api 容器内执行，镜像已内置 postgresql-client-17）

@@ -31,3 +31,6 @@ preview_result.json
 scripts/loadtest/NetBase.LoadTest/bin/
 scripts/loadtest/NetBase.LoadTest/obj/
 scripts/loadtest/NetBase.LoadTest/publish/
+
+# NBomber 报告产物
+scripts/loadtest/NetBase.LoadTest/reports/

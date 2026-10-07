@@ -122,7 +122,7 @@ public interface ISysLogService
     Task RecordLoginAsync(SysLoginLog log);
 
     /// <summary>操作日志分页</summary>
-    Task<PageResult<OperationLogDto>> GetOperationLogPageAsync(LogQueryDto query);
+    Task<PageResult<OperationLogDto>> GetOperationLogPageAsync(LogQueryDto query, long? viewerUserId = null);
 
     /// <summary>清理指定日期前的操作日志（物理删除）</summary>
     Task<int> CleanupOperationLogsAsync(DateTime before);
@@ -131,16 +131,16 @@ public interface ISysLogService
     Task<int> CleanupLoginLogsAsync(DateTime before);
 
     /// <summary>操作日志导出（全量，条件同分页）</summary>
-    Task<List<OperationLogDto>> GetOperationLogExportAsync(LogQueryDto query);
+    Task<List<OperationLogDto>> GetOperationLogExportAsync(LogQueryDto query, long? viewerUserId = null);
 
     /// <summary>登录日志导出（全量，条件同分页）</summary>
-    Task<List<LoginLogDto>> GetLoginLogExportAsync(LogQueryDto query);
+    Task<List<LoginLogDto>> GetLoginLogExportAsync(LogQueryDto query, long? viewerUserId = null);
 
     /// <summary>登录日志分页</summary>
-    Task<PageResult<LoginLogDto>> GetLoginLogPageAsync(LogQueryDto query);
+    Task<PageResult<LoginLogDto>> GetLoginLogPageAsync(LogQueryDto query, long? viewerUserId = null);
 
     /// <summary>字段级变更日志分页（sys_change_log）</summary>
-    Task<PageResult<ChangeLogDto>> GetChangeLogPageAsync(ChangeLogQueryDto query);
+    Task<PageResult<ChangeLogDto>> GetChangeLogPageAsync(ChangeLogQueryDto query, long? viewerUserId = null);
 
     /// <summary>清理指定日期前的变更日志（物理删除）</summary>
     Task<int> CleanupChangeLogsAsync(DateTime before);

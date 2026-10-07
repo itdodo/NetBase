@@ -17,7 +17,7 @@ public class SysLogController(ISysLogService logService,
     [HttpGet("operation/page")]
     public async Task<ApiResult<PageResult<OperationLogDto>>> OperationPage([FromQuery] LogQueryDto query)
     {
-        return Success(await logService.GetOperationLogPageAsync(query));
+        return Success(await logService.GetOperationLogPageAsync(query, currentUserService.UserId));
     }
 
     /// <summary>清理操作日志（物理删除 before 之前记录）</summary>
@@ -43,7 +43,7 @@ public class SysLogController(ISysLogService logService,
     [HttpGet("operation/export")]
     public async Task<IActionResult> OperationExport([FromQuery] LogQueryDto query)
     {
-        var list = await logService.GetOperationLogExportAsync(query);
+        var list = await logService.GetOperationLogExportAsync(query, currentUserService.UserId);
         var rows = list.Select(x => new
         {
             操作人 = x.UserName,
@@ -65,7 +65,7 @@ public class SysLogController(ISysLogService logService,
     [HttpGet("login/page")]
     public async Task<ApiResult<PageResult<LoginLogDto>>> LoginPage([FromQuery] LogQueryDto query)
     {
-        return Success(await logService.GetLoginLogPageAsync(query));
+        return Success(await logService.GetLoginLogPageAsync(query, currentUserService.UserId));
     }
 
     /// <summary>导出登录日志（xlsx，条件同分页）</summary>
@@ -73,7 +73,7 @@ public class SysLogController(ISysLogService logService,
     [HttpGet("login/export")]
     public async Task<IActionResult> LoginExport([FromQuery] LogQueryDto query)
     {
-        var list = await logService.GetLoginLogExportAsync(query);
+        var list = await logService.GetLoginLogExportAsync(query, currentUserService.UserId);
         var rows = list.Select(x => new
         {
             用户名 = x.UserName,

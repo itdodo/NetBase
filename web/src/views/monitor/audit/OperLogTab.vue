@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Search } from '@element-plus/icons-vue'
 import type { OperationLogInfo } from '@/api/log'
-import { formatDateTime, formatAction } from '@/utils/format'
+import { formatDateTime, formatAction, ACTION_LABELS } from '@/utils/format'
 import { cleanupOperationLogs } from '@/api/monitor'
 import { download } from '@/utils/download'
 import { usePageList } from '@/composables/usePageList'
@@ -12,6 +12,7 @@ interface OperationLogQuery {
   pageIndex: number
   pageSize: number
   keyword: string
+  action?: string
   success?: number
   beginTime?: string
   endTime?: string
@@ -35,6 +36,7 @@ const {
     pageIndex: 1,
     pageSize: 10,
     keyword: '',
+    action: undefined,
     success: undefined,
     beginTime: undefined,
     endTime: undefined
@@ -51,8 +53,12 @@ async function handleExport(): Promise<void> {
   await download('/sys/log/operation/export', { ...query }, `操作日志_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
+// 动作下拉选项（中文标签 ← 英文码，与表格列翻译同源）
+const actionOptions = Object.entries(ACTION_LABELS).map(([value, label]) => ({ value, label }))
+
 function handleReset(): void {
   query.keyword = ''
+  query.action = undefined
   query.success = undefined
   dateRange.value = null
   handleSearchWithDate()
@@ -80,6 +86,9 @@ onMounted(loadData)
         :prefix-icon="Search"
         @keyup.enter="handleSearchWithDate"
       />
+      <el-select v-model="query.action" placeholder="动作" clearable filterable style="width: 140px">
+        <el-option v-for="opt in actionOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+      </el-select>
       <el-select v-model="query.success" placeholder="结果" clearable style="width: 120px">
         <el-option label="成功" :value="1" />
         <el-option label="失败" :value="0" />

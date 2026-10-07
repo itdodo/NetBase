@@ -85,8 +85,10 @@ public class SysLogService(
     {
         var keyword = query.Keyword?.Trim();
         var success = query.Success.HasValue ? query.Success.Value == 1 : (bool?)null;
+        var action = query.Action?.Trim();
         return Expressionable.Create<SysOperationLog>()
             .AndIF(scope != null, scope!)
+            .AndIF(action.IsNotNullOrEmpty(), x => x.Action == action)
             .AndIF(keyword.IsNotNullOrEmpty(), x => (x.UserName != null && x.UserName.Contains(keyword!))
                                                    || (x.Module != null && x.Module.Contains(keyword!))
                                                    || (x.Action != null && x.Action.Contains(keyword!)))

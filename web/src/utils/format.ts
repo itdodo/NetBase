@@ -17,7 +17,7 @@ export function formatTime(value?: string | null): string {
 }
 
 /** 操作日志动作中文名（写入为控制器动作名，展示层翻译；未收录动作回退原文） */
-const ACTION_LABELS: Record<string, string> = {
+export const ACTION_LABELS: Record<string, string> = {
   Login: '登录',
   Logout: '退出登录',
   Refresh: '刷新令牌',

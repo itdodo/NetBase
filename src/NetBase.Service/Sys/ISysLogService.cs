@@ -12,6 +12,10 @@ public class LogQueryDto : PageQuery
     [StringLength(50)]
     public string? Keyword { get; set; }
 
+    /// <summary>动作精确筛选（控制器动作名，如 Login/Create）</summary>
+    [StringLength(100)]
+    public string? Action { get; set; }
+
     /// <summary>是否成功</summary>
     [Range(0, 1)]
     public int? Success { get; set; }

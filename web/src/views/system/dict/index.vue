@@ -215,8 +215,10 @@ onMounted(loadTypes)
           v-model:page-size="typeQuery.pageSize"
           class="pagination"
           background
-          layout="total, prev, pager, next"
-          :total="typeTotal"
+          layout="total, sizes, prev, pager, next, jumper"
+          :page-sizes="[10, 20, 50, 100]"
+        :total="typeTotal"
+          @size-change="() => { typeQuery.pageIndex = 1; loadTypes() }"
           @current-change="loadTypes"
         />
       </el-col>
@@ -255,8 +257,10 @@ onMounted(loadTypes)
           v-model:page-size="dataQuery.pageSize"
           class="pagination"
           background
-          layout="total, prev, pager, next"
-          :total="dataTotal"
+          layout="total, sizes, prev, pager, next, jumper"
+          :page-sizes="[10, 20, 50, 100]"
+        :total="dataTotal"
+          @size-change="() => { dataQuery.pageIndex = 1; loadData() }"
           @current-change="loadData"
         />
       </el-col>

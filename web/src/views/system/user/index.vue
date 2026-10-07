@@ -297,7 +297,7 @@ onMounted(() => {
       background
       layout="total, sizes, prev, pager, next, jumper"
       :total="total"
-      :page-sizes="[10, 20, 50]"
+      :page-sizes="[10, 20, 50, 100]"
       @current-change="loadData"
       @size-change="handleSearch"
     />

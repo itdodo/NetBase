@@ -128,7 +128,7 @@ async function openBindings(): Promise<void> {
   try {
     const [list, defs] = await Promise.all([
       getFlowBindings(),
-      getFlowDefPage({ pageIndex: 1, pageSize: 100 })
+      getFlowDefPage({ pageIndex: 1, pageSize: 10 })
     ])
     bindings.value = list
     enabledFlowOptions.value = defs.items
@@ -300,9 +300,11 @@ onMounted(loadData)
       v-model:page-size="query.pageSize"
       class="pagination"
       background
-      layout="total, prev, pager, next"
-      :total="total"
-      @current-change="loadData"
+      layout="total, sizes, prev, pager, next, jumper"
+      :page-sizes="[10, 20, 50, 100]"
+        :total="total"
+      @size-change="() => { query.pageIndex = 1; loadData() }"
+          @current-change="loadData"
     />
 
     <el-dialog v-model="bindingVisible" title="单据绑定（业务表 → 审批流）" width="720px">

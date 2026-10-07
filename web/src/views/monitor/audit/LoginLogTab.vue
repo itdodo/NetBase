@@ -122,9 +122,11 @@ onMounted(loadData)
       v-model:page-size="query.pageSize"
       class="pagination"
       background
-      layout="total, prev, pager, next"
-      :total="total"
-      @current-change="loadData"
+      layout="total, sizes, prev, pager, next, jumper"
+      :page-sizes="[10, 20, 50, 100]"
+        :total="total"
+      @size-change="() => { query.pageIndex = 1; loadData() }"
+          @current-change="loadData"
     />
 </template>
 

@@ -246,8 +246,10 @@ onMounted(loadData)
           v-model:page-size="logsQuery.pageSize"
           class="pagination"
           background
-          layout="total, prev, pager, next"
-          :total="logsTotal"
+          layout="total, sizes, prev, pager, next, jumper"
+          :page-sizes="[10, 20, 50, 100]"
+        :total="logsTotal"
+          @size-change="() => { logsQuery.pageIndex = 1; loadLogs() }"
           @current-change="() => loadLogs()"
         />
       </el-tab-pane>

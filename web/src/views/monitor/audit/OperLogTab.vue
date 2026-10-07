@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Search } from '@element-plus/icons-vue'
 import type { OperationLogInfo } from '@/api/log'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatAction } from '@/utils/format'
 import { cleanupOperationLogs } from '@/api/monitor'
 import { download } from '@/utils/download'
 import { usePageList } from '@/composables/usePageList'
@@ -103,7 +103,7 @@ onMounted(loadData)
       <el-table v-else v-loading="loading" :data="list" border stripe>
       <el-table-column prop="userName" label="操作人" min-width="100" />
       <el-table-column prop="module" label="模块" min-width="100" />
-      <el-table-column prop="action" label="动作" min-width="120" />
+      <el-table-column prop="action" label="动作" min-width="120" :formatter="formatAction" />
       <el-table-column prop="httpMethod" label="方法" width="80" align="center" />
       <el-table-column prop="path" label="路径" min-width="180" show-overflow-tooltip />
       <el-table-column prop="params" label="参数" min-width="180" show-overflow-tooltip />

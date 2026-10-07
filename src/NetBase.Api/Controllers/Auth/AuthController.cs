@@ -149,8 +149,8 @@ public class AuthController(
         return Success(await authService.GetSessionPageAsync(query, User.FindFirst(TokenIdClaim)?.Value));
     }
 
-    /// <summary>批量强制下线（自动排除当前请求自己的会话）</summary>
-    [HasPermission("monitor:online:list")]
+    /// <summary>批量强制下线（自动排除当前请求自己的会话；危险动作独立于页面查看权限）</summary>
+    [HasPermission("monitor:online:kick")]
     [HttpDelete("sessions/batch")]
     public async Task<ApiResult> KickBatch([FromBody] BatchKickDto dto)
     {
@@ -158,8 +158,8 @@ public class AuthController(
         return Success($"已强制下线 {kicked} 个会话");
     }
 
-    /// <summary>强制下线（删除指定会话）</summary>
-    [HasPermission("monitor:online:list")]
+    /// <summary>强制下线（删除指定会话；危险动作独立于页面查看权限）</summary>
+    [HasPermission("monitor:online:kick")]
     [HttpDelete("sessions/{id:long}")]
     public async Task<ApiResult> Kick(long id)
     {

@@ -81,7 +81,7 @@ async function handleBatchKick(): Promise<void> {
     <div class="toolbar">
       <el-button type="primary" plain :icon="Refresh" @click="loadData()">刷新</el-button>
       <el-button
-        v-permission="'monitor:online:list'"
+        v-permission="'monitor:online:kick'"
         type="danger"
         plain
         :disabled="selection.filter(s => !s.isCurrent).length === 0"
@@ -109,7 +109,7 @@ async function handleBatchKick(): Promise<void> {
       <el-table-column prop="expireTime" label="过期时间" width="165" :formatter="formatDateTime" />
       <el-table-column label="操作" width="110" align="center">
         <template #default="{ row }">
-          <el-button v-permission="'monitor:online:list'" link type="danger" @click="handleKick(row as SessionInfo)">
+          <el-button v-permission="'monitor:online:kick'" link type="danger" @click="handleKick(row as SessionInfo)">
             强制下线
           </el-button>
         </template>

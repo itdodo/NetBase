@@ -89,6 +89,8 @@ public class DbSeeder
         EnsureCrudButtons(db, "sys:dict:list", adminRoleId, now);
         EnsureCrudButtons(db, "sys:config:list", adminRoleId, now);
         EnsureCrudButtons(db, "sys:notice:list", adminRoleId, now);
+        // 在线用户-强制下线（危险动作细粒度权限，页面级 list 仅控制查看）
+        EnsureButton(db, "monitor:online:list", "monitor:online:kick", "强制下线", adminRoleId, now);
         // 系统监控目录下的"服务监控"页（进程指标/缓存诊断）
         EnsureMonitorMenu(db, adminRoleId, now);
         // 系统监控目录下的"定时任务"页（Hangfire 作业管理）
@@ -244,6 +246,38 @@ public class DbSeeder
             {
                 db.Insertable(new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
             }
+        }
+    }
+
+    /// <summary>为指定页面补单个按钮权限码（幂等），新按钮自动授予 admin 角色</summary>
+    private void EnsureButton(ISqlSugarClient db, string parentPermission, string permission, string menuName, long adminRoleId, DateTime now)
+    {
+        if (db.Queryable<SysMenu>().Any(x => x.Permission == permission))
+        {
+            return;
+        }
+
+        var parent = db.Queryable<SysMenu>().First(x => x.Permission == parentPermission);
+        if (parent == null)
+        {
+            return;
+        }
+
+        var menu = db.Insertable(new SysMenu
+        {
+            Id = NewId(),
+            ParentId = parent.Id,
+            MenuName = menuName,
+            MenuType = (int)MenuTypeEnum.Button,
+            Permission = permission,
+            Sort = 9,
+            CreateTime = now,
+            CreateBy = "system"
+        }).ExecuteReturnEntity();
+
+        if (!db.Queryable<SysRoleMenu>().Any(x => x.RoleId == adminRoleId && x.MenuId == menu.Id))
+        {
+            db.Insertable(new SysRoleMenu { Id = NewId(), RoleId = adminRoleId, MenuId = menu.Id, CreateTime = now }).ExecuteCommand();
         }
     }
 

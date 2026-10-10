@@ -16,8 +16,12 @@ public class MemoryCacheService : ICacheService
         _memoryCache = memoryCache;
     }
 
-    public Task<T?> GetAsync<T>(string key) =>
-        Task.FromResult(_memoryCache.TryGetValue(key, out T? value) ? value : default);
+    public Task<T?> GetAsync<T>(string key)
+    {
+        var hit = _memoryCache.TryGetValue(key, out T? value);
+        CacheMetrics.Record(hit);
+        return Task.FromResult(hit ? value : default);
+    }
 
     public Task SetAsync<T>(string key, T value, TimeSpan? expiry = null) =>
         Task.FromResult(_memoryCache.Set(key, value, expiry.HasValue

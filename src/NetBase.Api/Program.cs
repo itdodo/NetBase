@@ -11,6 +11,7 @@ using Microsoft.IdentityModel.Tokens;
 using NetBase.Api.Auth;
 using NetBase.Api.Filters;
 using NetBase.Api.Hubs;
+using NetBase.Api.Observability;
 using NetBase.Api.Middlewares;
 using NetBase.Api.Realtime;
 using NetBase.Model.Entities;
@@ -57,6 +58,9 @@ NetBase.Common.Security.SensitiveCrypto.Init(
 
 // 日志：Serilog（配置见 appsettings.json 的 Serilog 节点）
 builder.Host.UseSerilog((context, configuration) => configuration.ReadFrom.Configuration(context.Configuration));
+
+// 可观测性：OTel traces/metrics + /metrics(Prometheus)
+builder.Services.AddNetBaseObservability(builder.Configuration);
 
 // 分层服务注册
 builder.Services.AddNetBaseTime();
@@ -158,10 +162,15 @@ builder.Services.AddScoped<NetBase.Api.Jobs.IBackupService, NetBase.Api.Jobs.Bac
 // 实时通知：SignalR（用户连接映射 + 落库推送双写）
 builder.Services.AddSingleton<NetBase.Api.Hubs.IUserConnectionMapping, NetBase.Api.Hubs.UserConnectionMapping>();
 builder.Services.AddScoped<NetBase.Common.Realtime.INotifyService, NetBase.Api.Realtime.NotifyService>();
-builder.Services.AddSignalR();
-// 多实例部署时启用 Redis backplane（SignalR:UseRedisBackplane=true 且需 Redis 可用）：
-// if (builder.Configuration.GetValue<bool>("SignalR:UseRedisBackplane"))
-//     builder.Services.AddSignalR().AddStackExchangeRedis(cacheRedisConnectionString);
+// 多实例部署：SignalR:UseRedisBackplane=true 时经 Redis 跨实例广播（须与 Cache 用同一 Redis）
+var signalRBuilder = builder.Services.AddSignalR();
+if (builder.Configuration.GetValue<bool>("SignalR:UseRedisBackplane"))
+{
+    var blConn = builder.Configuration.GetSection("Cache:RedisConnectionString").Value
+        ?? throw new InvalidOperationException("启用 SignalR:UseRedisBackplane 须配置 Cache:RedisConnectionString");
+    signalRBuilder.AddStackExchangeRedis(blConn);
+    builder.Logging.AddConsole(); // 保留启动日志可见性
+}
 
 // 认证授权：JWT Bearer + 动态权限码策略
 var jwtSection = builder.Configuration.GetSection(JwtOptions.SectionName);
@@ -332,6 +341,11 @@ if (hangfireOptions.DashboardEnabled)
 
 // Hub 映射（JWT 认证已支持 query access_token）
 app.MapHub<NotifyHub>("/hubs/notify");
+// Prometheus 抓取端点（生产建议由网关/防火墙限制来源，或以 Metrics:Enabled=false 关闭）
+if (builder.Configuration.GetValue("Metrics:Enabled", true))
+{
+    app.MapPrometheusScrapingEndpoint(); // GET /metrics
+}
 
 // 注册内置定时任务（应用启动时；Scoped 服务须在 Scope 内解析）
 using (var jobScope = app.Services.CreateScope())

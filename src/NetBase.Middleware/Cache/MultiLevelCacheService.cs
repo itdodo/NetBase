@@ -33,12 +33,21 @@ public class MultiLevelCacheService : ICacheService
     {
         var fk = FullKey(key);
         // L1
-        if (_l1.TryGetValue(fk, out T? l1Value)) return l1Value;
+        if (_l1.TryGetValue(fk, out T? l1Value))
+        {
+            CacheMetrics.Record(hit: true);
+            return l1Value;
+        }
         // L2
         var bytes = await _l2.GetAsync(fk);
-        if (bytes == null) return default;
+        if (bytes == null)
+        {
+            CacheMetrics.Record(hit: false);
+            return default;
+        }
         var value = JsonSerializer.Deserialize<T>(bytes, JsonOpts);
         if (value != null) _l1.Set(fk, value, L1Ttl);
+        CacheMetrics.Record(hit: true);
         return value;
     }
 

@@ -17,6 +17,9 @@ public class DataScopeMiddleware(RequestDelegate next)
         // 每请求清空（含备份）IDataScope 过滤器，防 scope 复用残留；随后按需注入
         db.QueryFilter.ClearAndBackup<IDataScope>();
 
+        // 注册请求取消令牌：仓储层 ct 缺省时自动回退取用，客户端断开即中断库查询释放连接
+        NetBase.Repository.Repositories.RequestCancellationToken.Set(context.RequestAborted);
+
         var userId = currentUser.UserId;
         if (userId.HasValue && userId.Value > 0)
         {

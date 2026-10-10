@@ -102,7 +102,7 @@ public class ServiceIntegrationTests
             ParentId = 0, MenuName = "IT测试菜单", MenuType = 3, Permission = "it:test:perm:" + uid, Status = 1
         });
         await UserService.AssignRolesAsync(user.Id, [role.Id]);
-        RoleMenuRepo.Insert(new SysRoleMenu { RoleId = role.Id, MenuId = menu.Id });
+        await RoleMenuRepo.InsertAsync(new SysRoleMenu { RoleId = role.Id, MenuId = menu.Id });
 
         var perms = await PermissionService.GetUserPermissionsAsync(user.Id);
         Assert.Contains("it:test:perm:" + uid, perms);

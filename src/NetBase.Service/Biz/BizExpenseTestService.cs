@@ -259,10 +259,10 @@ public class BizExpenseTestFlowHandler : IFlowBusinessHandler
 
     public BizExpenseTestFlowHandler(IRepository<BizExpenseTest> repository) => _repository = repository;
 
-    public Task<string> GetSummaryAsync(long businessId)
+    public async Task<string> GetSummaryAsync(long businessId)
     {
-        var entity = _repository.GetById(businessId);
-        return Task.FromResult(entity == null ? BusinessTable : $"GenTestExpense {entity.Id}");
+        var entity = await _repository.GetByIdAsync(businessId);
+        return entity == null ? BusinessTable : $"GenTestExpense {entity.Id}";
     }
 
     /// <summary>终态回写：2 通过 / 3 拒绝 / 4 撤回 / 5 作废</summary>

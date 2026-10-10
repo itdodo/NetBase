@@ -33,6 +33,23 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
+// 启动自检：关键配置缺失或占位符快速失败（带问题配置上线不如拒绝启动）
+{
+    var jwtKey = builder.Configuration.GetSection("Jwt:SecretKey").Value ?? string.Empty;
+    if (string.IsNullOrWhiteSpace(jwtKey))
+    {
+        throw new InvalidOperationException("缺少 Jwt:SecretKey 配置");
+    }
+    if (builder.Environment.IsProduction() && (jwtKey.Length < 32 || jwtKey.Contains("PLACEHOLDER", StringComparison.OrdinalIgnoreCase)))
+    {
+        throw new InvalidOperationException("生产环境 Jwt:SecretKey 必须 ≥32 位且非占位符，请通过环境变量 Jwt__SecretKey 注入强密钥");
+    }
+    if (string.IsNullOrWhiteSpace(builder.Configuration.GetSection("Db:ConnectionString").Value))
+    {
+        throw new InvalidOperationException("缺少 Db:ConnectionString 配置");
+    }
+}
+
 // 敏感配置可逆加密主密钥（SMTP 授权码等）：派生自 Jwt:SecretKey，须早于任何加解密使用
 NetBase.Common.Security.SensitiveCrypto.Init(
     builder.Configuration.GetSection("Jwt:SecretKey").Value
@@ -42,6 +59,7 @@ NetBase.Common.Security.SensitiveCrypto.Init(
 builder.Host.UseSerilog((context, configuration) => configuration.ReadFrom.Configuration(context.Configuration));
 
 // 分层服务注册
+builder.Services.AddNetBaseTime();
 builder.Services.AddNetBaseRepository(builder.Configuration);
 builder.Services.AddNetBaseService(builder.Configuration);
 builder.Services.AddNetBaseMiddleware(builder.Configuration);

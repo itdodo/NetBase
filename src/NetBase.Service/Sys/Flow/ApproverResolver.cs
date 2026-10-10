@@ -49,7 +49,7 @@ public class ApproverResolver(
                     break;
 
                 case FlowApproverType.Role when rule.RoleCodes is { Count: > 0 }:
-                    var roleIds = roleRepository.GetList(x => rule.RoleCodes.Contains(x.RoleCode) && x.Status == 1)
+                    var roleIds = (await roleRepository.GetListAsync(x => rule.RoleCodes.Contains(x.RoleCode) && x.Status == 1))
                         .Select(r => r.Id).ToList();
                     if (roleIds.Count > 0)
                     {
@@ -60,13 +60,13 @@ public class ApproverResolver(
 
                 case FlowApproverType.DeptLeader:
                     var deptId = rule.DeptId is > 0 ? rule.DeptId.Value : submitterDeptId;
-                    var leaderId = deptRepository.GetFirst(d => d.Id == deptId)?.LeaderUserId ?? 0;
+                    var leaderId = (await deptRepository.GetFirstAsync(d => d.Id == deptId))?.LeaderUserId ?? 0;
                     Add(leaderId > 0 ? [leaderId] : []);
                     break;
 
                 case FlowApproverType.Position when rule.PositionCodes is { Count: > 0 }:
-                    var posIds = positionRepository
-                        .GetList(x => rule.PositionCodes.Contains(x.PositionCode) && x.Status == 1)
+                    var posIds = (await positionRepository
+                        .GetListAsync(x => rule.PositionCodes.Contains(x.PositionCode) && x.Status == 1))
                         .Select(p => p.Id).ToList();
                     if (posIds.Count > 0)
                     {
@@ -75,8 +75,8 @@ public class ApproverResolver(
                         if (rule.Scope == "submitterDept")
                         {
                             // 发起人所在部门范围：岗位持有者且主属部门 == 发起人部门
-                            var inDept = userRepository
-                                .GetList(u => holderIds.Contains(u.Id) && u.DeptId == submitterDeptId && u.Status == 1)
+                            var inDept = (await userRepository
+                                .GetListAsync(u => holderIds.Contains(u.Id) && u.DeptId == submitterDeptId && u.Status == 1))
                                 .Select(u => u.Id).ToList();
                             Add(inDept);
                         }

@@ -238,7 +238,7 @@ public class SystemJobService(
     {
         try
         {
-            var adminRoleId = roleRepository.GetFirst(x => x.RoleCode == SysRoleService.AdminRoleCode)?.Id;
+            var adminRoleId = (await roleRepository.GetFirstAsync(x => x.RoleCode == SysRoleService.AdminRoleCode))?.Id;
             if (adminRoleId == null)
             {
                 return;

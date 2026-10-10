@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ICacheService = NetBase.Common.Cache.ICacheService;
 using NetBase.Common.Cache;
+using NetBase.Common.Time;
 using NetBase.Model.Entities;
 using NetBase.Repository.Auditing;
 using NetBase.Repository.DbContexts;
@@ -57,6 +58,8 @@ public sealed class IntegrationFixture
         services.AddSingleton(options);
         services.AddSingleton<SqlSugarContext>();
         services.AddSingleton<ISqlSugarClient>(sp => sp.GetRequiredService<SqlSugarContext>().Client);
+
+        services.AddSingleton(TimeProvider.System);
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
         // JWT 签发配置（密码重置全流程用例会走到 LoginAsync 签发 token）
         services.AddSingleton(Microsoft.Extensions.Options.Options.Create(

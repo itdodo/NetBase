@@ -46,10 +46,10 @@ public class UnitOfWorkFilterTests
 
         var filter = CreateFilter();
         var context = BuildContext("POST");
-        await filter.OnActionExecutionAsync(context, () =>
+        await filter.OnActionExecutionAsync(context, async () =>
         {
-            roleId = repo.Insert(new SysRole { RoleName = "UOW提交", RoleCode = code, Status = 1 }).Id;
-            return Task.FromResult(new ActionExecutedContext(context, new List<IFilterMetadata>(), null));
+            roleId = (await repo.InsertAsync(new SysRole { RoleName = "UOW提交", RoleCode = code, Status = 1 })).Id;
+            return new ActionExecutedContext(context, new List<IFilterMetadata>(), null);
         });
 
         Assert.NotNull(await repo.GetByIdAsync(roleId));
@@ -64,13 +64,13 @@ public class UnitOfWorkFilterTests
 
         var filter = CreateFilter();
         var context = BuildContext("POST");
-        await filter.OnActionExecutionAsync(context, () =>
+        await filter.OnActionExecutionAsync(context, async () =>
         {
-            roleId = repo.Insert(new SysRole { RoleName = "UOW回滚", RoleCode = code, Status = 1 }).Id;
-            return Task.FromResult(new ActionExecutedContext(context, new List<IFilterMetadata>(), null)
+            roleId = (await repo.InsertAsync(new SysRole { RoleName = "UOW回滚", RoleCode = code, Status = 1 })).Id;
+            return new ActionExecutedContext(context, new List<IFilterMetadata>(), null)
             {
                 Exception = new InvalidOperationException("模拟业务异常")
-            });
+            };
         });
 
         Assert.Null(await repo.GetByIdAsync(roleId));
@@ -84,13 +84,13 @@ public class UnitOfWorkFilterTests
 
         var filter = CreateFilter();
         var context = BuildContext("GET"); // 读操作不走事务包裹，Action 内写入即时生效
-        await filter.OnActionExecutionAsync(context, () =>
+        await filter.OnActionExecutionAsync(context, async () =>
         {
-            roleId = repo.Insert(new SysRole
+            roleId = (await repo.InsertAsync(new SysRole
             {
                 RoleName = "UOW直通", RoleCode = IntegrationFixture.Uid("uowg"), Status = 1
-            }).Id;
-            return Task.FromResult(new ActionExecutedContext(context, new List<IFilterMetadata>(), null));
+            })).Id;
+            return new ActionExecutedContext(context, new List<IFilterMetadata>(), null);
         });
 
         Assert.NotNull(await repo.GetByIdAsync(roleId));

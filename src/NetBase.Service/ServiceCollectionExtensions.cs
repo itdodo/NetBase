@@ -10,6 +10,13 @@ namespace NetBase.Service;
 /// <summary>业务逻辑层服务注册</summary>
 public static class ServiceCollectionExtensions
 {
+    /// <summary>注册 TimeProvider（.NET 8+ 内建时间抽象；测试端可替换 FakeTimeProvider 拨时钟）</summary>
+    public static IServiceCollection AddNetBaseTime(this IServiceCollection services)
+    {
+        services.AddSingleton(TimeProvider.System);
+        return services;
+    }
+
     public static IServiceCollection AddNetBaseService(this IServiceCollection services, IConfiguration? configuration = null)
     {
         // 泛型服务开放注册

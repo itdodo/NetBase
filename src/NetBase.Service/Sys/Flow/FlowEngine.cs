@@ -1,5 +1,6 @@
 using System.Text.Json;
 using NetBase.Common.Exceptions;
+using NetBase.Common.Time;
 using NetBase.Common.Realtime;
 using NetBase.Model.Entities;
 using NetBase.Model.Enums;
@@ -88,7 +89,8 @@ public class FlowEngine(
     ApproverResolver approverResolver,
     INotifyService notifyService,
     IOperatorProvider operatorProvider,
-    IEnumerable<IFlowBusinessHandler> handlers) : IFlowEngine
+    IEnumerable<IFlowBusinessHandler> handlers,
+    TimeProvider tp) : IFlowEngine
 {
     private const string TaskBizType = "flow_task";
     private const string InstanceBizType = "flow_instance";
@@ -137,7 +139,7 @@ public class FlowEngine(
             SubmitterId = operatorId,
             SubmitterName = operatorName,
             SubmitterDeptId = submitter?.DeptId ?? 0,
-            SubmitTime = DateTime.Now
+            SubmitTime = tp.LocalNow()
         };
 
         await instanceRepository.TransactionAsync(async () =>
@@ -186,7 +188,7 @@ public class FlowEngine(
                         : action == FlowAction.Return ? FlowTaskStatus.Returned
                         : FlowTaskStatus.Rejected;
             task.Comment = comment;
-            task.ActTime = DateTime.Now;
+            task.ActTime = tp.LocalNow();
             await taskRepository.UpdateAsync(task);
             await RecordAsync(instance.Id, action == FlowAction.Approve ? "approve"
                         : action == FlowAction.Return ? "return" : "reject",
@@ -292,7 +294,7 @@ public class FlowEngine(
         {
             task.Status = FlowTaskStatus.Transferred;
             task.Comment = comment;
-            task.ActTime = DateTime.Now;
+            task.ActTime = tp.LocalNow();
             await taskRepository.UpdateAsync(task);
 
             foreach (var (id, name) in targets)
@@ -394,9 +396,10 @@ public class FlowEngine(
         }
         EnsureRunning(instance);
 
-        // 限频：4 小时内已催办过则拒绝（查催办流转记录）
+        // 限频：4 小时内已催办过则拒绝（查催办流转记录）；窗口起点树外求值（表达式树不翻译方法调用）
+        var urgeWindowStart = tp.LocalNow().AddHours(-4);
         var recent = await recordRepository.AnyAsync(r => r.InstanceId == instanceId
-            && r.Action == "urge" && r.ActTime >= DateTime.Now.AddHours(-4));
+            && r.Action == "urge" && r.ActTime >= urgeWindowStart);
         if (recent)
         {
             throw new BusinessException("4 小时内已催办过，请稍后再试", ErrorCodes.FLOW_URGE_RATE_LIMITED);
@@ -422,7 +425,7 @@ public class FlowEngine(
         {
             return 0;
         }
-        var deadline = DateTime.Now.AddDays(-remindDays);
+        var deadline = tp.LocalNow().AddDays(-remindDays);
         var overdue = await taskRepository.GetListAsync(
             t => t.Status == FlowTaskStatus.Pending && t.CreateTime <= deadline);
         if (overdue.Count == 0)
@@ -433,9 +436,10 @@ public class FlowEngine(
         var reminded = 0;
         foreach (var group in overdue.GroupBy(t => t.InstanceId))
         {
-            // 每实例每天最多提醒一次（查催办/提醒记录防重复轰炸）
+            // 每实例每天最多提醒一次（查催办/提醒记录防重复轰炸）；零点树外求值
+            var todayStart = tp.LocalNow().Date;
             var todayReminded = await recordRepository.AnyAsync(
-                r => r.InstanceId == group.Key && r.Action == "urge" && r.ActTime >= DateTime.Now.Date);
+                r => r.InstanceId == group.Key && r.Action == "urge" && r.ActTime >= todayStart);
             if (todayReminded)
             {
                 continue;
@@ -634,7 +638,7 @@ public class FlowEngine(
                              && (t.Status == FlowTaskStatus.Pending || t.Status == FlowTaskStatus.Waiting)))
                 {
                     other.Status = FlowTaskStatus.Voided;
-                    other.ActTime = DateTime.Now;
+                    other.ActTime = tp.LocalNow();
                     other.Comment = "或签已定局，任务失效";
                     await taskRepository.UpdateAsync(other);
                 }
@@ -660,7 +664,7 @@ public class FlowEngine(
                                      && (t.Status == FlowTaskStatus.Pending || t.Status == FlowTaskStatus.Waiting)))
                         {
                             other.Status = FlowTaskStatus.Voided;
-                            other.ActTime = DateTime.Now;
+                            other.ActTime = tp.LocalNow();
                             other.Comment = "会签已达通过比例，任务失效";
                             await taskRepository.UpdateAsync(other);
                         }
@@ -743,7 +747,7 @@ public class FlowEngine(
         var result = new List<long>(node.CcUserIds ?? []);
         if (node.CcRoleCodes is { Count: > 0 })
         {
-            var roleIds = roleRepository.GetList(r => node.CcRoleCodes.Contains(r.RoleCode) && r.Status == 1)
+            var roleIds = (await roleRepository.GetListAsync(r => node.CcRoleCodes.Contains(r.RoleCode) && r.Status == 1))
                 .Select(r => r.Id).ToList();
             if (roleIds.Count > 0)
             {
@@ -764,7 +768,7 @@ public class FlowEngine(
         {
             return approvers;
         }
-        var now = DateTime.Now;
+        var now = tp.LocalNow();
         var result = new List<FlowApprover>(approvers.Count);
         foreach (var approver in approvers)
         {
@@ -858,7 +862,7 @@ public class FlowEngine(
             OperatorName = operatorName,
             Comment = comment,
             ExtraJson = extraJson,
-            ActTime = DateTime.Now
+            ActTime = tp.LocalNow()
         });
     }
 
@@ -883,7 +887,7 @@ public class FlowEngine(
     private async Task FinishCoreAsync(SysFlowInstance instance, FlowInstanceStatus status, string? comment = null)
     {
         instance.Status = status;
-        instance.EndTime = DateTime.Now;
+        instance.EndTime = tp.LocalNow();
         await instanceRepository.UpdateAsync(instance);
 
         if (status is FlowInstanceStatus.Rejected or FlowInstanceStatus.Revoked or FlowInstanceStatus.Voided)
@@ -933,7 +937,7 @@ public class FlowEngine(
         foreach (var t in tasks)
         {
             t.Status = FlowTaskStatus.Voided;
-            t.ActTime = DateTime.Now;
+            t.ActTime = tp.LocalNow();
             await taskRepository.UpdateAsync(t);
         }
     }

@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Threading;
 using NetBase.Common.Results;
 using NetBase.Common.Auditing;
 using NetBase.Model.Entities;
@@ -33,35 +34,21 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
 
     #region 查询
 
-    public T? GetById(long id) => Queryable.InSingle(id);
+    public async Task<T?> GetByIdAsync(long id, CancellationToken ct = default)
+        => await Queryable.Where(x => x.Id == id).FirstAsync(RequestCancellationToken.Resolve(ct));
 
-    public async Task<T?> GetByIdAsync(long id) => await Queryable.InSingleAsync(id);
+    public async Task<T?> GetFirstAsync(Expression<Func<T, bool>>? predicate = null, CancellationToken ct = default) =>
+        await (predicate == null ? Queryable : Queryable.Where(predicate)).FirstAsync(RequestCancellationToken.Resolve(ct));
 
-    public T? GetFirst(Expression<Func<T, bool>>? predicate = null) =>
-        (predicate == null ? Queryable : Queryable.Where(predicate)).First();
+    public async Task<List<T>> GetListAsync(Expression<Func<T, bool>>? predicate = null, CancellationToken ct = default) =>
+        await (predicate == null ? Queryable : Queryable.Where(predicate)).ToListAsync(RequestCancellationToken.Resolve(ct));
 
-    public async Task<T?> GetFirstAsync(Expression<Func<T, bool>>? predicate = null) =>
-        await (predicate == null ? Queryable : Queryable.Where(predicate)).FirstAsync();
-
-    public List<T> GetList(Expression<Func<T, bool>>? predicate = null) =>
-        (predicate == null ? Queryable : Queryable.Where(predicate)).ToList();
-
-    public async Task<List<T>> GetListAsync(Expression<Func<T, bool>>? predicate = null) =>
-        await (predicate == null ? Queryable : Queryable.Where(predicate)).ToListAsync();
-
-    public PageResult<T> GetPageList(Expression<Func<T, bool>>? predicate, PageQuery page)
+    public async Task<PageResult<T>> GetPageListAsync(Expression<Func<T, bool>>? predicate, PageQuery page, CancellationToken ct = default)
     {
-        int total = 0;
-        var items = BuildPageQuery(predicate, page)
-            .ToPageList(page.PageIndex, page.PageSize, ref total);
-        return PageResult<T>.Of(items, total, page.PageIndex, page.PageSize);
-    }
-
-    public async Task<PageResult<T>> GetPageListAsync(Expression<Func<T, bool>>? predicate, PageQuery page)
-    {
+        var rct = RequestCancellationToken.Resolve(ct);
         RefAsync<int> total = 0;
         var items = await BuildPageQuery(predicate, page)
-            .ToPageListAsync(page.PageIndex, page.PageSize, total);
+            .ToPageListAsync(page.PageIndex, page.PageSize, total, rct);
         return PageResult<T>.Of(items, total, page.PageIndex, page.PageSize);
     }
 
@@ -97,30 +84,19 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
         return exists ? name : fallback;
     }
 
-    public long Count(Expression<Func<T, bool>>? predicate = null) =>
-        (predicate == null ? Queryable : Queryable.Where(predicate)).Count();
+    public async Task<long> CountAsync(Expression<Func<T, bool>>? predicate = null, CancellationToken ct = default) =>
+        await (predicate == null ? Queryable : Queryable.Where(predicate)).CountAsync(RequestCancellationToken.Resolve(ct));
 
-    public async Task<long> CountAsync(Expression<Func<T, bool>>? predicate = null) =>
-        await (predicate == null ? Queryable : Queryable.Where(predicate)).CountAsync();
-
-    public bool Any(Expression<Func<T, bool>>? predicate = null) => Count(predicate) > 0;
-
-    public async Task<bool> AnyAsync(Expression<Func<T, bool>>? predicate = null) => await CountAsync(predicate) > 0;
+    public async Task<bool> AnyAsync(Expression<Func<T, bool>>? predicate = null, CancellationToken ct = default) => await CountAsync(predicate, RequestCancellationToken.Resolve(ct)) > 0;
 
     #endregion
 
     #region 写入
 
-    public T Insert(T entity)
+    // ExecuteReturnEntityAsync 无 CancellationToken 重载（SqlSugar 限制），单条插入不做取消
+    public async Task<T> InsertAsync(T entity, CancellationToken ct = default)
     {
-        // ExecuteReturnEntity/ExecuteCommand 路径的 AOP 雪花触发不一致——所有路径显式填充
-        FillSnowflakeId(entity);
-        Db.Insertable(entity).ExecuteReturnEntity();
-        return entity;
-    }
-
-    public async Task<T> InsertAsync(T entity)
-    {
+        var rct = RequestCancellationToken.Resolve(ct);
         FillSnowflakeId(entity);
         await Db.Insertable(entity).ExecuteReturnEntityAsync();
         return entity;
@@ -136,17 +112,11 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
         }
     }
 
-    public int InsertRange(IEnumerable<T> entities)
+    public async Task<int> InsertRangeAsync(IEnumerable<T> entities, CancellationToken ct = default)
     {
-        // 批量插入走 UNION ALL 路径，AOP 填充不触发——显式填雪花主键
+        var rct = RequestCancellationToken.Resolve(ct);
         var list = MaterializeWithSnowflakeIds(entities);
-        return Db.Insertable(list).ExecuteCommand();
-    }
-
-    public async Task<int> InsertRangeAsync(IEnumerable<T> entities)
-    {
-        var list = MaterializeWithSnowflakeIds(entities);
-        return await Db.Insertable(list).ExecuteCommandAsync();
+        return await Db.Insertable(list).ExecuteCommandAsync(rct);
     }
 
     /// <summary>
@@ -163,34 +133,15 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
         return list;
     }
 
-    public bool Update(T entity)
+    public async Task<bool> UpdateAsync(T entity, CancellationToken ct = default)
     {
-        string? diff = null;
-        if (_auditEnabled)
-        {
-            var before = Db.Queryable<T>().InSingle(entity.Id);
-            if (before != null)
-            {
-                diff = AuditDiff.Diff(before, entity);
-            }
-        }
-
-        var ok = Db.Updateable(entity).ExecuteCommand() > 0;
-        if (ok && diff != null)
-        {
-            WriteChangeLog(entity.Id, diff);
-        }
-        return ok;
-    }
-
-    public async Task<bool> UpdateAsync(T entity)
-    {
+        var rct = RequestCancellationToken.Resolve(ct);
         // 底层统一审计：所有实体的普通更新自动落变更日志（无需各服务显式接入）。
         // 已接乐观锁+审计的模块（UpdateWithAuditAsync 路径）不经本方法，不会双写。
         string? diff = null;
         if (_auditEnabled)
         {
-            var before = await Db.Queryable<T>().InSingleAsync(entity.Id);
+            var before = await GetByIdAsync(entity.Id, rct);
             if (before != null)
             {
                 diff = AuditDiff.Diff(before, entity);
@@ -211,14 +162,15 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
     /// 禁止改回 WhereColumns(Version)：它会以 Version 替换主键条件，相同版本的多行
     /// 会被同一份实体值覆盖（唯一索引冲突，无索引时批量数据损坏）——集成测试实证。
     /// </summary>
-    public async Task<bool> UpdateWithVersionCheckAsync(T entity)
+    public async Task<bool> UpdateWithVersionCheckAsync(T entity, CancellationToken ct = default)
     {
+        var rct = RequestCancellationToken.Resolve(ct);
         var expected = entity.Version;
 
         entity.Version = expected + 1;
         var rows = await Db.Updateable(entity)
             .Where(x => x.Id == entity.Id && x.Version == expected)
-            .ExecuteCommandAsync();
+            .ExecuteCommandAsync(rct);
 
         if (rows == 0)
         {
@@ -233,16 +185,17 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
     /// 成功且有字段差异时写 sys_change_log（操作人取 IOperatorProvider，无差异不记录）。
     /// Db:EnableChangeAudit=false 时退化为纯乐观锁更新（零额外查询开销）。
     /// </summary>
-    public async Task<bool> UpdateWithAuditAsync(T entity)
+    public async Task<bool> UpdateWithAuditAsync(T entity, CancellationToken ct = default)
     {
+        var rct = RequestCancellationToken.Resolve(ct);
         string? diff = null;
         if (_auditEnabled)
         {
-            var before = await Db.Queryable<T>().InSingleAsync(entity.Id);
+            var before = await GetByIdAsync(entity.Id, rct);
             diff = before == null ? null : AuditDiff.Diff(before, entity);
         }
 
-        if (!await UpdateWithVersionCheckAsync(entity))
+        if (!await UpdateWithVersionCheckAsync(entity, rct))
         {
             return false;
         }
@@ -269,62 +222,22 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
         await Db.Insertable(log).ExecuteCommandAsync();
     }
 
-    /// <summary>WriteChangeLogAsync 同步版（同步 Update 路径）</summary>
-    private void WriteChangeLog(long recordId, string diff)
+    public async Task<int> UpdateWhereAsync(Expression<Func<T, bool>> predicate, Expression<Func<T, T>> updateExpression, CancellationToken ct = default)
     {
-        var log = new SysChangeLog
-        {
-            TableName = typeof(T).Name,
-            RecordId = recordId.ToString(),
-            Changes = diff,
-            UserId = _operatorProvider?.OperatorUserId ?? 0,
-            UserName = _operatorProvider?.OperatorName ?? "system"
-        };
-        FillSnowflakeId(log);
-        Db.Insertable(log).ExecuteCommand();
-    }
-
-    public int UpdateWhere(Expression<Func<T, bool>> predicate, Expression<Func<T, T>> updateExpression)
-    {
+        var rct = RequestCancellationToken.Resolve(ct);
         if (!_auditEnabled)
         {
-            return Db.Updateable<T>().SetColumns(updateExpression).Where(predicate).ExecuteCommand();
+            return await Db.Updateable<T>().SetColumns(updateExpression).Where(predicate).ExecuteCommandAsync(rct);
         }
 
         var setFields = ExtractSetFields(updateExpression);
         if (setFields == null)
         {
-            return Db.Updateable<T>().SetColumns(updateExpression).Where(predicate).ExecuteCommand();
+            return await Db.Updateable<T>().SetColumns(updateExpression).Where(predicate).ExecuteCommandAsync(rct);
         }
 
-        var beforeList = Db.Queryable<T>().Where(predicate).ToList();
-        var rows = Db.Updateable<T>().SetColumns(updateExpression).Where(predicate).ExecuteCommand();
-        foreach (var before in beforeList)
-        {
-            var diff = BuildSetFieldsDiff(before, setFields);
-            if (diff != null)
-            {
-                WriteChangeLog(before.Id, diff);
-            }
-        }
-        return rows;
-    }
-
-    public async Task<int> UpdateWhereAsync(Expression<Func<T, bool>> predicate, Expression<Func<T, T>> updateExpression)
-    {
-        if (!_auditEnabled)
-        {
-            return await Db.Updateable<T>().SetColumns(updateExpression).Where(predicate).ExecuteCommandAsync();
-        }
-
-        var setFields = ExtractSetFields(updateExpression);
-        if (setFields == null)
-        {
-            return await Db.Updateable<T>().SetColumns(updateExpression).Where(predicate).ExecuteCommandAsync();
-        }
-
-        var beforeList = await Db.Queryable<T>().Where(predicate).ToListAsync();
-        var rows = await Db.Updateable<T>().SetColumns(updateExpression).Where(predicate).ExecuteCommandAsync();
+        var beforeList = await Db.Queryable<T>().Where(predicate).ToListAsync(rct);
+        var rows = await Db.Updateable<T>().SetColumns(updateExpression).Where(predicate).ExecuteCommandAsync(rct);
         foreach (var before in beforeList)
         {
             var diff = BuildSetFieldsDiff(before, setFields);
@@ -393,54 +306,18 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
 
     #region 删除
 
-    public bool Delete(long id)
+    public async Task<bool> DeleteAsync(long id, CancellationToken ct = default)
     {
-        var entity = GetById(id);
-        return entity != null && Delete(entity);
+        var rct = RequestCancellationToken.Resolve(ct);
+        var entity = await GetByIdAsync(id, rct);
+        return entity != null && await DeleteEntityAsync(entity, rct);
     }
 
-    public async Task<bool> DeleteAsync(long id)
+    public Task<bool> DeleteAsync(T entity, CancellationToken ct = default) => DeleteEntityAsync(entity, RequestCancellationToken.Resolve(ct));
+
+    public async Task<int> DeleteWhereAsync(Expression<Func<T, bool>> predicate, CancellationToken ct = default)
     {
-        var entity = await GetByIdAsync(id);
-        return entity != null && await DeleteEntityAsync(entity);
-    }
-
-    public bool Delete(T entity) => DeleteEntity(entity);
-
-    public Task<bool> DeleteAsync(T entity) => DeleteEntityAsync(entity);
-
-    public int DeleteWhere(Expression<Func<T, bool>> predicate)
-    {
-        if (IsSoftDelete)
-        {
-            // 按列名更新指定列，避免泛型 MemberInit 表达式在 SqlSugar 中的翻译不确定性
-            if (_auditEnabled)
-            {
-                var beforeList = Db.Queryable<T>().Where(predicate).ToList();
-                var rows = Db.Updateable<T>()
-                    .SetColumns("IsDeleted", true)
-                    .SetColumns("UpdateTime", DateTime.Now)
-                    .Where(predicate)
-                    .ExecuteCommand();
-                foreach (var before in beforeList)
-                {
-                    WriteChangeLog(before.Id, BuildDeleteDiff());
-                }
-                return rows;
-            }
-
-            return Db.Updateable<T>()
-                .SetColumns("IsDeleted", true)
-                .SetColumns("UpdateTime", DateTime.Now)
-                .Where(predicate)
-                .ExecuteCommand();
-        }
-
-        return Db.Deleteable<T>().Where(predicate).ExecuteCommand();
-    }
-
-    public async Task<int> DeleteWhereAsync(Expression<Func<T, bool>> predicate)
-    {
+        var rct = RequestCancellationToken.Resolve(ct);
         if (IsSoftDelete)
         {
             if (_auditEnabled)
@@ -450,7 +327,7 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
                     .SetColumns("IsDeleted", true)
                     .SetColumns("UpdateTime", DateTime.Now)
                     .Where(predicate)
-                    .ExecuteCommandAsync();
+                    .ExecuteCommandAsync(rct);
                 foreach (var before in beforeList)
                 {
                     await WriteChangeLogAsync(before.Id, BuildDeleteDiff());
@@ -462,10 +339,10 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
                 .SetColumns("IsDeleted", true)
                 .SetColumns("UpdateTime", DateTime.Now)
                 .Where(predicate)
-                .ExecuteCommandAsync();
+                .ExecuteCommandAsync(rct);
         }
 
-        return await Db.Deleteable<T>().Where(predicate).ExecuteCommandAsync();
+        return await Db.Deleteable<T>().Where(predicate).ExecuteCommandAsync(rct);
     }
 
     /// <summary>软删除的审计 diff 形态（与字段级 diff 结构一致，展示端无需特判）</summary>
@@ -474,25 +351,10 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
             new Dictionary<string, object> { ["IsDeleted"] = new { old = false, @new = true } },
             maxLength: 8000);
 
-    public int DeletePhysicalWhere(Expression<Func<T, bool>> predicate) =>
-        Db.Deleteable<T>().Where(predicate).ExecuteCommand();
+    public Task<int> DeletePhysicalWhereAsync(Expression<Func<T, bool>> predicate, CancellationToken ct = default) =>
+        Db.Deleteable<T>().Where(predicate).ExecuteCommandAsync(ct);
 
-    public Task<int> DeletePhysicalWhereAsync(Expression<Func<T, bool>> predicate) =>
-        Db.Deleteable<T>().Where(predicate).ExecuteCommandAsync();
-
-    private bool DeleteEntity(T entity)
-    {
-        if (entity is ISoftDelete)
-        {
-            ((ISoftDelete)entity).IsDeleted = true;
-            entity.UpdateTime = DateTime.Now;
-            return Db.Updateable(entity).ExecuteCommand() > 0;
-        }
-
-        return Db.Deleteable(entity).ExecuteCommand() > 0;
-    }
-
-    private async Task<bool> DeleteEntityAsync(T entity)
+    private async Task<bool> DeleteEntityAsync(T entity, CancellationToken ct = default)
     {
         if (entity is ISoftDelete)
         {
@@ -506,19 +368,9 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, new()
 
     #endregion
 
-    public TResult Transaction<TResult>(Func<TResult> action)
+    public async Task<TResult> TransactionAsync<TResult>(Func<Task<TResult>> action, CancellationToken ct = default)
     {
-        // UseTran 会把异常吞进 DbResult，这里重抛以保证业务异常（如参数校验）正常向上传递且已回滚
-        var result = Db.Ado.UseTran(action);
-        if (!result.IsSuccess)
-        {
-            throw result.ErrorException ?? new Exception("事务执行失败");
-        }
-        return result.Data;
-    }
-
-    public async Task<TResult> TransactionAsync<TResult>(Func<Task<TResult>> action)
-    {
+        var rct = RequestCancellationToken.Resolve(ct);
         var result = await Db.Ado.UseTranAsync(action);
         if (!result.IsSuccess)
         {

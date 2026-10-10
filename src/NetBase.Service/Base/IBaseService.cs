@@ -13,31 +13,23 @@ public interface IBaseService<T> where T : BaseEntity, new()
 {
     IRepository<T> Repository { get; }
 
-    T? GetById(long id);
 
     Task<T?> GetByIdAsync(long id);
 
-    List<T> GetList(Expression<Func<T, bool>>? predicate = null);
 
     Task<List<T>> GetListAsync(Expression<Func<T, bool>>? predicate = null);
 
-    PageResult<T> GetPageList(Expression<Func<T, bool>>? predicate, PageQuery page);
 
     Task<PageResult<T>> GetPageListAsync(Expression<Func<T, bool>>? predicate, PageQuery page);
 
-    long Count(Expression<Func<T, bool>>? predicate = null);
 
-    bool Any(Expression<Func<T, bool>>? predicate = null);
 
-    T Insert(T entity);
 
     Task<T> InsertAsync(T entity);
 
-    bool Update(T entity);
 
     Task<bool> UpdateAsync(T entity);
 
-    bool Delete(long id);
 
     Task<bool> DeleteAsync(long id);
 }

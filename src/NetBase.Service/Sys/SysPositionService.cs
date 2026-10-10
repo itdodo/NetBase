@@ -1,3 +1,4 @@
+using NetBase.Common.Time;
 using NetBase.Common.Exceptions;
 using NetBase.Common.Extensions;
 using NetBase.Common.Results;
@@ -80,7 +81,8 @@ public interface ISysPositionService
 
 public class SysPositionService(
     IRepository<SysPosition> repository,
-    IRepository<SysUserPosition> userPositionRepository) : ISysPositionService
+    IRepository<SysUserPosition> userPositionRepository,
+    TimeProvider tp) : ISysPositionService
 {
     public async Task<PageResult<PositionDto>> GetPageListAsync(PositionQueryDto query)
     {
@@ -134,7 +136,7 @@ public class SysPositionService(
         position.Sort = dto.Sort;
         position.Status = dto.Status;
         position.Remark = dto.Remark;
-        position.UpdateTime = DateTime.Now;
+        position.UpdateTime = tp.LocalNow();
         position.UpdateBy = operatorName;
         await repository.UpdateAsync(position);
     }

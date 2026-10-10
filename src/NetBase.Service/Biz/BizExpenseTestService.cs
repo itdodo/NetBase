@@ -1,3 +1,4 @@
+using NetBase.Common.Time;
 using System.ComponentModel.DataAnnotations;
 using Mapster;
 using NetBase.Common.Exceptions;
@@ -163,7 +164,8 @@ public interface IBizExpenseTestService
 /// <summary>GenTestExpense 服务实现</summary>
 public class BizExpenseTestService(
     IRepository<BizExpenseTest> repository,
-    NetBase.Service.Sys.Flow.IFlowEngine flowEngine) : BaseService<BizExpenseTest>(repository), IBizExpenseTestService
+    NetBase.Service.Sys.Flow.IFlowEngine flowEngine,
+    TimeProvider tp) : BaseService<BizExpenseTest>(repository), IBizExpenseTestService
 {
     private const string NotFoundCode = "EXPENSETEST_NOT_FOUND";
 
@@ -210,7 +212,7 @@ public class BizExpenseTestService(
             ?? throw new BusinessException("数据不存在", ApiResultCode.NotFound, NotFoundCode);
         dto.Adapt(entity);
         entity.Id = id;
-        entity.UpdateTime = DateTime.Now;
+        entity.UpdateTime = tp.LocalNow();
         entity.UpdateBy = operatorName;
         await UpdateWithConcurrencyCheckAsync(entity);
     }
@@ -234,7 +236,7 @@ public class BizExpenseTestService(
         }
 
         entity.Status = 1;
-        entity.UpdateTime = DateTime.Now;
+        entity.UpdateTime = tp.LocalNow();
         entity.UpdateBy = operatorName;
         await UpdateWithConcurrencyCheckAsync(entity);
 
@@ -257,7 +259,9 @@ public class BizExpenseTestFlowHandler : IFlowBusinessHandler
 
     private readonly IRepository<BizExpenseTest> _repository;
 
-    public BizExpenseTestFlowHandler(IRepository<BizExpenseTest> repository) => _repository = repository;
+    private readonly TimeProvider _tp;
+
+    public BizExpenseTestFlowHandler(IRepository<BizExpenseTest> repository, TimeProvider tp) => (_repository, _tp) = (repository, tp);
 
     public async Task<string> GetSummaryAsync(long businessId)
     {
@@ -269,9 +273,10 @@ public class BizExpenseTestFlowHandler : IFlowBusinessHandler
     public async Task OnFinishedAsync(long businessId, FlowInstanceStatus finalStatus)
     {
         var status = (int)finalStatus;
+        var now = _tp.LocalNow(); // 表达式树不翻译方法调用，树外求值
         await _repository.UpdateWhereAsync(
             x => x.Id == businessId,
-            x => new BizExpenseTest { Status = status, UpdateTime = DateTime.Now });
+            x => new BizExpenseTest { Status = status, UpdateTime = now });
     }
 }
 

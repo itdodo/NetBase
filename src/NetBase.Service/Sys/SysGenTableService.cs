@@ -1,3 +1,4 @@
+using NetBase.Common.Time;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
@@ -63,7 +64,8 @@ public class SysGenTableService(
     IRepository<SysGenTableColumn> columnRepository,
     GenMetaService metaService,
     SqlSugarContext context,
-    ILogger<SysGenTableService> logger)
+    ILogger<SysGenTableService> logger,
+    TimeProvider tp)
 {
     private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
@@ -308,7 +310,7 @@ public class SysGenTableService(
         var detail = await GetDetailWithColumnsAsync(id);
         var table = detail.Table;
 
-        var model = new GenModel
+        var model = new GenModel(tp.LocalNow().ToString("yyyy-MM-dd HH:mm:ss"))
         {
             Table = table,
             Columns = detail.Columns,
@@ -402,7 +404,7 @@ public class SysGenTableService(
             ["form_columns"] = form_columns,
             ["sub_tables"] = sub_tables,
             ["comment_lines"] = comment_lines,
-            ["now"] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+            ["now"] = model.Now,
         };
     }
 
@@ -484,8 +486,12 @@ public class SysGenTableService(
 /// <summary>Scriban 渲染模型（表 + 列 + 子表树）</summary>
 public class GenModel
 {
+    private readonly string _now;
+
+    public GenModel(string now) => _now = now;
+
     /// <summary>模板变量 now</summary>
-    public string Now => DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+    public string Now => _now;
 
     /// <summary>模板函数：生成 PG 列注释语句</summary>
     public string CommentSql(string tableName, string columnName, string comment) =>

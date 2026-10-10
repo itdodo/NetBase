@@ -1,3 +1,4 @@
+using NetBase.Common.Time;
 using System.ComponentModel.DataAnnotations;
 using Mapster;
 using SqlSugar;
@@ -135,7 +136,8 @@ public interface IBizContractService
 
 /// <summary>ContractMgr 服务实现</summary>
 public class BizContractService(
-    IRepository<BizContract> repository) : BaseService<BizContract>(repository), IBizContractService
+    IRepository<BizContract> repository,
+    TimeProvider tp) : BaseService<BizContract>(repository), IBizContractService
 {
     private const string NotFoundCode = "CONTRACT_NOT_FOUND";
 
@@ -180,7 +182,7 @@ public class BizContractService(
             ?? throw new BusinessException("数据不存在", ApiResultCode.NotFound, NotFoundCode);
         dto.Adapt(entity);
         entity.Id = id;
-        entity.UpdateTime = DateTime.Now;
+        entity.UpdateTime = tp.LocalNow();
         entity.UpdateBy = operatorName;
         await UpdateWithConcurrencyCheckAsync(entity);
     }

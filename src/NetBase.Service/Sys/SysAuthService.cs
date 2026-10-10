@@ -1,3 +1,4 @@
+using NetBase.Common.Time;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -27,7 +28,8 @@ public class SysAuthService(
     ICaptchaService captchaService,
     NetBase.Common.Email.IEmailService emailService,
     NetBase.Common.Realtime.INotifyService notifyService,
-    IOptions<JwtOptions> jwtOptions) : ISysAuthService
+    IOptions<JwtOptions> jwtOptions,
+    TimeProvider tp) : ISysAuthService
 {
     private readonly JwtOptions _jwt = jwtOptions.Value;
 
@@ -137,7 +139,7 @@ public class SysAuthService(
         }
 
         var session = await sessionRepository.GetFirstAsync(x => x.RefreshTokenHash == HashToken(refreshToken));
-        if (session == null || session.ExpireTime <= DateTime.Now)
+        if (session == null || session.ExpireTime <= tp.LocalNow())
         {
             throw new BusinessException("登录已过期，请重新登录", ApiResultCode.Unauthorized, ErrorCodes.AUTH_SESSION_EXPIRED);
         }
@@ -396,7 +398,7 @@ public class SysAuthService(
     /// <summary>签发 token 对并写入会话</summary>
     private async Task<LoginResult> CreateSessionAsync(SysUser user, string? loginIp, string? userAgent)
     {
-        var now = DateTime.Now;
+        var now = tp.LocalNow();
         var permissions = await permissionService.GetUserPermissionsAsync(user.Id);
 
         var tokenId = Guid.NewGuid().ToString("N");
@@ -461,8 +463,8 @@ public class SysAuthService(
             issuer: _jwt.Issuer,
             audience: _jwt.Audience,
             claims: claims,
-            notBefore: DateTime.Now,
-            expires: DateTime.Now.AddMinutes(_jwt.AccessTokenExpireMinutes),
+            notBefore: tp.LocalNow(),
+            expires: tp.LocalNow().AddMinutes(_jwt.AccessTokenExpireMinutes),
             signingCredentials: credentials);
         return new JwtSecurityTokenHandler().WriteToken(token);
     }

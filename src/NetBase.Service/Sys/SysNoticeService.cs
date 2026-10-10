@@ -1,3 +1,4 @@
+using NetBase.Common.Time;
 using NetBase.Common.Exceptions;
 using NetBase.Common.Extensions;
 using NetBase.Common.Results;
@@ -9,7 +10,9 @@ using SqlSugar;
 namespace NetBase.Service.Sys;
 
 /// <summary>通知公告实现</summary>
-public class SysNoticeService(IRepository<SysNotice> repository) : ISysNoticeService
+public class SysNoticeService(IRepository<SysNotice> repository,
+
+TimeProvider tp) : ISysNoticeService
 {
     public async Task<PageResult<SysNotice>> GetPageAsync(NoticeQueryDto query)
     {
@@ -49,7 +52,7 @@ public class SysNoticeService(IRepository<SysNotice> repository) : ISysNoticeSer
         notice.Content = dto.Content;
         notice.Status = dto.Status;
         notice.PublishTime = dto.PublishTime;
-        notice.UpdateTime = DateTime.Now;
+        notice.UpdateTime = tp.LocalNow();
         notice.UpdateBy = operatorName;
         await repository.UpdateAsync(notice);
     }
@@ -72,9 +75,9 @@ public class SysNoticeService(IRepository<SysNotice> repository) : ISysNoticeSer
     }
 
     /// <summary>定时发布校验：状态=2 必须带发布时间且在未来</summary>
-    private static void ValidatePublishTime(NoticeSaveDto dto)
+    private void ValidatePublishTime(NoticeSaveDto dto)
     {
-        if (dto.Status == 2 && (!dto.PublishTime.HasValue || dto.PublishTime.Value <= DateTime.Now))
+        if (dto.Status == 2 && (!dto.PublishTime.HasValue || dto.PublishTime.Value <= tp.LocalNow()))
         {
             throw new BusinessException("定时发布时间必须为当前时间之后", ApiResultCode.BadRequest, ErrorCodes.SYS_NOTICE_PUBLISH_TIME_INVALID);
         }

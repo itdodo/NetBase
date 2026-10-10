@@ -1,3 +1,4 @@
+using NetBase.Common.Time;
 using System.Diagnostics;
 using NetBase.Common.Cache;
 using NetBase.Common.Extensions;
@@ -5,7 +6,9 @@ using NetBase.Common.Extensions;
 namespace NetBase.Service.Sys;
 
 /// <summary>系统监控实现</summary>
-public class SystemMonitorService(ICacheService cacheService) : ISystemMonitorService
+public class SystemMonitorService(ICacheService cacheService,
+
+TimeProvider tp) : ISystemMonitorService
 {
     private static DateTime? _startTime;
 
@@ -16,7 +19,7 @@ public class SystemMonitorService(ICacheService cacheService) : ISystemMonitorSe
         {
             MachineName = Environment.MachineName,
             ProcessArchitecture = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString(),
-            UptimeHours = (DateTime.Now - process.StartTime).TotalHours,
+            UptimeHours = (tp.LocalNow() - process.StartTime).TotalHours,
             WorkingSetMb = Math.Round(process.WorkingSet64 / 1024.0 / 1024.0, 1),
             GcMemoryMb = Math.Round(GC.GetTotalMemory(false) / 1024.0 / 1024.0, 1),
             ThreadCount = process.Threads.Count,

@@ -1,3 +1,4 @@
+using NetBase.Common.Time;
 using NetBase.Common.Exceptions;
 using NetBase.Common.Extensions;
 using NetBase.Common.Results;
@@ -12,6 +13,7 @@ namespace NetBase.Service.Sys;
 /// <summary>菜单业务实现</summary>
 public class SysMenuService : BaseService<SysMenu>, ISysMenuService
 {
+    private readonly TimeProvider _tp;
     private readonly IRepository<SysRoleMenu> _roleMenuRepository;
     private readonly IRepository<SysRole> _roleRepository;
     private readonly IRepository<SysUserRole> _userRoleRepository;
@@ -22,8 +24,10 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
         IRepository<SysRoleMenu> roleMenuRepository,
         IRepository<SysRole> roleRepository,
         IRepository<SysUserRole> userRoleRepository,
-        IPermissionService permissionService) : base(repository)
+        IPermissionService permissionService,
+        TimeProvider tp) : base(repository)
     {
+        _tp = tp;
         _roleMenuRepository = roleMenuRepository;
         _roleRepository = roleRepository;
         _userRoleRepository = userRoleRepository;
@@ -158,7 +162,7 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
         menu.Sort = dto.Sort;
         menu.Visible = dto.Visible;
         menu.Status = dto.Status;
-        menu.UpdateTime = DateTime.Now;
+        menu.UpdateTime = _tp.LocalNow();
         menu.UpdateBy = operatorName;
         // 跨会话陈旧检测：客户端回传读取时的版本参与比对（未传则用现读版本，兼容旧客户端）
         menu.Version = dto.Version ?? menu.Version;
@@ -179,7 +183,7 @@ public class SysMenuService : BaseService<SysMenu>, ISysMenuService
         }
 
         menu.UpdateBy = operatorName;
-        menu.UpdateTime = DateTime.Now;
+        menu.UpdateTime = _tp.LocalNow();
         await Repository.DeleteAsync(menu);
         await _permissionService.InvalidateAllAsync();
     }

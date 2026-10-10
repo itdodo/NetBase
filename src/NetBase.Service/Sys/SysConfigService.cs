@@ -1,3 +1,4 @@
+using NetBase.Common.Time;
 using ICacheService = NetBase.Common.Cache.ICacheService;
 using NetBase.Common.Cache;
 using NetBase.Common.Exceptions;
@@ -32,7 +33,8 @@ public interface ISysConfigService
 
 public class SysConfigService(
     IRepository<SysConfig> repository,
-    ICacheService cacheService) : ISysConfigService
+    ICacheService cacheService,
+    TimeProvider tp) : ISysConfigService
 {
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(10);
 
@@ -109,7 +111,7 @@ public class SysConfigService(
         config.ConfigValue = dto.ConfigValue;
         config.ConfigName = dto.ConfigName;
         config.Remark = dto.Remark;
-        config.UpdateTime = DateTime.Now;
+        config.UpdateTime = tp.LocalNow();
         config.UpdateBy = operatorName;
         await repository.UpdateAsync(config);
 

@@ -1,3 +1,4 @@
+using NetBase.Common.Time;
 using ICacheService = NetBase.Common.Cache.ICacheService;
 using NetBase.Common.Cache;
 using NetBase.Common.Exceptions;
@@ -15,7 +16,9 @@ namespace NetBase.Service.Sys;
 public class SysDictService(
     IRepository<SysDictType> typeRepository,
     IRepository<SysDictData> dataRepository,
-    ICacheService cacheService) : ISysDictService
+    ICacheService cacheService,
+
+TimeProvider tp) : ISysDictService
 {
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(10);
 
@@ -63,7 +66,7 @@ public class SysDictService(
         type.DictName = dto.DictName;
         type.Status = dto.Status;
         type.Remark = dto.Remark;
-        type.UpdateTime = DateTime.Now;
+        type.UpdateTime = tp.LocalNow();
         type.UpdateBy = operatorName;
         await typeRepository.UpdateAsync(type);
 
@@ -128,7 +131,7 @@ public class SysDictService(
         data.Sort = dto.Sort;
         data.Status = dto.Status;
         data.Remark = dto.Remark;
-        data.UpdateTime = DateTime.Now;
+        data.UpdateTime = tp.LocalNow();
         data.UpdateBy = operatorName;
         await dataRepository.UpdateAsync(data);
         await InvalidateDataCacheAsync(dto.DictTypeId);

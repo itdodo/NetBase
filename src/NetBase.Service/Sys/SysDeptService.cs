@@ -1,3 +1,4 @@
+using NetBase.Common.Time;
 using NetBase.Common.Exceptions;
 using NetBase.Common.Extensions;
 using NetBase.Common.Results;
@@ -12,7 +13,9 @@ namespace NetBase.Service.Sys;
 /// <summary>部门服务实现</summary>
 public class SysDeptService(
     IRepository<SysDept> repository,
-    IRepository<SysUser> userRepository) : NetBase.Service.Base.BaseService<SysDept>(repository), ISysDeptService
+    IRepository<SysUser> userRepository,
+
+TimeProvider tp) : NetBase.Service.Base.BaseService<SysDept>(repository), ISysDeptService
 {
     public Task<List<SysDept>> GetAllDeptsAsync() => repository.GetListAsync();
 
@@ -88,7 +91,7 @@ public class SysDeptService(
         dept.LeaderUserId = dto.LeaderUserId;
         dept.Sort = dto.Sort;
         dept.Status = dto.Status;
-        dept.UpdateTime = DateTime.Now;
+        dept.UpdateTime = tp.LocalNow();
         dept.UpdateBy = operatorName;
         // 编辑统一入口：字段级变更审计（部门负责人/编码等关键配置变更须留痕）+ 并发保护
         await UpdateWithConcurrencyCheckAsync(dept);

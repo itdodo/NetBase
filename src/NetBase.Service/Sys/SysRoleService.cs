@@ -1,3 +1,4 @@
+using NetBase.Common.Time;
 using NetBase.Common.Exceptions;
 using NetBase.Common.Extensions;
 using NetBase.Common.Results;
@@ -15,6 +16,7 @@ namespace NetBase.Service.Sys;
 /// <summary>角色业务实现</summary>
 public class SysRoleService : BaseService<SysRole>, ISysRoleService
 {
+    private readonly TimeProvider _tp;
     /// <summary>内置管理员角色编码，不允许停用/删除</summary>
     public const string AdminRoleCode = "admin";
 
@@ -30,8 +32,10 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
         IRepository<SysRoleMenu> roleMenuRepository,
         IRepository<SysMenu> menuRepository,
         IRepository<SysRoleDept> roleDeptRepository,
-        IPermissionService permissionService) : base(repository)
+        IPermissionService permissionService,
+        TimeProvider tp) : base(repository)
     {
+        _tp = tp;
         _userRoleRepository = userRoleRepository;
         _roleMenuRepository = roleMenuRepository;
         _menuRepository = menuRepository;
@@ -113,7 +117,7 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
         role.Status = dto.Status;
         role.Sort = dto.Sort;
         role.DataScope = dto.DataScope;
-        role.UpdateTime = DateTime.Now;
+        role.UpdateTime = _tp.LocalNow();
         role.UpdateBy = operatorName;
         // 跨会话陈旧检测：客户端回传读取时的版本参与比对（未传则用现读版本，兼容旧客户端）
         role.Version = dto.Version ?? role.Version;
@@ -153,7 +157,7 @@ public class SysRoleService : BaseService<SysRole>, ISysRoleService
         }
 
         role.UpdateBy = operatorName;
-        role.UpdateTime = DateTime.Now;
+        role.UpdateTime = _tp.LocalNow();
         // 角色、用户角色、角色菜单三表整体事务
         await Repository.TransactionAsync(async () =>
         {

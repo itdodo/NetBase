@@ -1,3 +1,4 @@
+using NetBase.Common.Time;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NetBase.Common.Exceptions;
@@ -31,7 +32,9 @@ public class SysFileService(
     IRepository<SysFile> repository,
     IOptions<FileStorageOptions> options,
     Microsoft.Extensions.Hosting.IHostEnvironment environment,
-    ILogger<SysFileService> logger) : ISysFileService
+    ILogger<SysFileService> logger,
+
+TimeProvider tp) : ISysFileService
 {
     private readonly FileStorageOptions _options = options.Value;
 
@@ -78,7 +81,7 @@ public class SysFileService(
         var root = string.IsNullOrWhiteSpace(_options.RootPath)
             ? Path.Combine(environment.ContentRootPath, "uploads")
             : _options.RootPath;
-        var dir = DateTime.Now.ToString("yyyyMMdd");
+        var dir = tp.LocalNow().ToString("yyyyMMdd");
         Directory.CreateDirectory(Path.Combine(root, dir));
         var storageName = $"{Guid.NewGuid():N}{extension}";
         var fullPath = Path.Combine(root, dir, storageName);

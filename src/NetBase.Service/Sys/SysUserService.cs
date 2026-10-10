@@ -1,3 +1,4 @@
+using NetBase.Common.Time;
 using ICacheService = NetBase.Common.Cache.ICacheService;
 using NetBase.Common.Exceptions;
 using NetBase.Common.Extensions;
@@ -16,6 +17,7 @@ namespace NetBase.Service.Sys;
 /// <summary>用户业务实现</summary>
 public class SysUserService : BaseService<SysUser>, ISysUserService
 {
+    private readonly TimeProvider _tp;
     private readonly IRepository<SysRole> _roleRepository;
     private readonly IRepository<SysUserRole> _userRoleRepository;
     private readonly IRepository<SysPosition> _positionRepository;
@@ -36,8 +38,10 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         IPermissionService permissionService,
         ISysConfigService configService,
         ISysDeptService deptService,
-        ICacheService cacheService) : base(repository)
+        ICacheService cacheService,
+        TimeProvider tp) : base(repository)
     {
+        _tp = tp;
         _roleRepository = roleRepository;
         _notifyService = notifyService;
         _userRoleRepository = userRoleRepository;
@@ -146,7 +150,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
             {
                 UserName = userName,
                 Password = PasswordHelper.Encrypt(password),
-                PwdUpdateTime = DateTime.Now,
+                PwdUpdateTime = _tp.LocalNow(),
                 NickName = row.NickName,
                 Phone = row.Phone,
                 Email = row.Email,
@@ -229,7 +233,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         {
             UserName = dto.UserName,
             Password = PasswordHelper.Encrypt(password),
-            PwdUpdateTime = DateTime.Now,
+            PwdUpdateTime = _tp.LocalNow(),
             NickName = dto.NickName,
             Phone = dto.Phone,
             Email = dto.Email,
@@ -282,7 +286,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         user.Email = dto.Email;
         user.Status = dto.Status;
         user.DeptId = dto.DeptId ?? 0;
-        user.UpdateTime = DateTime.Now;
+        user.UpdateTime = _tp.LocalNow();
         user.UpdateBy = operatorName;
         // 停用用户立即踢下线并通知
         if (dto.Status != (int)StatusEnum.Enabled)
@@ -314,7 +318,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         }
 
         user.UpdateBy = operatorName;
-        user.UpdateTime = DateTime.Now;
+        user.UpdateTime = _tp.LocalNow();
         // 停用/删除用户立即踢下线并通知
         await _userSessionRepository.DeleteWhereAsync(x => x.UserId == id);
         await _notifyService.PushForceLogoutAsync(id, "账号已被删除，如有疑问请联系管理员");
@@ -387,7 +391,7 @@ public class SysUserService : BaseService<SysUser>, ISysUserService
         user.NickName = dto.NickName;
         user.Phone = dto.Phone;
         user.Email = dto.Email;
-        user.UpdateTime = DateTime.Now;
+        user.UpdateTime = _tp.LocalNow();
         user.UpdateBy = user.UserName;
         await Repository.UpdateAsync(user);
     }

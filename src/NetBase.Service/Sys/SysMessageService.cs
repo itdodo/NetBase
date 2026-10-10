@@ -1,3 +1,4 @@
+using NetBase.Common.Time;
 using NetBase.Common.Exceptions;
 using NetBase.Common.Extensions;
 using NetBase.Common.Results;
@@ -9,7 +10,9 @@ using SqlSugar;
 namespace NetBase.Service.Sys;
 
 /// <summary>站内信实现</summary>
-public class SysMessageService(IRepository<SysMessage> repository, IRepository<SysUser> userRepository) : ISysMessageService
+public class SysMessageService(IRepository<SysMessage> repository, IRepository<SysUser> userRepository,
+
+TimeProvider tp) : ISysMessageService
 {
     public async Task<long> SendAsync(MessageSendDto dto, string senderName)
     {
@@ -64,7 +67,7 @@ public class SysMessageService(IRepository<SysMessage> repository, IRepository<S
         if (!message.IsRead)
         {
             message.IsRead = true;
-            message.ReadTime = DateTime.Now;
+            message.ReadTime = tp.LocalNow();
             await repository.UpdateAsync(message);
         }
     }
